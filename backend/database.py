@@ -23,6 +23,11 @@ def init_db():
         print("✓ Connected to MySQL database")
     except Error as e:
         print(f"❌ Error connecting to MySQL: {e}")
+        print("⚠️ Database initialization skipped - app will run without database")
+        return
+    except Exception as e:
+        print(f"❌ Unexpected error connecting to MySQL: {e}")
+        print("⚠️ Database initialization skipped - app will run without database")
         return
     
     # Users table
