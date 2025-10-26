@@ -15,6 +15,13 @@ MYSQL_CONFIG = {
     'database': os.getenv('MYSQL_DATABASE', 'qadam_academic'),
 }
 
+# Add SSL configuration for Azure MySQL
+mysql_host = os.getenv('MYSQL_HOST', 'localhost')
+if 'azure' in mysql_host.lower() or 'database.azure.com' in mysql_host.lower():
+    # Azure MySQL requires SSL
+    MYSQL_CONFIG['ssl_disabled'] = False
+    print("🔒 Using SSL for Azure MySQL connection")
+
 def init_db():
     """Initialize the MySQL database with required tables"""
     try:
