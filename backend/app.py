@@ -50,11 +50,18 @@ ALLOWED_ORIGINS = [
 
 # Configure CORS with specific settings for Azure
 CORS(app, 
-     origins=ALLOWED_ORIGINS,
+     resources={r"/api/*": {"origins": ALLOWED_ORIGINS}},
      supports_credentials=True,
      allow_headers=['Content-Type', 'Authorization', 'X-Requested-With'],
      methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
      expose_headers=['Content-Type', 'Authorization'])
+
+# Debug: Print CORS configuration on startup
+print("=" * 50)
+print("CORS Configuration:")
+print(f"Allowed Origins: {ALLOWED_ORIGINS}")
+print(f"Supports Credentials: True")
+print("=" * 50)
 
 
 # Configuration
