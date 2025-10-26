@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 import './SingleQuestionUpload.css';
+import API_URL from '../config/api';
 
 const SingleQuestionUpload = ({ onClose, onQuestionParsed }) => {
   const [inputMethod, setInputMethod] = useState('paste'); // 'paste', 'text' - Paste Image is default
@@ -85,7 +86,7 @@ const SingleQuestionUpload = ({ onClose, onQuestionParsed }) => {
         ocrFormData.append('input_type', 'file');
         ocrFormData.append('file_type', 'png');
 
-        const ocrResponse = await axios.post('http://localhost:5000/api/parse-single-question', ocrFormData, {
+        const ocrResponse = await axios.post(`${API_URL}/api/parse-single-question`, ocrFormData, {
           headers: {
             'Content-Type': 'multipart/form-data'
           }
@@ -105,7 +106,7 @@ const SingleQuestionUpload = ({ onClose, onQuestionParsed }) => {
       // Step 2: Solve the question using the extracted or typed text
       setLoadingMessage('Solving question...');
       
-      const response = await axios.post('http://localhost:5000/api/solve-question', {
+      const response = await axios.post(`${API_URL}/api/solve-question`, {
         question_text: questionToSolve,
         question_type: 'unknown',
         subject: subject,
@@ -123,7 +124,7 @@ const SingleQuestionUpload = ({ onClose, onQuestionParsed }) => {
         
         // Step 3: Save to Question Bank
         try {
-          await axios.post('http://localhost:5000/api/save-solved-question', {
+          await axios.post(`${API_URL}/api/save-solved-question`, {
             question_text: questionToSolve,
             solution: response.data.solution,
             subject: subject,

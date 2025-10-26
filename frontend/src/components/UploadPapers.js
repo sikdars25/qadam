@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import './UploadPapers.css';
 import ParsedQuestionsView from './ParsedQuestionsView';
+import API_URL from '../config/api';
 
 const UploadPapers = ({ user }) => {
   // Question Papers State
@@ -40,7 +41,7 @@ const UploadPapers = ({ user }) => {
 
   const fetchUploadedPapers = async () => {
     try {
-      const response = await axios.get('http://localhost:5000/api/uploaded-papers');
+      const response = await axios.get(`${API_URL}/api/uploaded-papers`);
       setUploadedPapers(response.data);
     } catch (err) {
       console.error('Error fetching papers:', err);
@@ -49,7 +50,7 @@ const UploadPapers = ({ user }) => {
 
   const fetchUploadedTextbooks = async () => {
     try {
-      const response = await axios.get('http://localhost:5000/api/textbooks');
+      const response = await axios.get(`${API_URL}/api/textbooks`);
       setUploadedTextbooks(response.data);
     } catch (err) {
       console.error('Error fetching textbooks:', err);
@@ -58,7 +59,7 @@ const UploadPapers = ({ user }) => {
 
   const fetchParsedQuestions = async () => {
     try {
-      const response = await axios.get('http://localhost:5000/api/parsed-questions');
+      const response = await axios.get(`${API_URL}/api/parsed-questions`);
       setParsedQuestions(response.data);
     } catch (err) {
       console.error('Error fetching parsed questions:', err);
@@ -71,7 +72,7 @@ const UploadPapers = ({ user }) => {
     setParsingPaper(paperId);
 
     try {
-      const response = await axios.post(`http://localhost:5000/api/parse-questions/${paperId}`);
+      const response = await axios.post(`${API_URL}/api/parse-questions/${paperId}`);
       
       if (response.data.success) {
         setParsingMessage({ 
@@ -101,7 +102,7 @@ const UploadPapers = ({ user }) => {
     setParsingMessage({ type: '', text: '' });
 
     try {
-      const response = await axios.post('http://localhost:5000/api/clean-duplicates');
+      const response = await axios.post(`${API_URL}/api/clean-duplicates`);
       
       if (response.data.success) {
         setParsingMessage({ 
@@ -129,7 +130,7 @@ const UploadPapers = ({ user }) => {
     setMessage({ type: '', text: '' });
 
     try {
-      const response = await axios.delete(`http://localhost:5000/api/delete-paper/${paperId}`);
+      const response = await axios.delete(`${API_URL}/api/delete-paper/${paperId}`);
       
       if (response.data.success) {
         setMessage({ 
@@ -158,7 +159,7 @@ const UploadPapers = ({ user }) => {
     setTextbookMessage({ type: '', text: '' });
 
     try {
-      const response = await axios.delete(`http://localhost:5000/api/delete-textbook/${textbookId}`);
+      const response = await axios.delete(`${API_URL}/api/delete-textbook/${textbookId}`);
       
       if (response.data.success) {
         setTextbookMessage({ 
@@ -227,7 +228,7 @@ const UploadPapers = ({ user }) => {
     formData.append('user_id', user.id);
 
     try {
-      const response = await axios.post('http://localhost:5000/api/upload-paper', formData, {
+      const response = await axios.post(`${API_URL}/api/upload-paper`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data'
         }
@@ -270,7 +271,7 @@ const UploadPapers = ({ user }) => {
     formData.append('user_id', user.id);
 
     try {
-      const response = await axios.post('http://localhost:5000/api/upload-textbook', formData, {
+      const response = await axios.post(`${API_URL}/api/upload-textbook`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data'
         }

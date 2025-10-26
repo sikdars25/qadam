@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import './QuestionBank.css';
+import API_URL from '../config/api';
 
 const QuestionBank = () => {
   const [questions, setQuestions] = useState([]);
@@ -18,7 +19,7 @@ const QuestionBank = () => {
   const fetchQuestions = async () => {
     try {
       setLoading(true);
-      const response = await axios.get('http://localhost:5000/api/question-bank');
+      const response = await axios.get(`${API_URL}/api/question-bank`);
       
       if (response.data.success) {
         setQuestions(response.data.questions);
@@ -39,7 +40,7 @@ const QuestionBank = () => {
     }
 
     try {
-      const response = await axios.delete(`http://localhost:5000/api/question-bank/${questionId}`);
+      const response = await axios.delete(`${API_URL}/api/question-bank/${questionId}`);
       
       if (response.data.success) {
         setQuestions(questions.filter(q => q.id !== questionId));

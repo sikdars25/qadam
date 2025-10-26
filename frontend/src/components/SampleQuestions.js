@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import './SampleQuestions.css';
+import API_URL from '../config/api';
 import EnhancedPDFViewer from './EnhancedPDFViewer';
 
 const SampleQuestions = () => {
@@ -29,7 +30,7 @@ const SampleQuestions = () => {
     setLoading(true);
     setError('');
     try {
-      const response = await axios.get('http://localhost:5000/api/uploaded-papers');
+      const response = await axios.get(`${API_URL}/api/uploaded-papers`);
       const papers = response.data;
       setUploadedPapers(papers);
       setFilteredPapers(papers);
@@ -46,7 +47,7 @@ const SampleQuestions = () => {
 
   const fetchTextbooks = async () => {
     try {
-      const response = await axios.get('http://localhost:5000/api/textbooks');
+      const response = await axios.get(`${API_URL}/api/textbooks`);
       const books = response.data;
       setTextbooks(books);
       setFilteredTextbooks(books);
@@ -86,12 +87,12 @@ const SampleQuestions = () => {
       setModalContent('');
 
       try {
-        const apiUrl = `http://localhost:5000/api/paper-file/${paper.id}`;
+        const apiUrl = `${API_URL}/api/paper-file/${paper.id}`;
         
         const response = await axios.get(apiUrl);
         if (response.data.success) {
           const fileType = response.data.file_type;
-          const fileUrl = `http://localhost:5000/api/download-paper/${paper.id}`;
+          const fileUrl = `${API_URL}/api/download-paper/${paper.id}`;
           
           if (fileType === 'pdf') {
             setModalContent(`<iframe src="${fileUrl}" style="width: 100%; height: 600px; border: none; border-radius: 8px;"></iframe>`);

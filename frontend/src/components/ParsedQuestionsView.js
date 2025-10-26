@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import './ParsedQuestionsView.css';
+import API_URL from '../config/api';
 
 const ParsedQuestionsView = ({ paperId, onClose, embedded = false }) => {
   const [questions, setQuestions] = useState([]);
@@ -86,8 +87,8 @@ const ParsedQuestionsView = ({ paperId, onClose, embedded = false }) => {
   const fetchParsedQuestions = async () => {
     try {
       const url = paperId 
-        ? `http://localhost:5000/api/parsed-questions?paper_id=${paperId}`
-        : 'http://localhost:5000/api/parsed-questions';
+        ? `${API_URL}/api/parsed-questions?paper_id=${paperId}`
+        : `${API_URL}/api/parsed-questions`;
       
       const response = await axios.get(url);
       setQuestions(response.data);
@@ -101,7 +102,7 @@ const ParsedQuestionsView = ({ paperId, onClose, embedded = false }) => {
   const handleSolveQuestion = async (question) => {
     setSolvingQuestion(true);
     try {
-      const response = await axios.post('http://localhost:5000/api/solve-question', {
+      const response = await axios.post(`${API_URL}/api/solve-question`, {
         question_text: question.question_text,
         question_type: question.question_type,
         subject: question.subject,
@@ -119,7 +120,7 @@ const ParsedQuestionsView = ({ paperId, onClose, embedded = false }) => {
         
         // Save to Question Bank
         try {
-          await axios.post('http://localhost:5000/api/save-solved-question', {
+          await axios.post(`${API_URL}/api/save-solved-question`, {
             question_text: question.question_text,
             solution: response.data.solution,
             subject: question.subject,
@@ -344,7 +345,7 @@ const ParsedQuestionsView = ({ paperId, onClose, embedded = false }) => {
                             {parsedData.diagram_files.map((filename, idx) => (
                               <div key={idx} className="diagram-inline-wrapper">
                                 <img 
-                                  src={`http://localhost:5000/api/diagram/${q.paper_id}/${filename}`}
+                                  src={`${API_URL}/api/diagram/${q.paper_id}/${filename}`}
                                   alt={`Diagram ${idx + 1}`}
                                   className="diagram-inline"
                                   onClick={() => {
@@ -467,7 +468,7 @@ const ParsedQuestionsView = ({ paperId, onClose, embedded = false }) => {
                         {parsedData.diagram_files.map((filename, idx) => (
                           <div key={idx} className="diagram-inline-wrapper">
                             <img 
-                              src={`http://localhost:5000/api/diagram/${q.paper_id}/${filename}`}
+                              src={`${API_URL}/api/diagram/${q.paper_id}/${filename}`}
                               alt={`Diagram ${idx + 1}`}
                               className="diagram-inline"
                               onClick={() => {
@@ -509,7 +510,7 @@ const ParsedQuestionsView = ({ paperId, onClose, embedded = false }) => {
             <div className="diagram-modal-content" onClick={(e) => e.stopPropagation()}>
               <button className="close-diagram-btn" onClick={() => setSelectedDiagram(null)}>✕</button>
               <img 
-                src={`http://localhost:5000/api/diagram/${selectedDiagram.paperId}/${selectedDiagram.filename}`}
+                src={`${API_URL}/api/diagram/${selectedDiagram.paperId}/${selectedDiagram.filename}`}
                 alt="Diagram"
                 className="diagram-full"
                 onLoad={() => console.log('Modal diagram loaded')}
