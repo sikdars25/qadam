@@ -40,6 +40,7 @@ FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:3000')
 
 ALLOWED_ORIGINS = [
     'https://nice-plant-017975e1e.3.azurestaticapps.net',
+    'https://zealous-ocean-06e22b51e.3.azurestaticapps.net',  # Current Static Web App
     FRONTEND_URL,  # Azure Static Web App (production)
     'http://localhost:3000',  # Local React development
     'http://localhost:5000',  # Local Flask testing
