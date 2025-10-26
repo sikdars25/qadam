@@ -5,7 +5,8 @@ import App from './App';
 import axios from 'axios';
 
 // Configure axios to send credentials (cookies) with every request
-axios.defaults.withCredentials = true;
+// TEMPORARILY DISABLED for CORS testing - will re-enable after backend fix
+// axios.defaults.withCredentials = true;
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(

@@ -68,7 +68,7 @@ export const API_ENDPOINTS = {
 export const axiosConfig = {
   baseURL: API_URL,
   timeout: 30000, // 30 seconds
-  withCredentials: true, // Send cookies with requests
+  withCredentials: false, // TEMPORARILY DISABLED for CORS testing
   headers: {
     'Content-Type': 'application/json',
   },
