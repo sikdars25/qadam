@@ -7,20 +7,18 @@ name: Build and deploy Python project to Azure Function App - qadam-backend
 on:
   push:
     branches:
-      - main  # Changed from main to main
-    paths:
-      - 'backend/**'  # Only trigger when backend files change
+      - main
   workflow_dispatch:
 
 env:
-  AZURE_FUNCTIONAPP_PACKAGE_PATH: 'backend' # Path to backend folder in monorepo
-  PYTHON_VERSION: '3.10'
+  AZURE_FUNCTIONAPP_PACKAGE_PATH: '.' # set this to the path to your web app project, defaults to the repository root
+  PYTHON_VERSION: '3.10' # set this to the python version to use (supports 3.6, 3.7, 3.8)
 
 jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: read #This is required for actions/checkout
 
     steps:
       - name: Checkout repository
@@ -32,35 +30,32 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Create and start virtual environment
-        working-directory: ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}
         run: |
           python -m venv venv
           source venv/bin/activate
 
       - name: Install dependencies
-        working-directory: ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
+        run: pip install -r requirements.txt
 
       # Optional: Add step to run tests here
 
       - name: Zip artifact for deployment
-        working-directory: ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}
-        run: zip -r ../backend-release.zip . -x "venv/*" -x ".git/*" -x "__pycache__/*" -x "*.pyc"
+        run: zip release.zip ./* -r
 
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
         with:
           name: python-app
-          path: backend-release.zip
+          path: |
+            release.zip
+            !venv/
 
   deploy:
     runs-on: ubuntu-latest
     needs: build
     permissions:
-      id-token: write
-      contents: read
+      id-token: write #This is required for requesting the JWT
+      contents: read #This is required for actions/checkout
 
     steps:
       - name: Download artifact from build job
@@ -70,15 +65,15 @@ jobs:
 
       - name: Unzip artifact for deployment
         run: |
-          unzip backend-release.zip -d backend-deploy
-          rm backend-release.zip
+          unzip release.zip
+          rm release.zip
         
       - name: Login to Azure
         uses: azure/login@v2
         with:
-          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_AE363ECFA2074D63938F208509F4B97F }}
-          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_41EDF43A700D4189A8DECBFFBF768C11 }}
-          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_2A6BFBBB35BC4B1597BFD963FA2A108C }}
+          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_90C399AE99A1452281D3997D8546C68C }}
+          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_CBF7FB67FCE943E090084B27B61EFB9E }}
+          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_380A3F7DA82842D5BAFC700392A550CE }}
 
       - name: 'Deploy to Azure Functions'
         uses: Azure/functions-action@v1
@@ -86,4 +81,5 @@ jobs:
         with:
           app-name: 'qadam-backend'
           slot-name: 'Production'
-          package: backend-deploy
+          package: ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}
+          
