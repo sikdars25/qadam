@@ -7,7 +7,7 @@ name: Build and deploy Python project to Azure Function App - qadam-backend
 on:
   push:
     branches:
-      - main
+      - main  # Changed from main to main
     paths:
       - 'backend/**'  # Only trigger when backend files change
   workflow_dispatch:
