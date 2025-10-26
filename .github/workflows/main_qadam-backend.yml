@@ -8,10 +8,12 @@ on:
   push:
     branches:
       - main
+    paths:
+      - 'backend/**' 
   workflow_dispatch:
 
 env:
-  AZURE_FUNCTIONAPP_PACKAGE_PATH: '.' # set this to the path to your web app project, defaults to the repository root
+  AZURE_FUNCTIONAPP_PACKAGE_PATH: 'backend' # set this to the path to your web app project, defaults to the repository root
   PYTHON_VERSION: '3.10' # set this to the python version to use (supports 3.6, 3.7, 3.8)
 
 jobs:
@@ -30,24 +32,27 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Create and start virtual environment
+        working-directory: ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}
         run: |
           python -m venv venv
           source venv/bin/activate
 
       - name: Install dependencies
+        working-directory: ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}
         run: pip install -r requirements.txt
 
       # Optional: Add step to run tests here
 
       - name: Zip artifact for deployment
-        run: zip release.zip ./* -r
+        working-directory: ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}
+        run: zip -r ../backend-release.zip . -x "venv/*" -x ".git/*" -x "__pycache__/*" -x "*.pyc"
 
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
         with:
           name: python-app
           path: |
-            release.zip
+            backend-release.zip
             !venv/
 
   deploy:
@@ -65,8 +70,8 @@ jobs:
 
       - name: Unzip artifact for deployment
         run: |
-          unzip release.zip
-          rm release.zip
+          unzip backend-release.zip -d backend-deploy
+          rm backend-release.zip
         
       - name: Login to Azure
         uses: azure/login@v2
@@ -82,4 +87,5 @@ jobs:
           app-name: 'qadam-backend'
           slot-name: 'Production'
           package: ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}
+
           
