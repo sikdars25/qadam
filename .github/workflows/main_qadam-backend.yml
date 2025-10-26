@@ -65,7 +65,14 @@ jobs:
         run: |
           unzip backend-release.zip -d backend-deploy
           rm backend-release.zip
-        
+          
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_90C399AE99A1452281D3997D8546C68C }}
+          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_CBF7FB67FCE943E090084B27B61EFB9E }}
+          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_380A3F7DA82842D5BAFC700392A550CE }}
+
       - name: 'Deploy to Azure Functions'
         uses: Azure/functions-action@v1
         id: deploy-to-function
