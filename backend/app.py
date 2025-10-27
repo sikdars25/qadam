@@ -495,20 +495,18 @@ def register():
         
         # Insert new user (inactive by default)
         try:
-            # Try with email and phone columns
-            try:
-                cursor.execute(
-                    '''INSERT INTO users (username, password, full_name, email, phone, is_active, activation_token) 
-                       VALUES (%s, %s, %s, %s, %s, 0, %s)''',
-                    (username, hashed_password, full_name, email, phone, activation_token)
-                )
+            cursor.execute(
+                '''INSERT INTO users (username, password, full_name, email, phone, is_active, activation_token) 
+                   VALUES (%s, %s, %s, %s, %s, 0, %s)''',
+                (username, hashed_password, full_name, email, phone, activation_token)
+            )
         except Exception as db_error:
             # Fallback for older database schema
             if 'no column named' in str(db_error).lower():
                 print("Using fallback insert (older schema)")
                 cursor.execute(
                     'INSERT INTO users (username, password, full_name) VALUES (%s, %s, %s)',
-                    (username, password, full_name)
+                    (username, hashed_password, full_name)
                 )
                 activation_token = None  # No activation for old schema
             else:
