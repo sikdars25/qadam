@@ -194,18 +194,16 @@ def login():
     
     # Check if user is admin
     is_admin = user['is_admin'] if 'is_admin' in user.keys() else 0
-        
-        return jsonify({
-            'success': True,
-            'user': {
-                'id': user['id'],
-                'username': user['username'],
-                'full_name': user['full_name'],
-                'is_admin': bool(is_admin)
-            }
-        })
-    else:
-        return jsonify({'error': 'Invalid credentials'}), 401
+    
+    return jsonify({
+        'success': True,
+        'user': {
+            'id': user['id'],
+            'username': user['username'],
+            'full_name': user['full_name'],
+            'is_admin': bool(is_admin)
+        }
+    })
 
 @app.route('/api/logout', methods=['POST'])
 def logout():
