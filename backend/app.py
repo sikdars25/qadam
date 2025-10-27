@@ -14,13 +14,31 @@ from datetime import datetime
 try:
     from cosmos_db import (
         init_cosmos_db,
+        # User operations
         create_user,
         get_user_by_username,
         get_user_by_id,
         update_user,
         delete_user,
         get_all_users,
-        cosmos_to_mysql_format
+        cosmos_to_mysql_format,
+        # Question Bank operations
+        save_question_to_bank,
+        get_user_questions,
+        delete_question,
+        # Uploaded Papers operations
+        save_uploaded_paper,
+        get_user_papers,
+        get_paper_by_id,
+        delete_paper,
+        # Textbooks operations
+        save_textbook,
+        get_textbooks_by_subject,
+        get_textbook_by_id,
+        delete_textbook,
+        # Usage Logs operations
+        log_user_activity,
+        get_user_activity_logs
     )
     COSMOS_DB_ENABLED = True
     print("✅ Cosmos DB enabled")
@@ -896,48 +914,97 @@ def upload_paper():
 
 @app.route('/api/uploaded-papers', methods=['GET'])
 def get_uploaded_papers():
-    """Get all uploaded papers"""
-    conn = get_db_connection()
-    cursor = conn.cursor(dictionary=True)
-    cursor.execute('''
-        SELECT p.*, u.full_name as uploaded_by_name 
-        FROM uploaded_papers p
-        LEFT JOIN users u ON p.user_id = u.id
-        ORDER BY p.created_at DESC
-    ''')
-    papers = cursor.fetchall()
-    cursor.close()
-    conn.close()
+    """Get all uploaded papers - Uses Cosmos DB if enabled"""
+    user_id = session.get('user_id')
+    
+    papers = []
+    
+    # Try Cosmos DB first if user is authenticated
+    if COSMOS_DB_ENABLED and user_id:
+        try:
+            cosmos_papers = get_user_papers(str(user_id))
+            if cosmos_papers:
+                papers = cosmos_papers
+                print(f"✓ Fetched {len(papers)} papers from Cosmos DB")
+        except Exception as e:
+            print(f"⚠️ Cosmos DB query failed, falling back to MySQL: {e}")
+    
+    # Fallback to MySQL
+    if not papers:
+        conn = get_db_connection()
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute('''
+            SELECT p.*, u.full_name as uploaded_by_name 
+            FROM uploaded_papers p
+            LEFT JOIN users u ON p.user_id = u.id
+            ORDER BY p.created_at DESC
+        ''')
+        papers = cursor.fetchall()
+        cursor.close()
+        conn.close()
+        print(f"✓ Fetched {len(papers)} papers from MySQL")
     
     return jsonify(papers)
 
-@app.route('/api/delete-paper/<int:paper_id>', methods=['DELETE'])
-def delete_paper(paper_id):
-    """Delete a question paper and its associated data"""
+@app.route('/api/delete-paper/<paper_id>', methods=['DELETE'])
+def delete_paper_endpoint(paper_id):
+    """Delete a question paper and its associated data - Uses Cosmos DB if enabled"""
     try:
-        conn = get_db_connection()
-        cursor = conn.cursor(dictionary=True)
+        user_id = session.get('user_id')
+        if not user_id:
+            return jsonify({'error': 'User not authenticated'}), 401
         
-        # Get paper info
-        cursor.execute(
-            'SELECT file_path FROM uploaded_papers WHERE id = %s',
-            (paper_id,)
-        )
-        paper = cursor.fetchone()
+        deleted = False
+        file_path = None
         
-        if not paper:
+        # Try Cosmos DB first
+        if COSMOS_DB_ENABLED:
+            try:
+                # Get paper info first
+                paper_doc = get_paper_by_id(paper_id)
+                if paper_doc:
+                    file_path = paper_doc.get('file_path')
+                    deleted = delete_paper(paper_id, str(user_id))
+                    if deleted:
+                        print(f"✓ Deleted paper from Cosmos DB: {paper_id}")
+            except Exception as e:
+                print(f"⚠️ Cosmos DB delete failed, trying MySQL: {e}")
+        
+        # Fallback to MySQL
+        if not deleted:
+            conn = get_db_connection()
+            cursor = conn.cursor(dictionary=True)
+            
+            # Get paper info
+            cursor.execute(
+                'SELECT file_path FROM uploaded_papers WHERE id = %s',
+                (paper_id,)
+            )
+            paper = cursor.fetchone()
+            
+            if not paper:
+                cursor.close()
+                conn.close()
+                return jsonify({'error': 'Paper not found'}), 404
+            
+            file_path = paper['file_path']
+            
+            # Delete parsed questions
+            cursor.execute('DELETE FROM parsed_questions WHERE paper_id = %s', (paper_id,))
+            print(f"✓ Deleted parsed questions for paper {paper_id}")
+            
+            # Delete the paper record
+            cursor.execute('DELETE FROM uploaded_papers WHERE id = %s', (paper_id,))
+            conn.commit()
             cursor.close()
             conn.close()
-            return jsonify({'error': 'Paper not found'}), 404
+            deleted = True
+            print(f"✓ Deleted paper from MySQL: {paper_id}")
         
         # Delete the physical file
-        if os.path.exists(paper['file_path']):
-            os.remove(paper['file_path'])
-            print(f"✓ Deleted file: {paper['file_path']}")
-        
-        # Delete parsed questions
-        cursor.execute('DELETE FROM parsed_questions WHERE paper_id = %s', (paper_id,))
-        print(f"✓ Deleted parsed questions for paper {paper_id}")
+        if file_path and os.path.exists(file_path):
+            os.remove(file_path)
+            print(f"✓ Deleted file: {file_path}")
         
         # Delete FAISS index if exists
         faiss_index_path = f"./vector_db/paper_{paper_id}_questions.index"
@@ -945,16 +1012,14 @@ def delete_paper(paper_id):
             os.remove(faiss_index_path)
             print(f"✓ Deleted FAISS index")
         
-        # Delete the paper record
-        cursor.execute('DELETE FROM uploaded_papers WHERE id = %s', (paper_id,))
-        conn.commit()
-        cursor.close()
-        conn.close()
-        
-        return jsonify({
-            'success': True,
-            'message': 'Paper deleted successfully'
-        })
+        if deleted:
+            return jsonify({
+                'success': True,
+                'message': 'Paper deleted successfully'
+            })
+        else:
+            return jsonify({'error': 'Failed to delete paper'}), 500
+            
     except Exception as e:
         print(f"Error deleting paper: {e}")
         return jsonify({'error': str(e)}), 500
@@ -1038,31 +1103,46 @@ def upload_textbook():
 
 @app.route('/api/textbooks', methods=['GET'])
 def get_textbooks():
-    """Get all textbooks"""
+    """Get all textbooks - Uses Cosmos DB if enabled"""
     subject = request.args.get('subject')
     
-    conn = get_db_connection()
-    cursor = conn.cursor(dictionary=True)
+    textbooks = []
     
-    if subject:
-        cursor.execute('''
-            SELECT t.*, u.full_name as uploaded_by_name 
-            FROM textbooks t
-            LEFT JOIN users u ON t.user_id = u.id
-            WHERE t.subject = %s
-            ORDER BY t.created_at DESC
-        ''', (subject,))
-    else:
-        cursor.execute('''
-            SELECT t.*, u.full_name as uploaded_by_name 
-            FROM textbooks t
-            LEFT JOIN users u ON t.user_id = u.id
-            ORDER BY t.created_at DESC
-        ''')
+    # Try Cosmos DB first if subject is provided
+    if COSMOS_DB_ENABLED and subject:
+        try:
+            cosmos_textbooks = get_textbooks_by_subject(subject)
+            if cosmos_textbooks:
+                textbooks = cosmos_textbooks
+                print(f"✓ Fetched {len(textbooks)} textbooks from Cosmos DB")
+        except Exception as e:
+            print(f"⚠️ Cosmos DB query failed, falling back to MySQL: {e}")
     
-    textbooks = cursor.fetchall()
-    cursor.close()
-    conn.close()
+    # Fallback to MySQL
+    if not textbooks:
+        conn = get_db_connection()
+        cursor = conn.cursor(dictionary=True)
+        
+        if subject:
+            cursor.execute('''
+                SELECT t.*, u.full_name as uploaded_by_name 
+                FROM textbooks t
+                LEFT JOIN users u ON t.user_id = u.id
+                WHERE t.subject = %s
+                ORDER BY t.created_at DESC
+            ''', (subject,))
+        else:
+            cursor.execute('''
+                SELECT t.*, u.full_name as uploaded_by_name 
+                FROM textbooks t
+                LEFT JOIN users u ON t.user_id = u.id
+                ORDER BY t.created_at DESC
+            ''')
+        
+        textbooks = cursor.fetchall()
+        cursor.close()
+        conn.close()
+        print(f"✓ Fetched {len(textbooks)} textbooks from MySQL")
     
     # Debug: Log textbook IDs
     if textbooks:
@@ -1175,40 +1255,68 @@ def map_questions_to_chapters_endpoint():
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
-@app.route('/api/delete-textbook/<int:textbook_id>', methods=['DELETE'])
-def delete_textbook(textbook_id):
-    """Delete a textbook"""
+@app.route('/api/delete-textbook/<textbook_id>', methods=['DELETE'])
+def delete_textbook_endpoint(textbook_id):
+    """Delete a textbook - Uses Cosmos DB if enabled"""
     try:
-        conn = get_db_connection()
-        cursor = conn.cursor(dictionary=True)
+        deleted = False
+        file_path = None
+        subject = None
         
-        # Get textbook info
-        cursor.execute(
-            'SELECT file_path FROM textbooks WHERE id = %s',
-            (textbook_id,)
-        )
-        textbook = cursor.fetchone()
+        # Try Cosmos DB first
+        if COSMOS_DB_ENABLED:
+            try:
+                # Get textbook info first
+                textbook_doc = get_textbook_by_id(textbook_id)
+                if textbook_doc:
+                    file_path = textbook_doc.get('file_path')
+                    subject = textbook_doc.get('subject')
+                    deleted = delete_textbook(textbook_id, subject)
+                    if deleted:
+                        print(f"✓ Deleted textbook from Cosmos DB: {textbook_id}")
+            except Exception as e:
+                print(f"⚠️ Cosmos DB delete failed, trying MySQL: {e}")
         
-        if not textbook:
+        # Fallback to MySQL
+        if not deleted:
+            conn = get_db_connection()
+            cursor = conn.cursor(dictionary=True)
+            
+            # Get textbook info
+            cursor.execute(
+                'SELECT file_path FROM textbooks WHERE id = %s',
+                (textbook_id,)
+            )
+            textbook = cursor.fetchone()
+            
+            if not textbook:
+                cursor.close()
+                conn.close()
+                return jsonify({'error': 'Textbook not found'}), 404
+            
+            file_path = textbook['file_path']
+            
+            # Delete the textbook record
+            cursor.execute('DELETE FROM textbooks WHERE id = %s', (textbook_id,))
+            conn.commit()
             cursor.close()
             conn.close()
-            return jsonify({'error': 'Textbook not found'}), 404
+            deleted = True
+            print(f"✓ Deleted textbook from MySQL: {textbook_id}")
         
         # Delete the physical file
-        if os.path.exists(textbook['file_path']):
-            os.remove(textbook['file_path'])
-            print(f"✓ Deleted file: {textbook['file_path']}")
+        if file_path and os.path.exists(file_path):
+            os.remove(file_path)
+            print(f"✓ Deleted file: {file_path}")
         
-        # Delete the textbook record
-        cursor.execute('DELETE FROM textbooks WHERE id = %s', (textbook_id,))
-        conn.commit()
-        cursor.close()
-        conn.close()
-        
-        return jsonify({
-            'success': True,
-            'message': 'Textbook deleted successfully'
-        })
+        if deleted:
+            return jsonify({
+                'success': True,
+                'message': 'Textbook deleted successfully'
+            })
+        else:
+            return jsonify({'error': 'Failed to delete textbook'}), 500
+            
     except Exception as e:
         print(f"Error deleting textbook: {e}")
         return jsonify({'error': str(e)}), 500
@@ -2052,29 +2160,44 @@ def save_solved_question():
 
 @app.route('/api/question-bank', methods=['GET'])
 def get_question_bank():
-    """Get all questions from Question Bank for current user"""
+    """Get all questions from Question Bank for current user - Uses Cosmos DB if enabled"""
     try:
         user_id = session.get('user_id')
         if not user_id:
             return jsonify({'error': 'User not authenticated'}), 401
         
-        conn = get_db_connection()
-        cursor = conn.cursor(dictionary=True)
+        questions = []
         
-        cursor.execute('''
-            SELECT qb.id, qb.question_text, qb.solution, qb.source, qb.subject, qb.created_at,
-                   qb.paper_id, qb.textbook_id, qb.chapter_name,
-                   up.title as paper_title, tb.title as textbook_title
-            FROM question_bank qb
-            LEFT JOIN uploaded_papers up ON qb.paper_id = up.id
-            LEFT JOIN textbooks tb ON qb.textbook_id = tb.id
-            WHERE qb.user_id = %s
-            ORDER BY qb.created_at DESC
-        ''', (user_id,))
+        # Try Cosmos DB first
+        if COSMOS_DB_ENABLED:
+            try:
+                cosmos_questions = get_user_questions(str(user_id))
+                if cosmos_questions:
+                    questions = cosmos_questions
+                    print(f"✓ Fetched {len(questions)} questions from Cosmos DB")
+            except Exception as e:
+                print(f"⚠️ Cosmos DB query failed, falling back to MySQL: {e}")
         
-        questions = cursor.fetchall()
-        cursor.close()
-        conn.close()
+        # Fallback to MySQL
+        if not questions:
+            conn = get_db_connection()
+            cursor = conn.cursor(dictionary=True)
+            
+            cursor.execute('''
+                SELECT qb.id, qb.question_text, qb.solution, qb.source, qb.subject, qb.created_at,
+                       qb.paper_id, qb.textbook_id, qb.chapter_name,
+                       up.title as paper_title, tb.title as textbook_title
+                FROM question_bank qb
+                LEFT JOIN uploaded_papers up ON qb.paper_id = up.id
+                LEFT JOIN textbooks tb ON qb.textbook_id = tb.id
+                WHERE qb.user_id = %s
+                ORDER BY qb.created_at DESC
+            ''', (user_id,))
+            
+            questions = cursor.fetchall()
+            cursor.close()
+            conn.close()
+            print(f"✓ Fetched {len(questions)} questions from MySQL")
         
         return jsonify({
             'success': True,
@@ -2087,39 +2210,55 @@ def get_question_bank():
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
-@app.route('/api/question-bank/<int:question_id>', methods=['DELETE'])
+@app.route('/api/question-bank/<question_id>', methods=['DELETE'])
 def delete_question_from_bank(question_id):
-    """Delete a question from Question Bank"""
+    """Delete a question from Question Bank - Uses Cosmos DB if enabled"""
     try:
         user_id = session.get('user_id')
         if not user_id:
             return jsonify({'error': 'User not authenticated'}), 401
         
-        conn = get_db_connection()
-        cursor = conn.cursor(dictionary=True)
+        deleted = False
         
-        # Verify ownership before deleting
-        cursor.execute('''
-            SELECT id FROM question_bank
-            WHERE id = %s AND user_id = %s
-        ''', (question_id, user_id))
+        # Try Cosmos DB first
+        if COSMOS_DB_ENABLED:
+            try:
+                deleted = delete_question(question_id, str(user_id))
+                if deleted:
+                    print(f"✓ Deleted question from Cosmos DB: {question_id}")
+            except Exception as e:
+                print(f"⚠️ Cosmos DB delete failed, trying MySQL: {e}")
         
-        if not cursor.fetchone():
+        # Fallback to MySQL
+        if not deleted:
+            conn = get_db_connection()
+            cursor = conn.cursor(dictionary=True)
+            
+            # Verify ownership before deleting
+            cursor.execute('''
+                SELECT id FROM question_bank
+                WHERE id = %s AND user_id = %s
+            ''', (question_id, user_id))
+            
+            if not cursor.fetchone():
+                cursor.close()
+                conn.close()
+                return jsonify({'error': 'Question not found or unauthorized'}), 404
+            
+            cursor.execute('DELETE FROM question_bank WHERE id = %s', (question_id,))
+            conn.commit()
             cursor.close()
             conn.close()
-            return jsonify({'error': 'Question not found or unauthorized'}), 404
+            deleted = True
+            print(f"✓ Deleted question from MySQL: {question_id}")
         
-        cursor.execute('DELETE FROM question_bank WHERE id = %s', (question_id,))
-        conn.commit()
-        cursor.close()
-        conn.close()
-        
-        print(f"🗑️ Deleted question {question_id} from Question Bank")
-        
-        return jsonify({
-            'success': True,
-            'message': 'Question deleted successfully'
-        })
+        if deleted:
+            return jsonify({
+                'success': True,
+                'message': 'Question deleted successfully'
+            })
+        else:
+            return jsonify({'error': 'Failed to delete question'}), 500
         
     except Exception as e:
         import traceback
