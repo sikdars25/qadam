@@ -218,11 +218,14 @@ def login():
         return jsonify({'error': 'Please activate your account. Check your email for activation link.'}), 403
     
     # Set session for authenticated user
+    session.permanent = True  # Make session permanent (uses PERMANENT_SESSION_LIFETIME)
     session['user_id'] = user['id']
     session['username'] = user['username']
     
     # Check if user is admin
     is_admin = user['is_admin'] if 'is_admin' in user.keys() else 0
+    
+    print(f"✅ Session created for user {user['username']} (ID: {user['id']})")
     
     return jsonify({
         'success': True,
@@ -2215,7 +2218,11 @@ def get_question_bank():
     """Get all questions from Question Bank for current user - Uses Cosmos DB if enabled"""
     try:
         user_id = session.get('user_id')
+        username = session.get('username')
+        print(f"🔍 Question Bank request - Session: user_id={user_id}, username={username}")
+        
         if not user_id:
+            print(f"❌ No user_id in session - returning 401")
             return jsonify({'error': 'User not authenticated'}), 401
         
         questions = []
