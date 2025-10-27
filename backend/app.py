@@ -76,6 +76,15 @@ except Exception as e:
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY', 'your-secret-key-here-change-in-production')
 
+# Session configuration
+# For localhost development, use Lax instead of None
+is_production = os.getenv('FLASK_ENV') == 'production'
+app.config['SESSION_COOKIE_SAMESITE'] = 'None' if is_production else 'Lax'
+app.config['SESSION_COOKIE_SECURE'] = is_production  # Only use Secure in production (HTTPS)
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['PERMANENT_SESSION_LIFETIME'] = 86400  # 24 hours
+print(f"🍪 Session cookies: SameSite={'None' if is_production else 'Lax'}, Secure={is_production}")
+
 # CORS Configuration for Azure
 # Get frontend URL from environment variable
 FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:3000')
@@ -230,6 +239,24 @@ def logout():
     """Logout endpoint"""
     session.clear()
     return jsonify({'success': True, 'message': 'Logged out successfully'})
+
+@app.route('/api/session-check', methods=['GET'])
+def session_check():
+    """Check if user is authenticated"""
+    user_id = session.get('user_id')
+    username = session.get('username')
+    
+    if user_id:
+        return jsonify({
+            'authenticated': True,
+            'user_id': user_id,
+            'username': username
+        })
+    else:
+        return jsonify({
+            'authenticated': False,
+            'message': 'No active session'
+        }), 401
 
 # OTP storage (in-memory for demo - use Redis in production)
 otp_storage = {}
