@@ -68,7 +68,7 @@ export const API_ENDPOINTS = {
 export const axiosConfig = {
   baseURL: API_URL,
   timeout: 30000, // 30 seconds
-  withCredentials: false, // TEMPORARILY DISABLED for CORS testing
+  withCredentials: true, // Enable cookies for session management
   headers: {
     'Content-Type': 'application/json',
   },
@@ -80,6 +80,7 @@ export const axiosConfig = {
  */
 export const fileUploadConfig = {
   ...axiosConfig,
+  withCredentials: true, // Ensure cookies are sent with file uploads
   headers: {
     'Content-Type': 'multipart/form-data',
   },

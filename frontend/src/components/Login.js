@@ -20,6 +20,8 @@ const Login = ({ onLogin }) => {
       const response = await axios.post(`${API_URL}/api/login`, {
         username,
         password
+      }, {
+        withCredentials: true  // Enable cookies for session management
       });
 
       if (response.data.success) {
