@@ -915,36 +915,43 @@ def upload_paper():
 @app.route('/api/uploaded-papers', methods=['GET'])
 def get_uploaded_papers():
     """Get all uploaded papers - Uses Cosmos DB if enabled"""
-    user_id = session.get('user_id')
-    
-    papers = []
-    
-    # Try Cosmos DB first if user is authenticated
-    if COSMOS_DB_ENABLED and user_id:
-        try:
-            cosmos_papers = get_user_papers(str(user_id))
-            if cosmos_papers:
-                papers = cosmos_papers
-                print(f"✓ Fetched {len(papers)} papers from Cosmos DB")
-        except Exception as e:
-            print(f"⚠️ Cosmos DB query failed, falling back to MySQL: {e}")
-    
-    # Fallback to MySQL
-    if not papers:
-        conn = get_db_connection()
-        cursor = conn.cursor(dictionary=True)
-        cursor.execute('''
-            SELECT p.*, u.full_name as uploaded_by_name 
-            FROM uploaded_papers p
-            LEFT JOIN users u ON p.user_id = u.id
-            ORDER BY p.created_at DESC
-        ''')
-        papers = cursor.fetchall()
-        cursor.close()
-        conn.close()
-        print(f"✓ Fetched {len(papers)} papers from MySQL")
-    
-    return jsonify(papers)
+    try:
+        user_id = session.get('user_id')
+        
+        papers = []
+        
+        # Try Cosmos DB first if user is authenticated
+        if COSMOS_DB_ENABLED and user_id:
+            try:
+                cosmos_papers = get_user_papers(str(user_id))
+                if cosmos_papers:
+                    papers = cosmos_papers
+                    print(f"✓ Fetched {len(papers)} papers from Cosmos DB")
+            except Exception as e:
+                print(f"⚠️ Cosmos DB query failed, falling back to MySQL: {e}")
+        
+        # Fallback to MySQL
+        if not papers:
+            conn = get_db_connection()
+            cursor = conn.cursor(dictionary=True)
+            cursor.execute('''
+                SELECT p.*, u.full_name as uploaded_by_name 
+                FROM uploaded_papers p
+                LEFT JOIN users u ON p.user_id = u.id
+                ORDER BY p.created_at DESC
+            ''')
+            papers = cursor.fetchall()
+            cursor.close()
+            conn.close()
+            print(f"✓ Fetched {len(papers)} papers from MySQL")
+        
+        return jsonify(papers)
+        
+    except Exception as e:
+        print(f"❌ Error in get_uploaded_papers: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/delete-paper/<paper_id>', methods=['DELETE'])
 def delete_paper_endpoint(paper_id):
@@ -1104,53 +1111,60 @@ def upload_textbook():
 @app.route('/api/textbooks', methods=['GET'])
 def get_textbooks():
     """Get all textbooks - Uses Cosmos DB if enabled"""
-    subject = request.args.get('subject')
-    
-    textbooks = []
-    
-    # Try Cosmos DB first if subject is provided
-    if COSMOS_DB_ENABLED and subject:
-        try:
-            cosmos_textbooks = get_textbooks_by_subject(subject)
-            if cosmos_textbooks:
-                textbooks = cosmos_textbooks
-                print(f"✓ Fetched {len(textbooks)} textbooks from Cosmos DB")
-        except Exception as e:
-            print(f"⚠️ Cosmos DB query failed, falling back to MySQL: {e}")
-    
-    # Fallback to MySQL
-    if not textbooks:
-        conn = get_db_connection()
-        cursor = conn.cursor(dictionary=True)
+    try:
+        subject = request.args.get('subject')
         
-        if subject:
-            cursor.execute('''
-                SELECT t.*, u.full_name as uploaded_by_name 
-                FROM textbooks t
-                LEFT JOIN users u ON t.user_id = u.id
-                WHERE t.subject = %s
-                ORDER BY t.created_at DESC
-            ''', (subject,))
-        else:
-            cursor.execute('''
-                SELECT t.*, u.full_name as uploaded_by_name 
-                FROM textbooks t
-                LEFT JOIN users u ON t.user_id = u.id
-                ORDER BY t.created_at DESC
-            ''')
+        textbooks = []
         
-        textbooks = cursor.fetchall()
-        cursor.close()
-        conn.close()
-        print(f"✓ Fetched {len(textbooks)} textbooks from MySQL")
-    
-    # Debug: Log textbook IDs
-    if textbooks:
-        print(f"📚 Returning {len(textbooks)} textbooks")
-        for tb in textbooks:
-            print(f"   - {tb.get('title', 'Unknown')}: ID={tb.get('id', 'MISSING')}")
-    
-    return jsonify(textbooks)
+        # Try Cosmos DB first if subject is provided
+        if COSMOS_DB_ENABLED and subject:
+            try:
+                cosmos_textbooks = get_textbooks_by_subject(subject)
+                if cosmos_textbooks:
+                    textbooks = cosmos_textbooks
+                    print(f"✓ Fetched {len(textbooks)} textbooks from Cosmos DB")
+            except Exception as e:
+                print(f"⚠️ Cosmos DB query failed, falling back to MySQL: {e}")
+        
+        # Fallback to MySQL
+        if not textbooks:
+            conn = get_db_connection()
+            cursor = conn.cursor(dictionary=True)
+            
+            if subject:
+                cursor.execute('''
+                    SELECT t.*, u.full_name as uploaded_by_name 
+                    FROM textbooks t
+                    LEFT JOIN users u ON t.user_id = u.id
+                    WHERE t.subject = %s
+                    ORDER BY t.created_at DESC
+                ''', (subject,))
+            else:
+                cursor.execute('''
+                    SELECT t.*, u.full_name as uploaded_by_name 
+                    FROM textbooks t
+                    LEFT JOIN users u ON t.user_id = u.id
+                    ORDER BY t.created_at DESC
+                ''')
+            
+            textbooks = cursor.fetchall()
+            cursor.close()
+            conn.close()
+            print(f"✓ Fetched {len(textbooks)} textbooks from MySQL")
+        
+        # Debug: Log textbook IDs
+        if textbooks:
+            print(f"📚 Returning {len(textbooks)} textbooks")
+            for tb in textbooks:
+                print(f"   - {tb.get('title', 'Unknown')}: ID={tb.get('id', 'MISSING')}")
+        
+        return jsonify(textbooks)
+        
+    except Exception as e:
+        print(f"❌ Error in get_textbooks: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/textbook-pdf/<int:textbook_id>', methods=['GET'])
 def serve_textbook_pdf(textbook_id):
