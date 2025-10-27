@@ -2148,7 +2148,7 @@ def solve_question():
 
 @app.route('/api/save-solved-question', methods=['POST'])
 def save_solved_question():
-    """Save a solved question to the Question Bank"""
+    """Save a solved question to the Question Bank - Uses Cosmos DB if enabled"""
     try:
         data = request.json
         question_text = data.get('question_text')
@@ -2165,31 +2165,64 @@ def save_solved_question():
         
         # Get current user from session
         user_id = session.get('user_id')
+        username = session.get('username')
+        print(f"🔍 Save question request - Session: user_id={user_id}, username={username}")
+        
         if not user_id:
+            print(f"❌ No user_id in session - returning 401")
             return jsonify({'error': 'User not authenticated'}), 401
         
-        # Convert timestamp to MySQL datetime format
-        if timestamp:
-            # Handle ISO 8601 format with 'Z' timezone
-            timestamp = timestamp.replace('Z', '+00:00')
-            from dateutil import parser
-            created_at = parser.parse(timestamp)
-        else:
-            created_at = datetime.now()
+        question_id = None
+        saved = False
         
-        # Save to database
-        conn = get_db_connection()
-        cursor = conn.cursor()
+        # Try Cosmos DB first
+        if COSMOS_DB_ENABLED:
+            try:
+                question_id = save_question_to_bank(
+                    user_id=str(user_id),
+                    question_text=question_text,
+                    solution=solution,
+                    source=source,
+                    subject=subject,
+                    paper_id=paper_id,
+                    textbook_id=textbook_id,
+                    chapter_name=chapter_name
+                )
+                if question_id:
+                    saved = True
+                    print(f"✅ Saved question to Cosmos DB: {question_id}")
+            except Exception as e:
+                print(f"⚠️ Cosmos DB save failed, falling back to MySQL: {e}")
         
-        cursor.execute('''
-            INSERT INTO question_bank (question_text, solution, source, subject, paper_id, textbook_id, chapter_name, user_id, created_at)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-        ''', (question_text, solution, source, subject, paper_id, textbook_id, chapter_name, user_id, created_at))
-        
-        conn.commit()
-        question_id = cursor.lastrowid
-        cursor.close()
-        conn.close()
+        # Fallback to MySQL
+        if not saved:
+            try:
+                # Convert timestamp to MySQL datetime format
+                if timestamp:
+                    # Handle ISO 8601 format with 'Z' timezone
+                    timestamp = timestamp.replace('Z', '+00:00')
+                    from dateutil import parser
+                    created_at = parser.parse(timestamp)
+                else:
+                    created_at = datetime.now()
+                
+                conn = get_db_connection()
+                cursor = conn.cursor()
+                
+                cursor.execute('''
+                    INSERT INTO question_bank (question_text, solution, source, subject, paper_id, textbook_id, chapter_name, user_id, created_at)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                ''', (question_text, solution, source, subject, paper_id, textbook_id, chapter_name, user_id, created_at))
+                
+                conn.commit()
+                question_id = cursor.lastrowid
+                cursor.close()
+                conn.close()
+                saved = True
+                print(f"✅ Saved question to MySQL: {question_id}")
+            except Exception as mysql_error:
+                print(f"❌ MySQL save failed: {mysql_error}")
+                return jsonify({'error': 'Failed to save question - database unavailable'}), 500
         
         log_msg = f"✅ Saved question {question_id} to Question Bank from {source}"
         if subject:
