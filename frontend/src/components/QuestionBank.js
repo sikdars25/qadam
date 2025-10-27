@@ -19,16 +19,28 @@ const QuestionBank = () => {
   const fetchQuestions = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`${API_URL}/api/question-bank`);
+      setError('');
+      const response = await axios.get(`${API_URL}/api/question-bank`, {
+        withCredentials: true
+      });
       
       if (response.data.success) {
         setQuestions(response.data.questions);
       } else {
-        setError('Failed to load questions');
+        setError(response.data.error || 'Failed to load questions');
       }
     } catch (err) {
       console.error('Error fetching questions:', err);
-      setError('Error loading Question Bank');
+      if (err.response) {
+        // Server responded with error
+        setError(`Error ${err.response.status}: ${err.response.data?.error || 'Failed to load Question Bank'}`);
+      } else if (err.request) {
+        // Request made but no response
+        setError('Cannot connect to server. Please check if backend is running.');
+      } else {
+        // Something else happened
+        setError(`Error: ${err.message}`);
+      }
     } finally {
       setLoading(false);
     }
@@ -40,7 +52,9 @@ const QuestionBank = () => {
     }
 
     try {
-      const response = await axios.delete(`${API_URL}/api/question-bank/${questionId}`);
+      const response = await axios.delete(`${API_URL}/api/question-bank/${questionId}`, {
+        withCredentials: true
+      });
       
       if (response.data.success) {
         setQuestions(questions.filter(q => q.id !== questionId));
@@ -50,7 +64,7 @@ const QuestionBank = () => {
       }
     } catch (err) {
       console.error('Error deleting question:', err);
-      alert('Failed to delete question');
+      alert(`Failed to delete question: ${err.response?.data?.error || err.message}`);
     }
   };
 
