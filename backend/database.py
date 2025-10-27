@@ -182,6 +182,11 @@ def get_db_connection():
         return conn
     except Error as e:
         print(f"❌ Error connecting to MySQL: {e}")
+        print("⚠️ MySQL not available - operations will use Cosmos DB if enabled")
+        raise
+    except Exception as e:
+        print(f"❌ Unexpected error connecting to MySQL: {e}")
+        print("⚠️ MySQL not available - operations will use Cosmos DB if enabled")
         raise
 
 if __name__ == '__main__':

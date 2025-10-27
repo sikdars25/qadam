@@ -2024,32 +2024,40 @@ def get_last_ai_search():
         if not paper_id or not textbook_id:
             return jsonify({'error': 'Missing paper_id or textbook_id'}), 400
         
-        conn = get_db_connection()
-        cursor = conn.cursor(dictionary=True)
-        cursor.execute('''
-            SELECT search_results, total_chapters, total_questions, unmatched_count, created_at
-            FROM ai_search_results
-            WHERE paper_id = %s AND textbook_id = %s
-            ORDER BY created_at DESC
-            LIMIT 1
-        ''', (paper_id, textbook_id))
-        result = cursor.fetchone()
-        cursor.close()
-        conn.close()
-        
-        if result:
-            return jsonify({
-                'success': True,
-                'search_results': json.loads(result['search_results']),
-                'total_chapters': result['total_chapters'],
-                'total_questions': result['total_questions'],
-                'unmatched_count': result['unmatched_count'],
-                'created_at': result['created_at']
-            })
-        else:
+        try:
+            conn = get_db_connection()
+            cursor = conn.cursor(dictionary=True)
+            cursor.execute('''
+                SELECT search_results, total_chapters, total_questions, unmatched_count, created_at
+                FROM ai_search_results
+                WHERE paper_id = %s AND textbook_id = %s
+                ORDER BY created_at DESC
+                LIMIT 1
+            ''', (paper_id, textbook_id))
+            result = cursor.fetchone()
+            cursor.close()
+            conn.close()
+            
+            if result:
+                return jsonify({
+                    'success': True,
+                    'search_results': json.loads(result['search_results']),
+                    'total_chapters': result['total_chapters'],
+                    'total_questions': result['total_questions'],
+                    'unmatched_count': result['unmatched_count'],
+                    'created_at': result['created_at']
+                })
+            else:
+                return jsonify({
+                    'success': False,
+                    'message': 'No previous search results found'
+                }), 404
+        except Exception as db_error:
+            print(f"⚠️ MySQL not available for AI search results: {db_error}")
+            # Return empty result when MySQL is not available
             return jsonify({
                 'success': False,
-                'message': 'No previous search results found'
+                'message': 'No previous search results found (MySQL not available)'
             }), 404
             
     except Exception as e:
