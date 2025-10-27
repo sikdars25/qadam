@@ -518,6 +518,8 @@ const ChapterQuestions = () => {
             textbook_id: selectedTextbook?.uploadedId || selectedTextbook?.id,
             chapter_name: chapterContext,
             timestamp: new Date().toISOString()
+          }, {
+            withCredentials: true
           });
           console.log('✅ Question saved to Question Bank with subject:', selectedPaper?.subject);
         } catch (saveErr) {

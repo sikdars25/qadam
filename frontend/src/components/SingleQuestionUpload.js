@@ -130,6 +130,8 @@ const SingleQuestionUpload = ({ onClose, onQuestionParsed }) => {
             subject: subject,
             source: 'solve_one',
             timestamp: new Date().toISOString()
+          }, {
+            withCredentials: true
           });
           console.log('Question saved to Question Bank with subject:', subject);
         } catch (saveErr) {

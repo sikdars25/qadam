@@ -129,6 +129,8 @@ const ParsedQuestionsView = ({ paperId, onClose, embedded = false }) => {
             textbook_id: null,
             chapter_name: null,
             timestamp: new Date().toISOString()
+          }, {
+            withCredentials: true
           });
           console.log('✅ Question saved to Question Bank with subject:', question.subject);
         } catch (saveErr) {
