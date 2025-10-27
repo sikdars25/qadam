@@ -326,9 +326,9 @@ function AdminDashboard({ user, onLogout }) {
                       <tr>
                         <th>User</th>
                         <th>Total Questions</th>
-                        <th>Solve One</th>
-                        <th>Chapterwise</th>
-                        <th>All Questions</th>
+                        <th>Single Question</th>
+                        <th>Text Book</th>
+                        <th>Question Paper</th>
                         <th>Subjects</th>
                         <th>First Activity</th>
                         <th>Last Activity</th>

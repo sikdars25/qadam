@@ -871,7 +871,7 @@ const ChapterQuestions = () => {
   return (
     <div className="chapter-questions">
       <div className="chapter-header">
-        <h2>📖 Answer Chapterwise</h2>
+        <h2>📖 Text Book</h2>
         <p>Select a question paper, textbook, and chapter to view related questions</p>
       </div>
 

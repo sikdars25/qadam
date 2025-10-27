@@ -196,7 +196,7 @@ const SingleQuestionUpload = ({ onClose, onQuestionParsed }) => {
     <div className="single-question-modal">
       <div className="single-question-modal-content">
         <div className="single-question-header">
-          <h2>✨ Solve One Question</h2>
+          <h2>✨ A Single Question</h2>
           <button className="close-btn" onClick={onClose}>✕</button>
         </div>
 

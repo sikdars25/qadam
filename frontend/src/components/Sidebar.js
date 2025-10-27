@@ -3,8 +3,8 @@ import './Sidebar.css';
 
 const Sidebar = ({ activeMenu, setActiveMenu, user, onLogout, onUploadSingleQuestion }) => {
   const menuItems = [
-    { id: 'sample-questions', label: 'Answer Full Paper', icon: '📚' },
-    { id: 'chapter-questions', label: 'Answer Chapterwise', icon: '📖' },
+    { id: 'sample-questions', label: 'Question Paper', icon: '📚' },
+    { id: 'chapter-questions', label: 'Text Book', icon: '📖' },
     { id: 'question-bank', label: 'Question Bank', icon: '💾' },
     { id: 'upload-papers', label: 'Upload Hub', icon: '📤' }
   ];
@@ -22,7 +22,7 @@ const Sidebar = ({ activeMenu, setActiveMenu, user, onLogout, onUploadSingleQues
           onClick={onUploadSingleQuestion}
         >
           <span className="menu-icon">📝</span>
-          <span className="menu-label">Solve One</span>
+          <span className="menu-label">A Single Question</span>
         </button>
 
         <div className="sidebar-divider"></div>
