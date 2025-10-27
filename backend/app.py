@@ -2237,26 +2237,31 @@ def get_question_bank():
             except Exception as e:
                 print(f"⚠️ Cosmos DB query failed, falling back to MySQL: {e}")
         
-        # Fallback to MySQL
+        # Fallback to MySQL if no questions found in Cosmos DB
         if not questions:
-            conn = get_db_connection()
-            cursor = conn.cursor(dictionary=True)
-            
-            cursor.execute('''
-                SELECT qb.id, qb.question_text, qb.solution, qb.source, qb.subject, qb.created_at,
-                       qb.paper_id, qb.textbook_id, qb.chapter_name,
-                       up.title as paper_title, tb.title as textbook_title
-                FROM question_bank qb
-                LEFT JOIN uploaded_papers up ON qb.paper_id = up.id
-                LEFT JOIN textbooks tb ON qb.textbook_id = tb.id
-                WHERE qb.user_id = %s
-                ORDER BY qb.created_at DESC
-            ''', (user_id,))
-            
-            questions = cursor.fetchall()
-            cursor.close()
-            conn.close()
-            print(f"✓ Fetched {len(questions)} questions from MySQL")
+            try:
+                conn = get_db_connection()
+                cursor = conn.cursor(dictionary=True)
+                
+                cursor.execute('''
+                    SELECT qb.id, qb.question_text, qb.solution, qb.source, qb.subject, qb.created_at,
+                           qb.paper_id, qb.textbook_id, qb.chapter_name,
+                           up.title as paper_title, tb.title as textbook_title
+                    FROM question_bank qb
+                    LEFT JOIN uploaded_papers up ON qb.paper_id = up.id
+                    LEFT JOIN textbooks tb ON qb.textbook_id = tb.id
+                    WHERE qb.user_id = %s
+                    ORDER BY qb.created_at DESC
+                ''', (user_id,))
+                
+                questions = cursor.fetchall()
+                cursor.close()
+                conn.close()
+                print(f"✓ Fetched {len(questions)} questions from MySQL")
+            except Exception as mysql_error:
+                print(f"⚠️ MySQL not available: {mysql_error}")
+                print(f"✓ Returning empty question bank (no questions in Cosmos DB, MySQL unavailable)")
+                questions = []
         
         return jsonify({
             'success': True,
