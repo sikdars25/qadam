@@ -7,8 +7,30 @@ import json
 import mysql.connector
 from mysql.connector import Error as MySQLError
 from werkzeug.utils import secure_filename
-from werkzeug.security import check_password_hash
+from werkzeug.security import check_password_hash, generate_password_hash
 from datetime import datetime
+
+# Cosmos DB imports
+try:
+    from cosmos_db import (
+        init_cosmos_db,
+        create_user,
+        get_user_by_username,
+        get_user_by_id,
+        update_user,
+        delete_user,
+        get_all_users,
+        cosmos_to_mysql_format
+    )
+    COSMOS_DB_ENABLED = True
+    print("✅ Cosmos DB enabled")
+except ImportError as e:
+    print(f"⚠️ Cosmos DB disabled: {e}")
+    print("   Install: pip install azure-cosmos")
+    COSMOS_DB_ENABLED = False
+except Exception as e:
+    print(f"⚠️ Cosmos DB disabled due to error: {e}")
+    COSMOS_DB_ENABLED = False
 
 # Try to import AI service, but don't fail if dependencies aren't installed yet
 try:
@@ -75,12 +97,21 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-# Initialize database
-init_db()
+# Initialize databases
+init_db()  # MySQL (for backward compatibility)
+
+# Initialize Cosmos DB if enabled
+if COSMOS_DB_ENABLED:
+    try:
+        init_cosmos_db()
+        print("✅ Cosmos DB initialized")
+    except Exception as e:
+        print(f"⚠️ Cosmos DB initialization failed: {e}")
+        COSMOS_DB_ENABLED = False
 
 @app.route('/api/login', methods=['POST'])
 def login():
-    """Login endpoint"""
+    """Login endpoint - Uses Cosmos DB if enabled, falls back to MySQL"""
     data = request.get_json()
     username = data.get('username')
     password = data.get('password')
@@ -88,64 +119,81 @@ def login():
     if not username or not password:
         return jsonify({'error': 'Username and password required'}), 400
     
-    conn = get_db_connection()
-    cursor = conn.cursor(dictionary=True)
-    
-    # Get user by username first
-    try:
-        cursor.execute(
-            'SELECT id, username, password, full_name, is_active, is_admin FROM users WHERE username = %s',
-            (username,)
-        )
-        user = cursor.fetchone()
-    except MySQLError:
-        # Fallback for older schema without is_active/is_admin
-        cursor.execute(
-            'SELECT id, username, password, full_name FROM users WHERE username = %s',
-            (username,)
-        )
-        user = cursor.fetchone()
-    
-    cursor.close()
-    conn.close()
-    
-    # Debug logging
     print(f"🔍 Login attempt: username={username}")
+    
+    user = None
+    
+    # Try Cosmos DB first if enabled
+    if COSMOS_DB_ENABLED:
+        try:
+            cosmos_user = get_user_by_username(username)
+            if cosmos_user:
+                user = cosmos_to_mysql_format(cosmos_user)
+                print(f"✓ User found in Cosmos DB: {username}")
+        except Exception as e:
+            print(f"⚠️ Cosmos DB query failed, falling back to MySQL: {e}")
+    
+    # Fallback to MySQL if Cosmos DB not available or user not found
+    if not user:
+        try:
+            conn = get_db_connection()
+            cursor = conn.cursor(dictionary=True)
+            
+            # Get user by username
+            try:
+                cursor.execute(
+                    'SELECT id, username, password, full_name, is_active, is_admin FROM users WHERE username = %s',
+                    (username,)
+                )
+                user = cursor.fetchone()
+            except MySQLError:
+                # Fallback for older schema
+                cursor.execute(
+                    'SELECT id, username, password, full_name FROM users WHERE username = %s',
+                    (username,)
+                )
+                user = cursor.fetchone()
+            
+            cursor.close()
+            conn.close()
+            
+            if user:
+                print(f"✓ User found in MySQL: {username}")
+        except Exception as e:
+            print(f"❌ MySQL query failed: {e}")
+            return jsonify({'error': 'Database error'}), 500
     
     # Verify password
     if not user:
         print(f"❌ User not found: {username}")
         return jsonify({'error': 'Invalid credentials'}), 401
     
-    print(f"✓ User found: {user['username']}")
     stored_password = user['password']
     print(f"🔑 Password type: {'hashed' if stored_password.startswith(('pbkdf2:', 'scrypt:', '$2b$', '$2a$', '$2y$')) else 'plain'}")
     
-    # Check if password is hashed (starts with pbkdf2, scrypt, or bcrypt)
+    # Check if password is hashed
     if stored_password.startswith(('pbkdf2:', 'scrypt:', '$2b$', '$2a$', '$2y$')):
-        # Hashed password - use check_password_hash
         if not check_password_hash(stored_password, password):
             print(f"❌ Hashed password verification failed")
             return jsonify({'error': 'Invalid credentials'}), 401
         print(f"✅ Hashed password verified")
     else:
-        # Plain text password (old users) - direct comparison
+        # Plain text password
         if stored_password != password:
             print(f"❌ Plain text password mismatch")
             return jsonify({'error': 'Invalid credentials'}), 401
         print(f"✅ Plain text password matched")
     
-    if user:
-        # Check if account is activated (if column exists)
-        if 'is_active' in user.keys() and not user['is_active']:
-            return jsonify({'error': 'Please activate your account. Check your email for activation link.'}), 403
-        
-        # Set session for authenticated user
-        session['user_id'] = user['id']
-        session['username'] = user['username']
-        
-        # Check if user is admin
-        is_admin = user['is_admin'] if 'is_admin' in user.keys() else 0
+    # Check if account is activated
+    if 'is_active' in user.keys() and not user['is_active']:
+        return jsonify({'error': 'Please activate your account. Check your email for activation link.'}), 403
+    
+    # Set session for authenticated user
+    session['user_id'] = user['id']
+    session['username'] = user['username']
+    
+    # Check if user is admin
+    is_admin = user['is_admin'] if 'is_admin' in user.keys() else 0
         
         return jsonify({
             'success': True,
@@ -338,7 +386,7 @@ def login_otp():
 
 @app.route('/api/register', methods=['POST'])
 def register():
-    """Register new user"""
+    """Register new user - Uses Cosmos DB if enabled, falls back to MySQL"""
     data = request.get_json()
     full_name = data.get('fullName')
     username = data.get('username')
@@ -363,59 +411,99 @@ def register():
     if len(password) < 6:
         return jsonify({'error': 'Password must be at least 6 characters'}), 400
     
-    conn = get_db_connection()
-    cursor = conn.cursor(dictionary=True)
+    # Hash password
+    hashed_password = generate_password_hash(password)
     
-    # Check if username already exists
-    cursor.execute(
-        'SELECT id FROM users WHERE username = %s',
-        (username,)
-    )
-    existing_user = cursor.fetchone()
+    # Try Cosmos DB first if enabled
+    if COSMOS_DB_ENABLED:
+        try:
+            # Check if username already exists
+            existing_user = get_user_by_username(username)
+            if existing_user:
+                return jsonify({'error': 'Username already exists'}), 409
+            
+            # Create user in Cosmos DB
+            new_user = create_user(
+                username=username,
+                password=hashed_password,
+                full_name=full_name,
+                email=email,
+                phone=phone,
+                is_admin=False
+            )
+            
+            if new_user:
+                print(f"✅ User registered in Cosmos DB: {username}")
+                return jsonify({
+                    'success': True,
+                    'message': 'Registration successful! You can now login.',
+                    'user': {
+                        'id': new_user['id'],
+                        'username': new_user['username'],
+                        'full_name': new_user['full_name'],
+                        'email': new_user.get('email')
+                    }
+                })
+            else:
+                print(f"⚠️ Cosmos DB registration failed, falling back to MySQL")
+        except Exception as e:
+            print(f"⚠️ Cosmos DB registration error, falling back to MySQL: {e}")
     
-    if existing_user:
-        cursor.close()
-        conn.close()
-        return jsonify({'error': 'Username already exists'}), 409
-    
-    # Check if email already exists
-    cursor.execute(
-        'SELECT id FROM users WHERE email = %s',
-        (email,)
-    )
-    existing_email = cursor.fetchone()
-    
-    if existing_email:
-        cursor.close()
-        conn.close()
-        return jsonify({'error': 'Email already registered'}), 409
-    
-    # Check if phone already exists (only if phone is provided)
-    if phone:
-        cursor.execute(
-            'SELECT id FROM users WHERE phone = %s',
-            (phone,)
-        )
-        existing_phone = cursor.fetchone()
+    # Fallback to MySQL
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor(dictionary=True)
         
-        if existing_phone:
+        # Check if username already exists
+        cursor.execute(
+            'SELECT id FROM users WHERE username = %s',
+            (username,)
+        )
+        existing_user = cursor.fetchone()
+        
+        if existing_user:
             cursor.close()
             conn.close()
-            return jsonify({'error': 'Phone number already registered'}), 409
-    
-    # Generate activation token
-    import secrets
-    activation_token = secrets.token_urlsafe(32)
-    
-    # Insert new user (inactive by default)
-    try:
-        # Try with email and phone columns
-        try:
+            return jsonify({'error': 'Username already exists'}), 409
+        
+        # Check if email already exists
+        cursor.execute(
+            'SELECT id FROM users WHERE email = %s',
+            (email,)
+        )
+        existing_email = cursor.fetchone()
+        
+        if existing_email:
+            cursor.close()
+            conn.close()
+            return jsonify({'error': 'Email already registered'}), 409
+        
+        # Check if phone already exists (only if phone is provided)
+        if phone:
             cursor.execute(
-                '''INSERT INTO users (username, password, full_name, email, phone, is_active, activation_token) 
-                   VALUES (%s, %s, %s, %s, %s, 0, %s)''',
-                (username, password, full_name, email, phone, activation_token)
+                'SELECT id FROM users WHERE phone = %s',
+                (phone,)
             )
+            existing_phone = cursor.fetchone()
+            
+            if existing_phone:
+                cursor.close()
+                conn.close()
+                return jsonify({'error': 'Phone number already registered'}), 409
+        
+        # Generate activation token
+        import secrets
+        activation_token = secrets.token_urlsafe(32)
+        
+        # Insert new user (inactive by default)
+        try:
+            # Try with email and phone columns
+            try:
+                cursor.execute(
+                    '''INSERT INTO users (username, password, full_name, email, phone, is_active, activation_token) 
+                       VALUES (%s, %s, %s, %s, %s, 0, %s)''',
+                    (username, hashed_password, full_name, email, phone, activation_token)
+                )
         except Exception as db_error:
             # Fallback for older database schema
             if 'no column named' in str(db_error).lower():

@@ -1,0 +1,28 @@
+RESTART BACKEND TO APPLY FIX
+============================
+
+WHAT WAS FIXED:
+- MySQL datetime format error
+- Frontend was sending: '2025-10-27T12:34:36.992Z'
+- MySQL expected: datetime object
+- Now converts ISO 8601 to MySQL datetime
+
+ACTION REQUIRED:
+================
+
+1. STOP Backend:
+   - Press Ctrl+C in terminal running Flask
+
+2. START Backend:
+   - Run: python app.py
+   - Wait for: "Running on http://127.0.0.1:5000"
+
+3. TEST:
+   - Solve a question
+   - Should save successfully now!
+   - Check console: "✅ Saved question X to Question Bank"
+
+INSTALLED:
+- python-dateutil==2.8.2 (for timestamp parsing)
+
+READY TO TEST!
