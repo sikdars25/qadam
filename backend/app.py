@@ -1921,6 +1921,15 @@ def save_solved_question():
         if not user_id:
             return jsonify({'error': 'User not authenticated'}), 401
         
+        # Convert timestamp to MySQL datetime format
+        if timestamp:
+            # Handle ISO 8601 format with 'Z' timezone
+            timestamp = timestamp.replace('Z', '+00:00')
+            from dateutil import parser
+            created_at = parser.parse(timestamp)
+        else:
+            created_at = datetime.now()
+        
         # Save to database
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -1928,7 +1937,7 @@ def save_solved_question():
         cursor.execute('''
             INSERT INTO question_bank (question_text, solution, source, subject, paper_id, textbook_id, chapter_name, user_id, created_at)
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-        ''', (question_text, solution, source, subject, paper_id, textbook_id, chapter_name, user_id, timestamp or datetime.now().isoformat()))
+        ''', (question_text, solution, source, subject, paper_id, textbook_id, chapter_name, user_id, created_at))
         
         conn.commit()
         question_id = cursor.lastrowid
