@@ -422,6 +422,28 @@ def get_user_papers(user_id):
         print(f"❌ Error fetching papers: {e}")
         return []
 
+def get_all_papers():
+    """Get ALL papers across all users"""
+    try:
+        container = get_cosmos_container('uploaded_papers')
+        
+        query = """
+            SELECT * FROM c 
+            WHERE c.type = 'paper'
+            ORDER BY c.uploaded_at DESC
+        """
+        
+        items = list(container.query_items(
+            query=query,
+            enable_cross_partition_query=True
+        ))
+        
+        return items
+        
+    except Exception as e:
+        print(f"❌ Error fetching all papers: {e}")
+        return []
+
 def get_paper_by_id(paper_id):
     """Get paper by ID"""
     try:
@@ -505,6 +527,28 @@ def get_textbooks_by_subject(subject):
         
     except Exception as e:
         print(f"❌ Error fetching textbooks: {e}")
+        return []
+
+def get_all_textbooks():
+    """Get ALL textbooks across all subjects"""
+    try:
+        container = get_cosmos_container('textbooks')
+        
+        query = """
+            SELECT * FROM c 
+            WHERE c.type = 'textbook'
+            ORDER BY c.uploaded_at DESC
+        """
+        
+        items = list(container.query_items(
+            query=query,
+            enable_cross_partition_query=True
+        ))
+        
+        return items
+        
+    except Exception as e:
+        print(f"❌ Error fetching all textbooks: {e}")
         return []
 
 def get_textbook_by_id(textbook_id):

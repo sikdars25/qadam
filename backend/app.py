@@ -29,11 +29,13 @@ try:
         # Uploaded Papers operations
         save_uploaded_paper,
         get_user_papers,
+        get_all_papers,
         get_paper_by_id,
         delete_paper,
         # Textbooks operations
         save_textbook,
         get_textbooks_by_subject,
+        get_all_textbooks,
         get_textbook_by_id,
         delete_textbook,
         # Usage Logs operations
@@ -914,25 +916,35 @@ def upload_paper():
 
 @app.route('/api/uploaded-papers', methods=['GET'])
 def get_uploaded_papers():
-    """Get all uploaded papers - Uses MySQL (Cosmos DB not suitable for this query)"""
+    """Get all uploaded papers - Uses Cosmos DB if enabled, falls back to MySQL"""
     try:
-        # Note: This endpoint returns ALL papers, not just user's papers
-        # Cosmos DB get_user_papers() only returns papers for specific user
-        # So we always use MySQL for this endpoint to maintain original behavior
+        papers = []
         
-        conn = get_db_connection()
-        cursor = conn.cursor(dictionary=True)
-        cursor.execute('''
-            SELECT p.*, u.full_name as uploaded_by_name 
-            FROM uploaded_papers p
-            LEFT JOIN users u ON p.user_id = u.id
-            ORDER BY p.created_at DESC
-        ''')
-        papers = cursor.fetchall()
-        cursor.close()
-        conn.close()
+        # Try Cosmos DB first
+        if COSMOS_DB_ENABLED:
+            try:
+                cosmos_papers = get_all_papers()
+                if cosmos_papers:
+                    papers = cosmos_papers
+                    print(f"✓ Fetched {len(papers)} papers from Cosmos DB")
+            except Exception as e:
+                print(f"⚠️ Cosmos DB query failed, falling back to MySQL: {e}")
         
-        print(f"✓ Fetched {len(papers)} papers from MySQL")
+        # Fallback to MySQL
+        if not papers:
+            conn = get_db_connection()
+            cursor = conn.cursor(dictionary=True)
+            cursor.execute('''
+                SELECT p.*, u.full_name as uploaded_by_name 
+                FROM uploaded_papers p
+                LEFT JOIN users u ON p.user_id = u.id
+                ORDER BY p.created_at DESC
+            ''')
+            papers = cursor.fetchall()
+            cursor.close()
+            conn.close()
+            print(f"✓ Fetched {len(papers)} papers from MySQL")
+        
         return jsonify(papers)
         
     except Exception as e:
@@ -1098,39 +1110,52 @@ def upload_textbook():
 
 @app.route('/api/textbooks', methods=['GET'])
 def get_textbooks():
-    """Get all textbooks - Uses MySQL (returns ALL textbooks with user info)"""
+    """Get all textbooks - Uses Cosmos DB if enabled, falls back to MySQL"""
     try:
         subject = request.args.get('subject')
+        textbooks = []
         
-        # Note: This endpoint returns ALL textbooks with LEFT JOIN to users
-        # Cosmos DB get_textbooks_by_subject() doesn't include user info
-        # So we always use MySQL for this endpoint to maintain original behavior
+        # Try Cosmos DB first
+        if COSMOS_DB_ENABLED:
+            try:
+                if subject:
+                    cosmos_textbooks = get_textbooks_by_subject(subject)
+                else:
+                    cosmos_textbooks = get_all_textbooks()
+                
+                if cosmos_textbooks:
+                    textbooks = cosmos_textbooks
+                    print(f"✓ Fetched {len(textbooks)} textbooks from Cosmos DB")
+            except Exception as e:
+                print(f"⚠️ Cosmos DB query failed, falling back to MySQL: {e}")
         
-        conn = get_db_connection()
-        cursor = conn.cursor(dictionary=True)
-        
-        if subject:
-            cursor.execute('''
-                SELECT t.*, u.full_name as uploaded_by_name 
-                FROM textbooks t
-                LEFT JOIN users u ON t.user_id = u.id
-                WHERE t.subject = %s
-                ORDER BY t.created_at DESC
-            ''', (subject,))
-        else:
-            cursor.execute('''
-                SELECT t.*, u.full_name as uploaded_by_name 
-                FROM textbooks t
-                LEFT JOIN users u ON t.user_id = u.id
-                ORDER BY t.created_at DESC
-            ''')
-        
-        textbooks = cursor.fetchall()
-        cursor.close()
-        conn.close()
+        # Fallback to MySQL
+        if not textbooks:
+            conn = get_db_connection()
+            cursor = conn.cursor(dictionary=True)
+            
+            if subject:
+                cursor.execute('''
+                    SELECT t.*, u.full_name as uploaded_by_name 
+                    FROM textbooks t
+                    LEFT JOIN users u ON t.user_id = u.id
+                    WHERE t.subject = %s
+                    ORDER BY t.created_at DESC
+                ''', (subject,))
+            else:
+                cursor.execute('''
+                    SELECT t.*, u.full_name as uploaded_by_name 
+                    FROM textbooks t
+                    LEFT JOIN users u ON t.user_id = u.id
+                    ORDER BY t.created_at DESC
+                ''')
+            
+            textbooks = cursor.fetchall()
+            cursor.close()
+            conn.close()
+            print(f"✓ Fetched {len(textbooks)} textbooks from MySQL")
         
         # Debug: Log textbook IDs
-        print(f"✓ Fetched {len(textbooks)} textbooks from MySQL")
         if textbooks:
             print(f"📚 Returning {len(textbooks)} textbooks")
             for tb in textbooks:
