@@ -1916,39 +1916,46 @@ def parse_questions(paper_id):
 
 @app.route('/api/parsed-questions', methods=['GET'])
 def get_parsed_questions():
-    """Get all parsed questions"""
+    """Get all parsed questions - MySQL only (parsed questions not yet in Cosmos DB)"""
     paper_id = request.args.get('paper_id')
     
-    conn = get_db_connection()
-    cursor = conn.cursor(dictionary=True)
-    
-    if paper_id:
-        print(f"📖 Fetching parsed questions for paper_id={paper_id}")
-        cursor.execute('''
-            SELECT pq.*, up.title as paper_title, up.subject
-            FROM parsed_questions pq
-            JOIN uploaded_papers up ON pq.paper_id = up.id
-            WHERE pq.paper_id = %s
-            ORDER BY CAST(pq.question_number AS UNSIGNED)
-        ''', (paper_id,))
-        questions = cursor.fetchall()
-        print(f"  Found {len(questions)} questions in database")
-    else:
-        cursor.execute('''
-            SELECT pq.*, up.title as paper_title, up.subject
-            FROM parsed_questions pq
-            JOIN uploaded_papers up ON pq.paper_id = up.id
-            ORDER BY pq.created_at DESC
-            LIMIT 100
-        ''')
-        questions = cursor.fetchall()
-    
-    cursor.close()
-    conn.close()
-    
-    print(f"📖 Returning {len(questions)} parsed questions for paper_id={paper_id if paper_id else 'all'}")
-    
-    return jsonify(questions)
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor(dictionary=True)
+        
+        if paper_id:
+            print(f"📖 Fetching parsed questions for paper_id={paper_id}")
+            cursor.execute('''
+                SELECT pq.*, up.title as paper_title, up.subject
+                FROM parsed_questions pq
+                JOIN uploaded_papers up ON pq.paper_id = up.id
+                WHERE pq.paper_id = %s
+                ORDER BY CAST(pq.question_number AS UNSIGNED)
+            ''', (paper_id,))
+            questions = cursor.fetchall()
+            print(f"  Found {len(questions)} questions in database")
+        else:
+            cursor.execute('''
+                SELECT pq.*, up.title as paper_title, up.subject
+                FROM parsed_questions pq
+                JOIN uploaded_papers up ON pq.paper_id = up.id
+                ORDER BY pq.created_at DESC
+                LIMIT 100
+            ''')
+            questions = cursor.fetchall()
+        
+        cursor.close()
+        conn.close()
+        
+        print(f"📖 Returning {len(questions)} parsed questions for paper_id={paper_id if paper_id else 'all'}")
+        
+        return jsonify(questions)
+        
+    except Exception as e:
+        print(f"⚠️ MySQL not available for parsed questions: {e}")
+        # Return empty array when MySQL is not available
+        # TODO: Migrate parsed questions to Cosmos DB
+        return jsonify([])
 
 @app.route('/api/diagram/<int:paper_id>/<filename>', methods=['GET'])
 def get_diagram(paper_id, filename):

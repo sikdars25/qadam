@@ -119,6 +119,28 @@ def load_vector_index(textbook_id):
         print(f"Error loading vector index: {e}")
         return None, None
 
+def load_textbook_chapters(textbook_id):
+    """Load chapters metadata for a textbook"""
+    try:
+        index, metadata = load_vector_index(textbook_id)
+        
+        if metadata is None:
+            print(f"⚠️ No metadata found for textbook {textbook_id}")
+            return None
+        
+        chapters = metadata.get('chapters', [])
+        
+        if not chapters:
+            print(f"⚠️ No chapters found in metadata for textbook {textbook_id}")
+            return None
+        
+        print(f"✓ Loaded {len(chapters)} chapters for textbook {textbook_id}")
+        return chapters
+        
+    except Exception as e:
+        print(f"Error loading textbook chapters: {e}")
+        return None
+
 def extract_text_from_pdf(pdf_path):
     """Extract text from PDF with page information, diagrams, and clean headers/footers"""
     try:
