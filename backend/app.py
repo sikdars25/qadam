@@ -294,20 +294,36 @@ def test_cosmos():
         if not COSMOS_DB_ENABLED:
             return jsonify({'error': 'Cosmos DB not enabled'}), 500
         
-        from cosmos_db import get_cosmos_container
+        from cosmos_db import get_cosmos_container, database
         container = get_cosmos_container('users')
         
-        # Query all users
-        query = "SELECT c.id, c.username, c.email FROM c"
+        # Get container properties
+        container_props = container.read()
+        partition_key_def = container_props.get('partitionKey', {})
+        
+        # Query all users with cross-partition
+        query = "SELECT c.id, c.username, c.email, c.password FROM c"
         items = list(container.query_items(
             query=query,
             enable_cross_partition_query=True
         ))
         
+        # Try to query with partition key
+        test_username = "student1"
+        query_with_pk = "SELECT * FROM c"
+        items_with_pk = list(container.query_items(
+            query=query_with_pk,
+            partition_key=test_username,
+            enable_cross_partition_query=False
+        ))
+        
         return jsonify({
             'cosmos_enabled': COSMOS_DB_ENABLED,
-            'user_count': len(items),
-            'users': items[:5]  # First 5 users
+            'partition_key_definition': partition_key_def,
+            'user_count_cross_partition': len(items),
+            'user_count_with_pk_student1': len(items_with_pk),
+            'users': items[:5],  # First 5 users
+            'test_query_result': items_with_pk[:1] if items_with_pk else []
         })
     except Exception as e:
         import traceback
