@@ -109,11 +109,17 @@ ALLOWED_ORIGINS = [
 
 # Configure CORS with specific settings for Azure
 CORS(app, 
-     resources={r"/api/*": {"origins": ALLOWED_ORIGINS}},
+     resources={
+         r"/api/*": {
+             "origins": ALLOWED_ORIGINS,
+             "supports_credentials": True,
+             "allow_credentials": True
+         }
+     },
      supports_credentials=True,
-     allow_headers=['Content-Type', 'Authorization', 'X-Requested-With'],
+     allow_headers=['Content-Type', 'Authorization', 'X-Requested-With', 'Cookie'],
      methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-     expose_headers=['Content-Type', 'Authorization'])
+     expose_headers=['Content-Type', 'Authorization', 'Set-Cookie'])
 
 # Debug: Print CORS configuration on startup
 print("=" * 50)
