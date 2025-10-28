@@ -1595,6 +1595,165 @@ def index_textbook(textbook_id):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/textbook-chapters/<textbook_id>', methods=['GET'])
+def get_textbook_chapters(textbook_id):
+    """Get chapters for a textbook (supports both UUID and integer IDs)"""
+    if not AI_ENABLED:
+        return jsonify({
+            'error': 'AI features not available. Please install dependencies first.'
+        }), 503
+    
+    try:
+        # Try to get textbook from Cosmos DB first
+        textbook = None
+        if COSMOS_DB_ENABLED:
+            try:
+                textbook = get_textbook_by_id(textbook_id)
+                if textbook:
+                    print(f"✓ Found textbook in Cosmos DB: {textbook.get('title')}")
+            except Exception as e:
+                print(f"⚠️ Cosmos DB query failed: {e}")
+        
+        # Fallback to MySQL if needed
+        if not textbook:
+            try:
+                # Try as integer first
+                try:
+                    textbook_id_int = int(textbook_id)
+                    conn = get_db_connection()
+                    cursor = conn.cursor(dictionary=True)
+                    cursor.execute('SELECT * FROM textbooks WHERE id = %s', (textbook_id_int,))
+                    textbook = cursor.fetchone()
+                    cursor.close()
+                    conn.close()
+                except ValueError:
+                    # Not an integer, skip MySQL
+                    pass
+            except Exception as mysql_error:
+                print(f"⚠️ MySQL not available: {mysql_error}")
+        
+        if not textbook:
+            return jsonify({'error': 'Textbook not found'}), 404
+        
+        # Check if textbook has been indexed
+        file_path = textbook.get('file_path')
+        if not file_path:
+            return jsonify({'error': 'Textbook file path not found'}), 404
+        
+        # Try to load chapters from vector index metadata
+        try:
+            from ai_service import load_textbook_chapters
+            chapters = load_textbook_chapters(textbook_id)
+            
+            if chapters:
+                return jsonify({
+                    'success': True,
+                    'chapters': chapters,
+                    'textbook_id': textbook_id,
+                    'title': textbook.get('title')
+                })
+            else:
+                return jsonify({
+                    'success': False,
+                    'message': 'Textbook not indexed yet. Please index it first.',
+                    'textbook_id': textbook_id
+                }), 404
+        except Exception as e:
+            print(f"Error loading chapters: {e}")
+            return jsonify({
+                'success': False,
+                'error': str(e),
+                'message': 'Failed to load chapters. Textbook may not be indexed.'
+            }), 500
+            
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/index-textbook/<textbook_id>', methods=['POST'])
+def index_textbook_uuid(textbook_id):
+    """Index a textbook for semantic search (supports both UUID and integer IDs)"""
+    if not AI_ENABLED:
+        return jsonify({
+            'error': 'AI features not available. Please install dependencies first.'
+        }), 503
+    
+    try:
+        # Try to get textbook from Cosmos DB first
+        textbook = None
+        if COSMOS_DB_ENABLED:
+            try:
+                textbook = get_textbook_by_id(textbook_id)
+                if textbook:
+                    print(f"✓ Found textbook in Cosmos DB: {textbook.get('title')}")
+            except Exception as e:
+                print(f"⚠️ Cosmos DB query failed: {e}")
+        
+        # Fallback to MySQL if needed
+        if not textbook:
+            try:
+                # Try as integer first
+                try:
+                    textbook_id_int = int(textbook_id)
+                    conn = get_db_connection()
+                    cursor = conn.cursor(dictionary=True)
+                    cursor.execute('SELECT * FROM textbooks WHERE id = %s', (textbook_id_int,))
+                    textbook = cursor.fetchone()
+                    cursor.close()
+                    conn.close()
+                except ValueError:
+                    # Not an integer, skip MySQL
+                    pass
+            except Exception as mysql_error:
+                print(f"⚠️ MySQL not available: {mysql_error}")
+        
+        if not textbook:
+            return jsonify({'error': 'Textbook not found'}), 404
+        
+        file_path = textbook.get('file_path')
+        if not file_path:
+            return jsonify({'error': 'Textbook file path not found'}), 404
+        
+        # Extract chapters and create vector index
+        from ai_service import extract_chapters_from_textbook
+        result = extract_chapters_from_textbook(file_path, textbook_id)
+        
+        # If extraction was successful, mark textbook as indexed
+        if result and 'error' not in result:
+            if COSMOS_DB_ENABLED:
+                try:
+                    # Update in Cosmos DB
+                    textbook['chapters_extracted'] = True
+                    # Note: You may need to implement update_textbook in cosmos_db.py
+                    print(f"✓ Marked textbook {textbook_id} as indexed in Cosmos DB")
+                except Exception as e:
+                    print(f"⚠️ Failed to update Cosmos DB: {e}")
+            
+            # Also try MySQL if available
+            try:
+                textbook_id_int = int(textbook_id)
+                conn = get_db_connection()
+                cursor = conn.cursor()
+                cursor.execute(
+                    'UPDATE textbooks SET chapters_extracted = 1 WHERE id = %s',
+                    (textbook_id_int,)
+                )
+                conn.commit()
+                cursor.close()
+                conn.close()
+                print(f"✓ Marked textbook {textbook_id} as indexed in MySQL")
+            except (ValueError, Exception) as e:
+                # Not an integer or MySQL not available
+                pass
+        
+        return jsonify(result)
+    
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/parse-questions/<int:paper_id>', methods=['POST'])
 def parse_questions(paper_id):
     """Parse questions from a paper using OCR + Groq AI"""
