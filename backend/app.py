@@ -1013,34 +1013,43 @@ def delete_paper_endpoint(paper_id):
         
         # Fallback to MySQL
         if not deleted:
-            conn = get_db_connection()
-            cursor = conn.cursor(dictionary=True)
-            
-            # Get paper info
-            cursor.execute(
-                'SELECT file_path FROM uploaded_papers WHERE id = %s',
-                (paper_id,)
-            )
-            paper = cursor.fetchone()
-            
-            if not paper:
+            try:
+                conn = get_db_connection()
+                cursor = conn.cursor(dictionary=True)
+                
+                # Get paper info
+                cursor.execute(
+                    'SELECT file_path FROM uploaded_papers WHERE id = %s',
+                    (paper_id,)
+                )
+                paper = cursor.fetchone()
+                
+                if not paper:
+                    cursor.close()
+                    conn.close()
+                    return jsonify({'error': 'Paper not found'}), 404
+                
+                file_path = paper['file_path']
+                
+                # Delete parsed questions
+                cursor.execute('DELETE FROM parsed_questions WHERE paper_id = %s', (paper_id,))
+                print(f"✓ Deleted parsed questions for paper {paper_id}")
+                
+                # Delete the paper record
+                cursor.execute('DELETE FROM uploaded_papers WHERE id = %s', (paper_id,))
+                conn.commit()
                 cursor.close()
                 conn.close()
-                return jsonify({'error': 'Paper not found'}), 404
-            
-            file_path = paper['file_path']
-            
-            # Delete parsed questions
-            cursor.execute('DELETE FROM parsed_questions WHERE paper_id = %s', (paper_id,))
-            print(f"✓ Deleted parsed questions for paper {paper_id}")
-            
-            # Delete the paper record
-            cursor.execute('DELETE FROM uploaded_papers WHERE id = %s', (paper_id,))
-            conn.commit()
-            cursor.close()
-            conn.close()
-            deleted = True
-            print(f"✓ Deleted paper from MySQL: {paper_id}")
+                deleted = True
+                print(f"✓ Deleted paper from MySQL: {paper_id}")
+            except Exception as mysql_error:
+                print(f"⚠️ MySQL not available: {mysql_error}")
+                # If both Cosmos DB and MySQL failed, return error
+                if not deleted:
+                    return jsonify({
+                        'error': 'Failed to delete paper - database unavailable',
+                        'message': 'Both Cosmos DB and MySQL are unavailable. Please try again later.'
+                    }), 503
         
         # Delete the physical file
         if file_path and os.path.exists(file_path):
@@ -1330,30 +1339,39 @@ def delete_textbook_endpoint(textbook_id):
         
         # Fallback to MySQL
         if not deleted:
-            conn = get_db_connection()
-            cursor = conn.cursor(dictionary=True)
-            
-            # Get textbook info
-            cursor.execute(
-                'SELECT file_path FROM textbooks WHERE id = %s',
-                (textbook_id,)
-            )
-            textbook = cursor.fetchone()
-            
-            if not textbook:
+            try:
+                conn = get_db_connection()
+                cursor = conn.cursor(dictionary=True)
+                
+                # Get textbook info
+                cursor.execute(
+                    'SELECT file_path FROM textbooks WHERE id = %s',
+                    (textbook_id,)
+                )
+                textbook = cursor.fetchone()
+                
+                if not textbook:
+                    cursor.close()
+                    conn.close()
+                    return jsonify({'error': 'Textbook not found'}), 404
+                
+                file_path = textbook['file_path']
+                
+                # Delete the textbook record
+                cursor.execute('DELETE FROM textbooks WHERE id = %s', (textbook_id,))
+                conn.commit()
                 cursor.close()
                 conn.close()
-                return jsonify({'error': 'Textbook not found'}), 404
-            
-            file_path = textbook['file_path']
-            
-            # Delete the textbook record
-            cursor.execute('DELETE FROM textbooks WHERE id = %s', (textbook_id,))
-            conn.commit()
-            cursor.close()
-            conn.close()
-            deleted = True
-            print(f"✓ Deleted textbook from MySQL: {textbook_id}")
+                deleted = True
+                print(f"✓ Deleted textbook from MySQL: {textbook_id}")
+            except Exception as mysql_error:
+                print(f"⚠️ MySQL not available: {mysql_error}")
+                # If both Cosmos DB and MySQL failed, return error
+                if not deleted:
+                    return jsonify({
+                        'error': 'Failed to delete textbook - database unavailable',
+                        'message': 'Both Cosmos DB and MySQL are unavailable. Please try again later.'
+                    }), 503
         
         # Delete the physical file
         if file_path and os.path.exists(file_path):
