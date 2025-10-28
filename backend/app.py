@@ -1004,10 +1004,15 @@ def delete_paper_endpoint(paper_id):
                 # Get paper info first
                 paper_doc = get_paper_by_id(paper_id)
                 if paper_doc:
+                    print(f"📄 Found paper in Cosmos DB: {paper_doc.get('title')}")
                     file_path = paper_doc.get('file_path')
                     deleted = delete_paper(paper_id, str(user_id))
                     if deleted:
                         print(f"✓ Deleted paper from Cosmos DB: {paper_id}")
+                    else:
+                        print(f"⚠️ Cosmos DB delete returned False for paper: {paper_id}")
+                else:
+                    print(f"⚠️ Paper not found in Cosmos DB: {paper_id}")
             except Exception as e:
                 print(f"⚠️ Cosmos DB delete failed, trying MySQL: {e}")
         
