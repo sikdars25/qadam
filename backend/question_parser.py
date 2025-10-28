@@ -741,10 +741,14 @@ def split_into_question_blocks_fixed(text):
     for idx, pattern in enumerate(patterns, 1):
         starts = list(re.finditer(pattern, text, re.MULTILINE))
         if starts:
-            q_nums = [int(m.group(1)) for m in starts if m.group(1).isdigit()]
-            pattern_matches[idx] = q_nums
-            print(f"  Pattern {idx} '{pattern[:40]}...': Found {len(starts)} matches (Q{min(q_nums) if q_nums else '?'}-Q{max(q_nums) if q_nums else '?'})")
-            all_starts.extend(starts)
+            try:
+                q_nums = [int(m.group(1)) for m in starts if m.group(1) and m.group(1).isdigit()]
+                pattern_matches[idx] = q_nums
+                print(f"  Pattern {idx} '{pattern[:40]}...': Found {len(starts)} matches (Q{min(q_nums) if q_nums else '?'}-Q{max(q_nums) if q_nums else '?'})")
+                all_starts.extend(starts)
+            except IndexError as e:
+                print(f"  ⚠ Pattern {idx} '{pattern[:40]}...' matched but has no group(1): {e}")
+                continue
         else:
             if idx <= 3:  # Only show first 3 patterns that don't match
                 print(f"  Pattern {idx}: No matches")
@@ -814,15 +818,19 @@ def split_into_question_blocks_fixed(text):
     duplicate_count = 0
     
     for match in filtered_starts:
-        q_num = int(match.group(1))
-        if q_num not in seen_q_numbers and q_num > 0:  # Ignore Q0
-            seen_q_numbers.add(q_num)
-            final_starts.append(match)
-        elif q_num in seen_q_numbers:
-            duplicate_count += 1
-            if duplicate_count <= 5:  # Only show first 5 duplicates
-                context = text[max(0, match.start()-20):min(len(text), match.start()+60)].replace('\n', ' ')
-                print(f"  ⚠ Skipping duplicate: Q{q_num} at position {match.start()} - '{context}'")
+        try:
+            q_num = int(match.group(1))
+            if q_num not in seen_q_numbers and q_num > 0:  # Ignore Q0
+                seen_q_numbers.add(q_num)
+                final_starts.append(match)
+            elif q_num in seen_q_numbers:
+                duplicate_count += 1
+                if duplicate_count <= 5:  # Only show first 5 duplicates
+                    context = text[max(0, match.start()-20):min(len(text), match.start()+60)].replace('\n', ' ')
+                    print(f"  ⚠ Skipping duplicate: Q{q_num} at position {match.start()} - '{context}'")
+        except (IndexError, ValueError) as e:
+            print(f"  ⚠ Skipping match with invalid group: {e}")
+            continue
     
     if duplicate_count > 5:
         print(f"  ⚠ Skipped {duplicate_count - 5} more duplicates...")
@@ -834,17 +842,28 @@ def split_into_question_blocks_fixed(text):
         print(f"  ⚠ No patterns matched! Trying aggressive scan...")
     
     if starts:
-        q_numbers = [int(m.group(1)) for m in starts]
+        q_numbers = []
+        for m in starts:
+            try:
+                if m.group(1):
+                    q_numbers.append(int(m.group(1)))
+            except (IndexError, ValueError):
+                continue
         q_numbers_sorted = sorted(q_numbers)
-        print(f"     Range: Q{min(q_numbers)} to Q{max(q_numbers)}")
-        print(f"     Question numbers (sorted): {q_numbers_sorted[:10]}")
+        
+        if q_numbers:
+            print(f"     Range: Q{min(q_numbers)} to Q{max(q_numbers)}")
+            print(f"     Question numbers (sorted): {q_numbers_sorted[:10]}")
         
         # Show positions for debugging duplicates
         if len(q_numbers) != len(set(q_numbers)):
             print(f"     📍 Question positions:")
             for m in starts[:10]:
-                q_num = int(m.group(1))
-                pos = m.start()
+                try:
+                    q_num = int(m.group(1))
+                    pos = m.start()
+                except (IndexError, ValueError):
+                    continue
                 context = text[max(0, pos-10):min(len(text), pos+40)].replace('\n', ' ')
                 print(f"        Q{q_num} at pos {pos}: '{context}'")
         
@@ -921,7 +940,13 @@ def split_into_question_blocks_fixed(text):
                 print(f"     ✓ Total questions now: {len(starts)}")
                 
                 # Update q_numbers list
-                q_numbers = [int(m.group(1)) for m in starts]
+                q_numbers = []
+                for m in starts:
+                    try:
+                        if m.group(1):
+                            q_numbers.append(int(m.group(1)))
+                    except (IndexError, ValueError):
+                        continue
                 q_numbers_sorted = sorted(q_numbers)
                 print(f"     ✓ Updated range: Q{min(q_numbers)} to Q{max(q_numbers)}")
                 print(f"     ✓ Updated question numbers: {q_numbers_sorted[:15]}{'...' if len(q_numbers_sorted) > 15 else ''}")
@@ -939,7 +964,11 @@ def split_into_question_blocks_fixed(text):
         
         # Extract blocks with FULL text including MCQ options
         for i, match in enumerate(starts):
-            q_num = int(match.group(1))
+            try:
+                q_num = int(match.group(1))
+            except (IndexError, ValueError) as e:
+                print(f"  ⚠ Skipping match {i} with invalid group: {e}")
+                continue
             start_pos = match.start()  # Include the question number
             
             # Find end position

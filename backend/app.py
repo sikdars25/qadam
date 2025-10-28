@@ -40,7 +40,15 @@ try:
         delete_textbook,
         # Usage Logs operations
         log_user_activity,
-        get_user_activity_logs
+        get_user_activity_logs,
+        # Parsed Questions operations
+        save_parsed_question,
+        get_parsed_questions_by_paper,
+        delete_parsed_questions_by_paper,
+        get_all_parsed_questions,
+        # AI Search Results operations
+        save_ai_search_results,
+        get_last_ai_search_result
     )
     COSMOS_DB_ENABLED = True
     print("✅ Cosmos DB enabled")
@@ -919,17 +927,56 @@ def upload_paper():
         file_size = os.path.getsize(filepath)
         print(f"✓ File size: {file_size} bytes")
         
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute(
-            'INSERT INTO uploaded_papers (title, subject, file_path, user_id) VALUES (%s, %s, %s, %s)',
-            (title, subject, filepath, user_id)
-        )
-        conn.commit()
-        paper_id = cursor.lastrowid
-        conn.close()
+        paper_id = None
+        saved = False
         
-        print(f"✓ Paper saved to database with ID: {paper_id}")
+        # Try Cosmos DB first
+        if COSMOS_DB_ENABLED:
+            try:
+                # Get additional metadata from form
+                board = request.form.get('board', 'CBSE')
+                year = request.form.get('year', datetime.now().year)
+                
+                paper_doc = save_uploaded_paper(
+                    user_id=str(user_id),
+                    title=title,
+                    subject=subject,
+                    board=board,
+                    year=year,
+                    file_path=filepath
+                )
+                
+                if paper_doc:
+                    paper_id = paper_doc.get('id')
+                    saved = True
+                    print(f"✓ Paper saved to Cosmos DB with ID: {paper_id}")
+            except Exception as e:
+                print(f"⚠️ Cosmos DB save failed, trying MySQL: {e}")
+        
+        # Fallback to MySQL
+        if not saved:
+            try:
+                conn = get_db_connection()
+                cursor = conn.cursor()
+                cursor.execute(
+                    'INSERT INTO uploaded_papers (title, subject, file_path, user_id) VALUES (%s, %s, %s, %s)',
+                    (title, subject, filepath, user_id)
+                )
+                conn.commit()
+                paper_id = cursor.lastrowid
+                conn.close()
+                saved = True
+                print(f"✓ Paper saved to MySQL with ID: {paper_id}")
+            except Exception as mysql_error:
+                print(f"⚠️ MySQL save failed: {mysql_error}")
+                # Clean up the uploaded file if database save failed
+                if os.path.exists(filepath):
+                    os.remove(filepath)
+                    print(f"✓ Cleaned up file: {filepath}")
+                return jsonify({
+                    'error': 'Failed to save paper metadata',
+                    'message': 'Database unavailable. Please try again later.'
+                }), 503
         
         return jsonify({
             'success': True,
@@ -1005,8 +1052,12 @@ def delete_paper_endpoint(paper_id):
                 paper_doc = get_paper_by_id(paper_id)
                 if paper_doc:
                     print(f"📄 Found paper in Cosmos DB: {paper_doc.get('title')}")
+                    print(f"📋 Paper document: {paper_doc}")
                     file_path = paper_doc.get('file_path')
-                    deleted = delete_paper(paper_id, str(user_id))
+                    # Use the user_id from the paper document as partition key
+                    paper_user_id = paper_doc.get('user_id')
+                    print(f"🔑 Using partition key user_id: {paper_user_id} (type: {type(paper_user_id).__name__})")
+                    deleted = delete_paper(paper_id, paper_user_id)
                     if deleted:
                         print(f"✓ Deleted paper from Cosmos DB: {paper_id}")
                     else:
@@ -1131,17 +1182,54 @@ def upload_textbook():
         file_size = os.path.getsize(filepath)
         print(f"✓ File size: {file_size} bytes")
         
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute(
-            'INSERT INTO textbooks (title, subject, file_path, user_id) VALUES (%s, %s, %s, %s)',
-            (title, subject, author, filepath, user_id)
-        )
-        conn.commit()
-        textbook_id = cursor.lastrowid
-        conn.close()
+        textbook_id = None
+        saved = False
         
-        print(f"✓ Textbook saved to database with ID: {textbook_id}")
+        # Try Cosmos DB first
+        if COSMOS_DB_ENABLED:
+            try:
+                # Get additional metadata from form
+                board = request.form.get('board', 'CBSE')
+                
+                textbook_doc = save_textbook(
+                    title=title,
+                    subject=subject,
+                    board=board,
+                    file_path=filepath,
+                    user_id=str(user_id) if user_id else None
+                )
+                
+                if textbook_doc:
+                    textbook_id = textbook_doc.get('id')
+                    saved = True
+                    print(f"✓ Textbook saved to Cosmos DB with ID: {textbook_id}")
+            except Exception as e:
+                print(f"⚠️ Cosmos DB save failed, trying MySQL: {e}")
+        
+        # Fallback to MySQL
+        if not saved:
+            try:
+                conn = get_db_connection()
+                cursor = conn.cursor()
+                cursor.execute(
+                    'INSERT INTO textbooks (title, subject, file_path, user_id) VALUES (%s, %s, %s, %s)',
+                    (title, subject, filepath, user_id)
+                )
+                conn.commit()
+                textbook_id = cursor.lastrowid
+                conn.close()
+                saved = True
+                print(f"✓ Textbook saved to MySQL with ID: {textbook_id}")
+            except Exception as mysql_error:
+                print(f"⚠️ MySQL save failed: {mysql_error}")
+                # Clean up the uploaded file if database save failed
+                if os.path.exists(filepath):
+                    os.remove(filepath)
+                    print(f"✓ Cleaned up file: {filepath}")
+                return jsonify({
+                    'error': 'Failed to save textbook metadata',
+                    'message': 'Database unavailable. Please try again later.'
+                }), 503
         
         return jsonify({
             'success': True,
@@ -1217,7 +1305,7 @@ def get_textbooks():
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
-@app.route('/api/textbook-pdf/<int:textbook_id>', methods=['GET'])
+@app.route('/api/textbook-pdf/<textbook_id>', methods=['GET'])
 def serve_textbook_pdf(textbook_id):
     """Serve textbook PDF file"""
     try:
@@ -1248,7 +1336,7 @@ def serve_textbook_pdf(textbook_id):
         print(f"Error serving textbook PDF: {e}")
         return jsonify({'error': str(e)}), 500
 
-@app.route('/api/textbook-page-image/<int:textbook_id>/<int:page_number>', methods=['GET'])
+@app.route('/api/textbook-page-image/<textbook_id>/<int:page_number>', methods=['GET'])
 def serve_textbook_page_image(textbook_id, page_number):
     """Serve textbook page as image (requires PDF to image conversion)"""
     try:
@@ -1395,7 +1483,7 @@ def delete_textbook_endpoint(textbook_id):
         print(f"Error deleting textbook: {e}")
         return jsonify({'error': str(e)}), 500
 
-@app.route('/api/textbook-file/<int:textbook_id>', methods=['GET'])
+@app.route('/api/textbook-file/<textbook_id>', methods=['GET'])
 def get_textbook_file(textbook_id):
     """Get textbook file info"""
     conn = get_db_connection()
@@ -1427,8 +1515,8 @@ def get_textbook_file(textbook_id):
         'author': textbook['author']
     })
 
-@app.route('/api/download-textbook/<int:textbook_id>', methods=['GET'])
-@app.route('/api/textbooks/<int:textbook_id>', methods=['GET'])
+@app.route('/api/download-textbook/<textbook_id>', methods=['GET'])
+@app.route('/api/textbooks/<textbook_id>', methods=['GET'])
 def download_textbook(textbook_id):
     """Serve textbook file"""
     conn = get_db_connection()
@@ -1451,7 +1539,7 @@ def download_textbook(textbook_id):
     
     return send_file(file_path, mimetype='application/pdf' if file_path.endswith('.pdf') else None)
 
-@app.route('/api/paper-file/<int:paper_id>', methods=['GET'])
+@app.route('/api/paper-file/<paper_id>', methods=['GET'])
 def get_paper_file(paper_id):
     """Get paper file for viewing"""
     conn = get_db_connection()
@@ -1483,7 +1571,7 @@ def get_paper_file(paper_id):
         'subject': paper['subject']
     })
 
-@app.route('/api/download-paper/<int:paper_id>', methods=['GET'])
+@app.route('/api/download-paper/<paper_id>', methods=['GET'])
 def download_paper(paper_id):
     """Download or serve paper file"""
     conn = get_db_connection()
@@ -1577,7 +1665,7 @@ def get_solution():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@app.route('/api/index-textbook/<int:textbook_id>', methods=['POST'])
+@app.route('/api/index-textbook/<textbook_id>', methods=['POST'])
 def index_textbook(textbook_id):
     """Index a textbook for semantic search"""
     if not AI_ENABLED:
@@ -1794,7 +1882,7 @@ def index_textbook_uuid(textbook_id):
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
-@app.route('/api/parse-questions/<int:paper_id>', methods=['POST'])
+@app.route('/api/parse-questions/<paper_id>', methods=['POST'])
 def parse_questions(paper_id):
     """Parse questions from a paper using OCR + Groq AI"""
     try:
@@ -1803,35 +1891,43 @@ def parse_questions(paper_id):
         import faiss
         import numpy as np
         
-        # Get paper details
-        conn = get_db_connection()
-        cursor = conn.cursor(dictionary=True)
-        cursor.execute(
-            'SELECT * FROM uploaded_papers WHERE id = %s',
-            (paper_id,)
-        )
-        paper = cursor.fetchone()
+        # Get paper details - Try Cosmos DB first
+        paper = None
+        file_path = None
+        
+        if COSMOS_DB_ENABLED:
+            try:
+                paper = get_paper_by_id(paper_id)
+                if paper:
+                    file_path = paper.get('file_path')
+                    print(f"✓ Found paper in Cosmos DB: {paper.get('title')}")
+            except Exception as e:
+                print(f"⚠️ Cosmos DB query failed: {e}")
+        
+        # Fallback to MySQL
+        if not paper:
+            try:
+                conn = get_db_connection()
+                cursor = conn.cursor(dictionary=True)
+                cursor.execute(
+                    'SELECT * FROM uploaded_papers WHERE id = %s',
+                    (paper_id,)
+                )
+                paper = cursor.fetchone()
+                cursor.close()
+                conn.close()
+                
+                if paper:
+                    file_path = paper['file_path']
+                    print(f"✓ Found paper in MySQL")
+            except Exception as mysql_error:
+                print(f"⚠️ MySQL query failed: {mysql_error}")
         
         if not paper:
-            cursor.close()
-            conn.close()
             return jsonify({'error': 'Paper not found'}), 404
         
-        file_path = paper['file_path']
-        
         if not os.path.exists(file_path):
-            cursor.close()
-            conn.close()
             return jsonify({'error': 'File not found'}), 404
-        
-        # CLEAN DATABASE: Delete existing parsed questions for this paper
-        print(f"🧹 Cleaning existing parsed questions for paper {paper_id}...")
-        cursor.execute(
-            'DELETE FROM parsed_questions WHERE paper_id = %s',
-            (paper_id,)
-        )
-        conn.commit()
-        print(f"✓ Deleted {deleted.rowcount} old questions")
         
         # Delete old FAISS index if exists
         faiss_index_path = f"./vector_db/paper_{paper_id}_questions.index"
@@ -1840,43 +1936,16 @@ def parse_questions(paper_id):
             print(f"✓ Deleted old FAISS index")
         
         # Parse the question paper
+        print(f"📄 Parsing question paper: {file_path}")
         result = parse_question_paper(file_path)
         
         if not result or result is None:
             return jsonify({'error': 'Failed to parse question paper'}), 500
         
         questions = result.get('questions', [])
+        print(f"✓ Parsed {len(questions)} questions from paper")
         
         # Store in FAISS vector database
-        # CLEANUP: Delete existing questions for this paper
-        print(f"\n🗑️ Cleaning up existing questions for paper_id={paper_id}...")
-        cursor = conn.execute('SELECT COUNT(*) FROM parsed_questions WHERE paper_id = ?', (paper_id,))
-        existing_count = cursor.fetchone()[0]
-        
-        if existing_count > 0:
-            print(f"  Found {existing_count} existing questions - deleting...")
-            conn.execute('DELETE FROM parsed_questions WHERE paper_id = %s', (paper_id,))
-            conn.commit()
-            
-            # Verify deletion
-            cursor = conn.execute('SELECT COUNT(*) FROM parsed_questions WHERE paper_id = ?', (paper_id,))
-            remaining = cursor.fetchone()[0]
-            if remaining == 0:
-                print(f"  ✓ Deleted {existing_count} old questions (verified: 0 remaining)")
-            else:
-                print(f"  ⚠ Warning: {remaining} questions still remain after deletion!")
-            
-            # Delete old FAISS index if it exists
-            old_index_path = f"./vector_db/paper_{paper_id}_questions.index"
-            if os.path.exists(old_index_path):
-                try:
-                    os.remove(old_index_path)
-                    print(f"  ✓ Deleted old FAISS index")
-                except:
-                    pass
-        else:
-            print(f"  No existing questions found")
-        
         if AI_ENABLED:
             try:
                 from ai_service import get_embedding_model
@@ -1901,46 +1970,96 @@ def parse_questions(paper_id):
             except Exception as e:
                 print(f"⚠ FAISS storage failed: {e}")
         
-        # Store in SQLite database
-        print(f"\n💾 Storing {len(questions)} NEW questions in database...")
-        for idx, q in enumerate(questions):
-            q_num = q.get('question_number', str(idx + 1))
-            q_text_preview = q.get('question_text', '')[:80]
-            
-            # Debug: Show first 5 questions
-            if idx < 5:
-                print(f"  Q{q_num}: {q_text_preview}...")
-            
-            # Store diagram files as JSON
-            diagram_files = json.dumps(q.get('diagram_files', []))
-            
-            conn.execute('''
-                INSERT INTO parsed_questions 
-                (paper_id, question_number, question_text, question_type, 
-                 sub_parts, has_diagram, marks, embedding_id, parsed_data)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ''', (
-                paper_id,
-                q_num,
-                q.get('question_text', ''),
-                q.get('question_type', 'unknown'),
-                json.dumps(q.get('sub_parts', [])),
-                1 if q.get('has_diagram', False) else 0,
-                q.get('marks'),
-                idx,
-                json.dumps(q)  # This includes diagram_files
-            ))
+        # Store in database - Try Cosmos DB first, fallback to MySQL
+        saved = False
         
-        print(f"✓ Stored all questions in database")
+        if COSMOS_DB_ENABLED:
+            try:
+                # Clean up existing questions for this paper
+                print(f"\n🧹 Cleaning existing parsed questions from Cosmos DB for paper {paper_id}...")
+                delete_parsed_questions_by_paper(paper_id)
+                
+                print(f"💾 Storing {len(questions)} questions in Cosmos DB...")
+                for idx, q in enumerate(questions):
+                    q_num = q.get('question_number', str(idx + 1))
+                    
+                    # Debug: Show first 5 questions
+                    if idx < 5:
+                        q_text_preview = q.get('question_text', '')[:80]
+                        print(f"  Q{q_num}: {q_text_preview}...")
+                    
+                    save_parsed_question(
+                        paper_id=paper_id,
+                        question_number=q_num,
+                        question_text=q.get('question_text', ''),
+                        question_type=q.get('question_type', 'unknown'),
+                        sub_parts=q.get('sub_parts', []),
+                        has_diagram=q.get('has_diagram', False),
+                        marks=q.get('marks'),
+                        embedding_id=idx,
+                        parsed_data=q  # Store full question data
+                    )
+                
+                # Verify storage
+                stored_questions = get_parsed_questions_by_paper(paper_id)
+                print(f"✅ Stored {len(stored_questions)} questions in Cosmos DB")
+                saved = True
+                
+            except Exception as cosmos_error:
+                print(f"⚠️ Cosmos DB storage failed: {cosmos_error}")
         
-        conn.commit()
+        # Fallback to MySQL if Cosmos DB failed or not enabled
+        if not saved:
+            try:
+                conn = get_db_connection()
+                cursor = conn.cursor()
+                
+                # Clean up existing questions for this paper
+                print(f"\n🧹 Cleaning existing parsed questions for paper {paper_id}...")
+                cursor.execute('DELETE FROM parsed_questions WHERE paper_id = %s', (paper_id,))
+                conn.commit()
+                
+                print(f"💾 Storing {len(questions)} NEW questions in MySQL...")
+                for idx, q in enumerate(questions):
+                    q_num = q.get('question_number', str(idx + 1))
+                    
+                    # Debug: Show first 5 questions
+                    if idx < 5:
+                        q_text_preview = q.get('question_text', '')[:80]
+                        print(f"  Q{q_num}: {q_text_preview}...")
+                    
+                    cursor.execute('''
+                        INSERT INTO parsed_questions 
+                        (paper_id, question_number, question_text, question_type, 
+                         sub_parts, has_diagram, marks, embedding_id, parsed_data)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    ''', (
+                        paper_id,
+                        q_num,
+                        q.get('question_text', ''),
+                        q.get('question_type', 'unknown'),
+                        json.dumps(q.get('sub_parts', [])),
+                        1 if q.get('has_diagram', False) else 0,
+                        q.get('marks'),
+                        idx,
+                        json.dumps(q)  # This includes diagram_files
+                    ))
+                
+                conn.commit()
+                
+                # Final verification
+                cursor.execute('SELECT COUNT(*) FROM parsed_questions WHERE paper_id = %s', (paper_id,))
+                final_count = cursor.fetchone()[0]
+                print(f"✅ Stored {final_count} questions in MySQL")
+                
+                cursor.close()
+                conn.close()
+                saved = True
+            except Exception as db_error:
+                print(f"⚠️ MySQL storage failed: {db_error}")
         
-        # Final verification - show what's in database
-        cursor = conn.execute('SELECT COUNT(*) FROM parsed_questions WHERE paper_id = ?', (paper_id,))
-        final_count = cursor.fetchone()[0]
-        print(f"\n✅ FINAL: Database now has {final_count} questions for paper_id={paper_id}")
-        
-        conn.close()
+        if not saved:
+            print(f"⚠️ WARNING: Questions stored in FAISS only, not in database!")
         
         return jsonify({
             'success': True,
@@ -1956,76 +2075,111 @@ def parse_questions(paper_id):
 
 @app.route('/api/parsed-questions', methods=['GET'])
 def get_parsed_questions():
-    """Get all parsed questions - MySQL only (parsed questions not yet in Cosmos DB)"""
+    """Get all parsed questions - Uses Cosmos DB if enabled, falls back to MySQL"""
     paper_id = request.args.get('paper_id')
+    questions = []
     
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor(dictionary=True)
-        
-        if paper_id:
-            print(f"📖 Fetching parsed questions for paper_id={paper_id}")
-            cursor.execute('''
-                SELECT pq.*, up.title as paper_title, up.subject
-                FROM parsed_questions pq
-                JOIN uploaded_papers up ON pq.paper_id = up.id
-                WHERE pq.paper_id = %s
-                ORDER BY CAST(pq.question_number AS UNSIGNED)
-            ''', (paper_id,))
-            questions = cursor.fetchall()
-            print(f"  Found {len(questions)} questions in database")
-        else:
-            cursor.execute('''
-                SELECT pq.*, up.title as paper_title, up.subject
-                FROM parsed_questions pq
-                JOIN uploaded_papers up ON pq.paper_id = up.id
-                ORDER BY pq.created_at DESC
-                LIMIT 100
-            ''')
-            questions = cursor.fetchall()
-        
-        cursor.close()
-        conn.close()
-        
-        print(f"📖 Returning {len(questions)} parsed questions for paper_id={paper_id if paper_id else 'all'}")
-        
-        return jsonify(questions)
-        
-    except Exception as e:
-        print(f"⚠️ MySQL not available for parsed questions: {e}")
-        # Return empty array when MySQL is not available
-        # TODO: Migrate parsed questions to Cosmos DB
-        return jsonify([])
+    # Try Cosmos DB first
+    if COSMOS_DB_ENABLED:
+        try:
+            if paper_id:
+                print(f"📖 Fetching parsed questions from Cosmos DB for paper_id={paper_id}")
+                questions = get_parsed_questions_by_paper(paper_id)
+                print(f"  Found {len(questions)} questions in Cosmos DB")
+            else:
+                print(f"📖 Fetching all parsed questions from Cosmos DB")
+                questions = get_all_parsed_questions()
+                print(f"  Found {len(questions)} questions in Cosmos DB")
+        except Exception as e:
+            print(f"⚠️ Cosmos DB query failed: {e}")
+    
+    # Fallback to MySQL if no questions found
+    if not questions:
+        try:
+            conn = get_db_connection()
+            cursor = conn.cursor(dictionary=True)
+            
+            if paper_id:
+                print(f"📖 Fetching parsed questions from MySQL for paper_id={paper_id}")
+                cursor.execute('''
+                    SELECT pq.*, up.title as paper_title, up.subject
+                    FROM parsed_questions pq
+                    JOIN uploaded_papers up ON pq.paper_id = up.id
+                    WHERE pq.paper_id = %s
+                    ORDER BY CAST(pq.question_number AS UNSIGNED)
+                ''', (paper_id,))
+                questions = cursor.fetchall()
+                print(f"  Found {len(questions)} questions in MySQL")
+            else:
+                cursor.execute('''
+                    SELECT pq.*, up.title as paper_title, up.subject
+                    FROM parsed_questions pq
+                    JOIN uploaded_papers up ON pq.paper_id = up.id
+                    ORDER BY pq.created_at DESC
+                    LIMIT 100
+                ''')
+                questions = cursor.fetchall()
+            
+            cursor.close()
+            conn.close()
+            
+        except Exception as e:
+            print(f"⚠️ MySQL not available for parsed questions: {e}")
+    
+    print(f"📖 Returning {len(questions)} parsed questions for paper_id={paper_id if paper_id else 'all'}")
+    return jsonify(questions)
 
-@app.route('/api/diagram/<int:paper_id>/<filename>', methods=['GET'])
+@app.route('/api/diagram/<paper_id>/<filename>', methods=['GET'])
 def get_diagram(paper_id, filename):
     """Serve diagram file"""
     try:
-        # Get paper to find its directory
-        conn = get_db_connection()
-        cursor = conn.cursor(dictionary=True)
-        cursor.execute(
-            'SELECT file_path FROM uploaded_papers WHERE id = %s',
-            (paper_id,)
-        )
-        paper = cursor.fetchone()
-        cursor.close()
-        conn.close()
+        # Get paper to find its directory - Try Cosmos DB first
+        paper = None
+        file_path = None
         
+        if COSMOS_DB_ENABLED:
+            try:
+                paper = get_paper_by_id(paper_id)
+                if paper:
+                    file_path = paper.get('file_path')
+            except Exception as e:
+                print(f"⚠️ Cosmos DB query failed: {e}")
+        
+        # Fallback to MySQL
         if not paper:
+            try:
+                conn = get_db_connection()
+                cursor = conn.cursor(dictionary=True)
+                cursor.execute(
+                    'SELECT file_path FROM uploaded_papers WHERE id = %s',
+                    (paper_id,)
+                )
+                paper = cursor.fetchone()
+                cursor.close()
+                conn.close()
+                
+                if paper:
+                    file_path = paper['file_path']
+            except Exception as mysql_error:
+                print(f"⚠️ MySQL query failed: {mysql_error}")
+        
+        if not paper or not file_path:
             return jsonify({'error': 'Paper not found'}), 404
         
         # Construct diagram path
-        paper_dir = os.path.dirname(paper['file_path'])
+        paper_dir = os.path.dirname(file_path)
         diagram_path = os.path.join(paper_dir, 'diagrams', filename)
         
         if not os.path.exists(diagram_path):
-            return jsonify({'error': 'Diagram not found'}), 404
+            return jsonify({'error': f'Diagram not found: {diagram_path}'}), 404
         
         # Serve the diagram file
-        return send_file(diagram_path, mimetype='image/png')
+        return send_file(diagram_path, mimetype='image/jpeg')
         
     except Exception as e:
+        print(f"❌ Error serving diagram: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/clean-duplicates', methods=['POST'])
@@ -2195,7 +2349,7 @@ def parse_single_question():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/save-ai-search-results', methods=['POST'])
-def save_ai_search_results():
+def save_ai_search_results_endpoint():
     """Save AI search results to database"""
     import json  # Explicit import to avoid scope issues
     try:
@@ -2212,32 +2366,70 @@ def save_ai_search_results():
         total_questions = sum(len(data['questions']) for data in search_results.values())
         unmatched_count = len(search_results.get('Unmatched Questions', {}).get('questions', []))
         
-        conn = get_db_connection()
-        cursor = conn.cursor()
+        saved = False
         
-        # Delete old results for this paper-textbook combination
-        cursor.execute('''
-            DELETE FROM ai_search_results 
-            WHERE paper_id = %s AND textbook_id = %s
-        ''', (paper_id, textbook_id))
+        # Try Cosmos DB first
+        if COSMOS_DB_ENABLED:
+            try:
+                result = save_ai_search_results(
+                    paper_id=paper_id,
+                    textbook_id=textbook_id,
+                    search_results=search_results,
+                    total_chapters=total_chapters,
+                    total_questions=total_questions,
+                    unmatched_count=unmatched_count
+                )
+                if result:
+                    saved = True
+                    return jsonify({
+                        'success': True,
+                        'message': 'Search results saved to Cosmos DB successfully'
+                    })
+            except Exception as cosmos_error:
+                print(f"⚠️ Cosmos DB save failed: {cosmos_error}")
         
-        # Insert new results
-        cursor.execute('''
-            INSERT INTO ai_search_results 
-            (paper_id, textbook_id, search_results, total_chapters, total_questions, unmatched_count)
-            VALUES (%s, %s, %s, %s, %s, %s)
-        ''', (
-            paper_id,
-            textbook_id,
-            json.dumps(search_results),
-            total_chapters,
-            total_questions,
-            unmatched_count
-        ))
+        # Fallback to MySQL
+        if not saved:
+            try:
+                conn = get_db_connection()
+                cursor = conn.cursor()
+                
+                # Delete old results for this paper-textbook combination
+                cursor.execute('''
+                    DELETE FROM ai_search_results 
+                    WHERE paper_id = %s AND textbook_id = %s
+                ''', (paper_id, textbook_id))
+                
+                # Insert new results
+                cursor.execute('''
+                    INSERT INTO ai_search_results 
+                    (paper_id, textbook_id, search_results, total_chapters, total_questions, unmatched_count)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                ''', (
+                    paper_id,
+                    textbook_id,
+                    json.dumps(search_results),
+                    total_chapters,
+                    total_questions,
+                    unmatched_count
+                ))
+                
+                conn.commit()
+                cursor.close()
+                conn.close()
+                saved = True
+                
+                return jsonify({
+                    'success': True,
+                    'message': 'Search results saved to MySQL successfully'
+                })
+            except Exception as mysql_error:
+                print(f"⚠️ MySQL save failed: {mysql_error}")
         
-        conn.commit()
-        cursor.close()
-        conn.close()
+        if not saved:
+            return jsonify({
+                'error': 'Failed to save search results - no database available'
+            }), 503
         
         return jsonify({
             'success': True,
@@ -2260,41 +2452,57 @@ def get_last_ai_search():
         if not paper_id or not textbook_id:
             return jsonify({'error': 'Missing paper_id or textbook_id'}), 400
         
-        try:
-            conn = get_db_connection()
-            cursor = conn.cursor(dictionary=True)
-            cursor.execute('''
-                SELECT search_results, total_chapters, total_questions, unmatched_count, created_at
-                FROM ai_search_results
-                WHERE paper_id = %s AND textbook_id = %s
-                ORDER BY created_at DESC
-                LIMIT 1
-            ''', (paper_id, textbook_id))
-            result = cursor.fetchone()
-            cursor.close()
-            conn.close()
-            
-            if result:
-                return jsonify({
-                    'success': True,
-                    'search_results': json.loads(result['search_results']),
-                    'total_chapters': result['total_chapters'],
-                    'total_questions': result['total_questions'],
-                    'unmatched_count': result['unmatched_count'],
-                    'created_at': result['created_at']
-                })
-            else:
-                return jsonify({
-                    'success': False,
-                    'message': 'No previous search results found'
-                }), 404
-        except Exception as db_error:
-            print(f"⚠️ MySQL not available for AI search results: {db_error}")
-            # Return empty result when MySQL is not available
-            return jsonify({
-                'success': False,
-                'message': 'No previous search results found (MySQL not available)'
-            }), 404
+        result = None
+        
+        # Try Cosmos DB first
+        if COSMOS_DB_ENABLED:
+            try:
+                result = get_last_ai_search_result(paper_id, textbook_id)
+                if result:
+                    return jsonify({
+                        'success': True,
+                        'search_results': result.get('search_results'),  # Already an object in Cosmos DB
+                        'total_chapters': result.get('total_chapters'),
+                        'total_questions': result.get('total_questions'),
+                        'unmatched_count': result.get('unmatched_count'),
+                        'created_at': result.get('created_at')
+                    })
+            except Exception as cosmos_error:
+                print(f"⚠️ Cosmos DB query failed: {cosmos_error}")
+        
+        # Fallback to MySQL
+        if not result:
+            try:
+                conn = get_db_connection()
+                cursor = conn.cursor(dictionary=True)
+                cursor.execute('''
+                    SELECT search_results, total_chapters, total_questions, unmatched_count, created_at
+                    FROM ai_search_results
+                    WHERE paper_id = %s AND textbook_id = %s
+                    ORDER BY created_at DESC
+                    LIMIT 1
+                ''', (paper_id, textbook_id))
+                result = cursor.fetchone()
+                cursor.close()
+                conn.close()
+                
+                if result:
+                    return jsonify({
+                        'success': True,
+                        'search_results': json.loads(result['search_results']),  # JSON string in MySQL
+                        'total_chapters': result['total_chapters'],
+                        'total_questions': result['total_questions'],
+                        'unmatched_count': result['unmatched_count'],
+                        'created_at': result['created_at']
+                    })
+            except Exception as db_error:
+                print(f"⚠️ MySQL not available for AI search results: {db_error}")
+        
+        # No results found in either database
+        return jsonify({
+            'success': False,
+            'message': 'No previous search results found'
+        }), 404
             
     except Exception as e:
         import traceback

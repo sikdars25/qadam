@@ -31,7 +31,8 @@ CONTAINERS = {
     'textbooks': 'textbooks',
     'question_bank': 'question_bank',
     'usage_logs': 'usage_logs',
-    'ai_search_results': 'ai_search_results'
+    'ai_search_results': 'ai_search_results',
+    'parsed_questions': 'parsed_questions'
 }
 
 def init_cosmos_db():
@@ -76,6 +77,11 @@ def init_cosmos_db():
                 'id': 'ai_search_results',
                 'partition_key': PartitionKey(path="/paper_id"),
                 'description': 'AI-powered search results'
+            },
+            {
+                'id': 'parsed_questions',
+                'partition_key': PartitionKey(path="/paper_id"),
+                'description': 'Parsed questions from uploaded papers'
             }
         ]
         
@@ -468,11 +474,19 @@ def delete_paper(paper_id, user_id):
     """Delete a paper"""
     try:
         container = get_cosmos_container('uploaded_papers')
+        print(f"🔍 Attempting to delete paper_id={paper_id} with partition_key={user_id}")
         container.delete_item(item=paper_id, partition_key=user_id)
         print(f"✅ Paper deleted: {paper_id}")
         return True
+    except exceptions.CosmosResourceNotFoundError as e:
+        print(f"❌ Paper not found in Cosmos DB: {paper_id}, partition_key={user_id}")
+        print(f"   Error details: {e}")
+        return False
     except Exception as e:
         print(f"❌ Error deleting paper: {e}")
+        print(f"   Error type: {type(e).__name__}")
+        import traceback
+        traceback.print_exc()
         return False
 
 # ============================================================================
@@ -632,3 +646,201 @@ def get_user_activity_logs(user_id, limit=100):
     except Exception as e:
         print(f"❌ Error fetching logs: {e}")
         return []
+
+# ============================================================================
+# PARSED QUESTIONS OPERATIONS
+# ============================================================================
+
+def save_parsed_question(paper_id, question_number, question_text, question_type='unknown',
+                         sub_parts=None, has_diagram=False, marks=None, embedding_id=None, 
+                         parsed_data=None):
+    """Save a parsed question from a paper"""
+    try:
+        container = get_cosmos_container('parsed_questions')
+        
+        question_id = str(uuid.uuid4())
+        
+        question_doc = {
+            'id': question_id,
+            'paper_id': paper_id,  # Partition key
+            'question_number': str(question_number),
+            'question_text': question_text,
+            'question_type': question_type,
+            'sub_parts': sub_parts or [],
+            'has_diagram': has_diagram,
+            'marks': marks,
+            'embedding_id': embedding_id,
+            'parsed_data': parsed_data,
+            'created_at': datetime.utcnow().isoformat(),
+            'type': 'parsed_question'
+        }
+        
+        created = container.create_item(body=question_doc)
+        return created
+        
+    except Exception as e:
+        print(f"❌ Error saving parsed question: {e}")
+        return None
+
+def get_parsed_questions_by_paper(paper_id):
+    """Get all parsed questions for a paper"""
+    try:
+        container = get_cosmos_container('parsed_questions')
+        
+        query = """
+            SELECT * FROM c 
+            WHERE c.paper_id = @paper_id AND c.type = 'parsed_question'
+            ORDER BY c.question_number
+        """
+        parameters = [{"name": "@paper_id", "value": paper_id}]
+        
+        items = list(container.query_items(
+            query=query,
+            parameters=parameters,
+            enable_cross_partition_query=False
+        ))
+        
+        # Convert parsed_data objects to JSON strings for frontend compatibility
+        import json
+        for item in items:
+            if item.get('parsed_data') and isinstance(item['parsed_data'], dict):
+                item['parsed_data'] = json.dumps(item['parsed_data'])
+            if item.get('sub_parts') and isinstance(item['sub_parts'], list):
+                item['sub_parts'] = json.dumps(item['sub_parts'])
+        
+        print(f"✓ Found {len(items)} parsed questions in Cosmos DB for paper {paper_id}")
+        return items
+        
+    except exceptions.CosmosResourceNotFoundError:
+        print(f"⚠️ Parsed questions container not found - please restart the server to initialize")
+        return []
+    except Exception as e:
+        print(f"❌ Error fetching parsed questions: {e}")
+        return []
+
+def delete_parsed_questions_by_paper(paper_id):
+    """Delete all parsed questions for a paper"""
+    try:
+        container = get_cosmos_container('parsed_questions')
+        
+        # First, get all questions for this paper
+        questions = get_parsed_questions_by_paper(paper_id)
+        
+        # Delete each question
+        deleted_count = 0
+        for question in questions:
+            try:
+                container.delete_item(item=question['id'], partition_key=paper_id)
+                deleted_count += 1
+            except Exception as e:
+                print(f"⚠️ Error deleting question {question['id']}: {e}")
+        
+        print(f"✅ Deleted {deleted_count} parsed questions for paper {paper_id}")
+        return deleted_count
+        
+    except Exception as e:
+        print(f"❌ Error deleting parsed questions: {e}")
+        return 0
+
+def get_all_parsed_questions():
+    """Get all parsed questions across all papers"""
+    try:
+        container = get_cosmos_container('parsed_questions')
+        
+        query = """
+            SELECT * FROM c 
+            WHERE c.type = 'parsed_question'
+            ORDER BY c.created_at DESC
+        """
+        
+        items = list(container.query_items(
+            query=query,
+            enable_cross_partition_query=True
+        ))
+        
+        # Convert parsed_data objects to JSON strings for frontend compatibility
+        import json
+        for item in items:
+            if item.get('parsed_data') and isinstance(item['parsed_data'], dict):
+                item['parsed_data'] = json.dumps(item['parsed_data'])
+            if item.get('sub_parts') and isinstance(item['sub_parts'], list):
+                item['sub_parts'] = json.dumps(item['sub_parts'])
+        
+        print(f"✓ Found {len(items)} total parsed questions in Cosmos DB")
+        return items
+        
+    except exceptions.CosmosResourceNotFoundError:
+        print(f"⚠️ Parsed questions container not found - please restart the server to initialize")
+        return []
+    except Exception as e:
+        print(f"❌ Error fetching all parsed questions: {e}")
+        return []
+
+# ============================================================================
+# AI SEARCH RESULTS OPERATIONS
+# ============================================================================
+
+def save_ai_search_results(paper_id, textbook_id, search_results, total_chapters=0, 
+                           total_questions=0, unmatched_count=0):
+    """Save AI search results for a paper-textbook combination"""
+    try:
+        container = get_cosmos_container('ai_search_results')
+        
+        result_id = str(uuid.uuid4())
+        
+        result_doc = {
+            'id': result_id,
+            'paper_id': paper_id,  # Partition key
+            'textbook_id': textbook_id,
+            'search_results': search_results,  # Store as object, not JSON string
+            'total_chapters': total_chapters,
+            'total_questions': total_questions,
+            'unmatched_count': unmatched_count,
+            'created_at': datetime.utcnow().isoformat(),
+            'type': 'ai_search_result'
+        }
+        
+        created = container.create_item(body=result_doc)
+        print(f"✓ Saved AI search results for paper {paper_id} + textbook {textbook_id}")
+        return created
+        
+    except Exception as e:
+        print(f"❌ Error saving AI search results: {e}")
+        return None
+
+def get_last_ai_search_result(paper_id, textbook_id):
+    """Get the most recent AI search result for a paper-textbook combination"""
+    try:
+        container = get_cosmos_container('ai_search_results')
+        
+        query = """
+            SELECT TOP 1 * FROM c 
+            WHERE c.paper_id = @paper_id 
+            AND c.textbook_id = @textbook_id 
+            AND c.type = 'ai_search_result'
+            ORDER BY c.created_at DESC
+        """
+        parameters = [
+            {"name": "@paper_id", "value": paper_id},
+            {"name": "@textbook_id", "value": textbook_id}
+        ]
+        
+        items = list(container.query_items(
+            query=query,
+            parameters=parameters,
+            enable_cross_partition_query=False
+        ))
+        
+        if items:
+            print(f"✓ Found AI search result for paper {paper_id} + textbook {textbook_id}")
+            return items[0]
+        else:
+            print(f"⚠️ No AI search results found for paper {paper_id} + textbook {textbook_id}")
+            return None
+        
+    except exceptions.CosmosResourceNotFoundError:
+        print(f"⚠️ AI search results container not found")
+        return None
+    except Exception as e:
+        print(f"❌ Error fetching AI search result: {e}")
+        return None
