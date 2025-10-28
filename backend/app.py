@@ -1715,6 +1715,19 @@ def index_textbook_uuid(textbook_id):
         if not file_path:
             return jsonify({'error': 'Textbook file path not found'}), 404
         
+        # Check if file exists
+        if not os.path.exists(file_path):
+            # Try with backend prefix
+            backend_path = os.path.join('backend', file_path)
+            if os.path.exists(backend_path):
+                file_path = backend_path
+            else:
+                return jsonify({
+                    'error': f'Textbook file not found: {file_path}',
+                    'message': 'The PDF file needs to be uploaded before indexing.',
+                    'file_path': file_path
+                }), 404
+        
         # Extract chapters and create vector index
         from ai_service import extract_chapters_from_textbook
         result = extract_chapters_from_textbook(file_path, textbook_id)
