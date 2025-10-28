@@ -128,6 +128,21 @@ print(f"Allowed Origins: {ALLOWED_ORIGINS}")
 print(f"Supports Credentials: True")
 print("=" * 50)
 
+# Add after_request handler to ensure CORS headers are always set
+@app.after_request
+def after_request(response):
+    """Ensure CORS headers are set on all responses"""
+    origin = request.headers.get('Origin')
+    
+    # Check if origin is allowed
+    if origin in ALLOWED_ORIGINS:
+        response.headers['Access-Control-Allow-Origin'] = origin
+        response.headers['Access-Control-Allow-Credentials'] = 'true'
+        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Requested-With, Cookie'
+        response.headers['Access-Control-Expose-Headers'] = 'Content-Type, Authorization, Set-Cookie'
+    
+    return response
 
 # Configuration
 UPLOAD_FOLDER = 'uploads'
