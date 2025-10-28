@@ -64,3 +64,20 @@ htmlcov/
 # Backup files
 *.bak
 *.backup
+*.sql
+*.json.backup
+mysql_backup_*.sql
+mysql_backup_*.json
+qadam_academic_backup_*.sql
+
+# Test files
+app_cosmos.py
+test_cosmos_login.py
+cookies.txt
+
+# Large dependencies (should be in venv)
+*.dll
+*.lib
+*.pyd
+*.so
+*.dylib

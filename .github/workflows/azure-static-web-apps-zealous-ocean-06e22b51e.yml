@@ -22,6 +22,25 @@ jobs:
         with:
           submodules: true
           lfs: false
+      
+      - name: Clean backend directory
+        run: |
+          # Remove virtual environments
+          rm -rf backend/venv backend/env backend/ENV backend/.venv
+          # Remove large data files
+          rm -rf backend/uploads backend/textbooks backend/diagrams
+          rm -rf backend/vector_db backend/vector_indices
+          # Remove backup files
+          rm -f backend/*.sql backend/*.json.backup backend/*.bak
+          rm -f backend/mysql_backup_*.sql backend/mysql_backup_*.json
+          rm -f backend/qadam_academic_backup_*.sql
+          # Remove test files
+          rm -f backend/app_cosmos.py backend/test_*.py backend/*_test.py
+          rm -f backend/cookies.txt
+          # Remove Python cache
+          rm -rf backend/__pycache__
+          echo "Backend directory cleaned for deployment"
+      
       - name: Install OIDC Client from Core Package
         run: npm install @actions/core@1.6.0 @actions/http-client
       - name: Get Id Token
