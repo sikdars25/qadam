@@ -23,11 +23,11 @@ AZURE_ENDPOINT = os.getenv('COSMOS_ENDPOINT')
 AZURE_KEY = os.getenv('COSMOS_KEY')
 AZURE_DATABASE = os.getenv('COSMOS_DATABASE', 'qadam')
 
-# Container configurations with partition keys
+# Container configurations with partition keys (must match cosmos_db.py)
 CONTAINERS = {
-    'users': '/user_id',
-    'uploaded_papers': '/paper_id',
-    'textbooks': '/textbook_id',
+    'users': '/username',
+    'uploaded_papers': '/user_id',
+    'textbooks': '/subject',
     'question_bank': '/user_id',
     'usage_logs': '/user_id',
     'parsed_questions': '/paper_id',

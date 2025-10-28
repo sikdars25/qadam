@@ -58,9 +58,9 @@ The script migrates all containers and their documents:
 
 | Container | Partition Key | Description |
 |-----------|---------------|-------------|
-| `users` | `/user_id` | User accounts and authentication |
-| `uploaded_papers` | `/paper_id` | Question papers uploaded by users |
-| `textbooks` | `/textbook_id` | Textbooks for different subjects |
+| `users` | `/username` | User accounts and authentication |
+| `uploaded_papers` | `/user_id` | Question papers uploaded by users |
+| `textbooks` | `/subject` | Textbooks for different subjects |
 | `question_bank` | `/user_id` | Saved questions and solutions |
 | `usage_logs` | `/user_id` | User activity logs |
 | `parsed_questions` | `/paper_id` | Parsed questions from papers |
