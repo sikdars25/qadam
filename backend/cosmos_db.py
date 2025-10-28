@@ -154,14 +154,16 @@ def get_user_by_username(username):
     try:
         container = get_cosmos_container('users')
         
-        # Query by username (partition key makes this efficient)
-        query = "SELECT * FROM c WHERE c.username = @username AND c.type = 'user'"
+        # Query by username (partition key)
+        # Since username is the partition key, we can query efficiently
+        query = "SELECT * FROM c WHERE c.username = @username"
         parameters = [{"name": "@username", "value": username}]
         
         items = list(container.query_items(
             query=query,
             parameters=parameters,
-            enable_cross_partition_query=False  # Efficient since we're using partition key
+            partition_key=username,  # Use partition key for efficient query
+            enable_cross_partition_query=False
         ))
         
         if items:
@@ -174,6 +176,8 @@ def get_user_by_username(username):
             
     except Exception as e:
         print(f"❌ Error fetching user: {e}")
+        import traceback
+        traceback.print_exc()
         return None
 
 def get_user_by_id(user_id):
