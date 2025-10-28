@@ -85,13 +85,18 @@ app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY', 'your-secret-key-here-change-in-production')
 
 # Session configuration
-# For localhost development, use Lax instead of None
-is_production = os.getenv('FLASK_ENV') == 'production'
+# Detect if running in Azure (production) or locally
+is_production = (
+    os.getenv('FLASK_ENV') == 'production' or 
+    os.getenv('WEBSITE_SITE_NAME') is not None or  # Azure App Service
+    os.getenv('FUNCTIONS_WORKER_RUNTIME') is not None  # Azure Functions
+)
 app.config['SESSION_COOKIE_SAMESITE'] = 'None' if is_production else 'Lax'
 app.config['SESSION_COOKIE_SECURE'] = is_production  # Only use Secure in production (HTTPS)
 app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_DOMAIN'] = None  # Allow cross-domain cookies
 app.config['PERMANENT_SESSION_LIFETIME'] = 86400  # 24 hours
-print(f"🍪 Session cookies: SameSite={'None' if is_production else 'Lax'}, Secure={is_production}")
+print(f"🍪 Session cookies: SameSite={'None' if is_production else 'Lax'}, Secure={is_production}, Production={is_production}")
 
 # CORS Configuration for Azure
 # Get frontend URL from environment variable
