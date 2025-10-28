@@ -155,14 +155,13 @@ def get_user_by_username(username):
         container = get_cosmos_container('users')
         
         # Query by username (partition key)
-        # Since username is the partition key, we can query efficiently
-        query = "SELECT * FROM c WHERE c.username = @username"
-        parameters = [{"name": "@username", "value": username}]
+        # When querying with partition_key, we get all items in that partition
+        # So we just need to select all items (username is already filtered by partition)
+        query = "SELECT * FROM c"
         
         items = list(container.query_items(
             query=query,
-            parameters=parameters,
-            partition_key=username,  # Use partition key for efficient query
+            partition_key=username,  # This filters to only items with this partition key
             enable_cross_partition_query=False
         ))
         
