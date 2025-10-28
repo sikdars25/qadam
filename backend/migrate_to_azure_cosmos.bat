@@ -29,6 +29,26 @@ if exist "venv\Scripts\activate.bat" (
 )
 
 echo.
+echo Checking dependencies...
+echo.
+
+REM Check if azure-cosmos is installed
+python -c "import azure.cosmos" 2>nul
+if errorlevel 1 (
+    echo azure-cosmos package not found. Installing...
+    pip install azure-cosmos==4.5.1
+    if errorlevel 1 (
+        echo ERROR: Failed to install azure-cosmos
+        echo Please run: pip install azure-cosmos==4.5.1
+        pause
+        exit /b 1
+    )
+    echo azure-cosmos installed successfully!
+) else (
+    echo azure-cosmos package found!
+)
+
+echo.
 echo Running migration script...
 echo.
 
