@@ -204,33 +204,37 @@ def login():
     
     # Fallback to MySQL if Cosmos DB not available or user not found
     if not user:
+        print(f"⚠️ User not found in Cosmos DB, trying MySQL fallback...")
         try:
             conn = get_db_connection()
-            cursor = conn.cursor(dictionary=True)
-            
-            # Get user by username
-            try:
-                cursor.execute(
-                    'SELECT id, username, password, full_name, is_active, is_admin FROM users WHERE username = %s',
-                    (username,)
-                )
-                user = cursor.fetchone()
-            except MySQLError:
-                # Fallback for older schema
-                cursor.execute(
-                    'SELECT id, username, password, full_name FROM users WHERE username = %s',
-                    (username,)
-                )
-                user = cursor.fetchone()
-            
-            cursor.close()
-            conn.close()
-            
-            if user:
-                print(f"✓ User found in MySQL: {username}")
+            if conn:
+                cursor = conn.cursor(dictionary=True)
+                
+                # Get user by username
+                try:
+                    cursor.execute(
+                        'SELECT id, username, password, full_name, is_active, is_admin FROM users WHERE username = %s',
+                        (username,)
+                    )
+                    user = cursor.fetchone()
+                except MySQLError:
+                    # Fallback for older schema
+                    cursor.execute(
+                        'SELECT id, username, password, full_name FROM users WHERE username = %s',
+                        (username,)
+                    )
+                    user = cursor.fetchone()
+                
+                cursor.close()
+                conn.close()
+                
+                if user:
+                    print(f"✓ User found in MySQL: {username}")
+            else:
+                print(f"⚠️ MySQL connection not available")
         except Exception as e:
-            print(f"❌ MySQL query failed: {e}")
-            return jsonify({'error': 'Database error'}), 500
+            print(f"⚠️ MySQL query failed (expected in Azure): {e}")
+            # Don't return error here - user might not exist in either DB
     
     # Verify password
     if not user:
