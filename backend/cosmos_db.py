@@ -14,7 +14,7 @@ load_dotenv()
 # Cosmos DB Configuration
 COSMOS_ENDPOINT = os.getenv('COSMOS_ENDPOINT', 'https://localhost:8081')  # Emulator default
 COSMOS_KEY = os.getenv('COSMOS_KEY', 'C2y6yDjf5/R+ob0N8A7Cgv30VRDJIWEHLM+4QDU5DE2nQ9nDuVTqobD4b8mGGyPMbIZnqyMsEcaGQy67XIw/Jw==')  # Emulator default key
-DATABASE_NAME = os.getenv('COSMOS_DATABASE', 'qadam_academic')
+DATABASE_NAME = os.getenv('COSMOS_DATABASE', 'qadam')  # Changed default to match Azure
 
 # Initialize Cosmos Client
 try:
