@@ -23,6 +23,13 @@ azure-cosmos==4.5.1
 # Database (optional - for MySQL fallback)
 mysql-connector-python==8.0.33
 
-# AI Features are OPTIONAL - Install separately with:
-# pip install -r requirements-ai.txt
-# These include: sentence-transformers, faiss-cpu, torch (3+ GB)
+# AI Features (Lightweight - ~100 MB total)
+# OCR: Tesseract (already included above)
+# Text Generation: Groq API
+groq==0.4.1
+# Embeddings & Vector Search: scikit-learn for TF-IDF
+scikit-learn==1.3.2
+numpy==1.24.3
+scipy==1.11.4
+# NLP Processing
+nltk==3.8.1
