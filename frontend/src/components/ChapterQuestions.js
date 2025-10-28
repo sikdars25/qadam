@@ -286,12 +286,27 @@ const ChapterQuestions = () => {
       
       const allQuestions = questionsResponse.data;
 
+      // Check if questions exist
+      if (!allQuestions || allQuestions.length === 0) {
+        setMessage({ 
+          type: 'error', 
+          text: '❌ No questions found for this paper. Please parse the paper first or check if the database is available.' 
+        });
+        setLoading(false);
+        return;
+      }
+
+      console.log(`📊 Found ${allQuestions.length} questions to map`);
+
       // Use semantic search to map questions to chapters
       const mappingResponse = await axios.post(
         `${API_URL}/api/map-questions-to-chapters`,
         {
           questions: allQuestions,
           textbook_id: selectedTextbook.uploadedId
+        },
+        {
+          withCredentials: true
         }
       );
       
