@@ -130,7 +130,9 @@ const UploadPapers = ({ user }) => {
     setMessage({ type: '', text: '' });
 
     try {
-      const response = await axios.delete(`${API_URL}/api/delete-paper/${paperId}`);
+      const response = await axios.delete(`${API_URL}/api/delete-paper/${paperId}`, {
+        withCredentials: true
+      });
       
       if (response.data.success) {
         setMessage({ 
@@ -159,7 +161,9 @@ const UploadPapers = ({ user }) => {
     setTextbookMessage({ type: '', text: '' });
 
     try {
-      const response = await axios.delete(`${API_URL}/api/delete-textbook/${textbookId}`);
+      const response = await axios.delete(`${API_URL}/api/delete-textbook/${textbookId}`, {
+        withCredentials: true
+      });
       
       if (response.data.success) {
         setTextbookMessage({ 

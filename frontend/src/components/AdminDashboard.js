@@ -63,7 +63,10 @@ function AdminDashboard({ user, onLogout }) {
 
     try {
       const response = await axios.delete(
-        `http://localhost:5000/api/admin/users/${userId}`
+        `http://localhost:5000/api/admin/users/${userId}`,
+        {
+          withCredentials: true
+        }
       );
       
       if (response.data.success) {

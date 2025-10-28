@@ -988,7 +988,11 @@ def delete_paper_endpoint(paper_id):
     """Delete a question paper and its associated data - Uses Cosmos DB if enabled"""
     try:
         user_id = session.get('user_id')
+        username = session.get('username')
+        print(f"🗑️ Delete paper request - Session: user_id={user_id}, username={username}, paper_id={paper_id}")
+        
         if not user_id:
+            print(f"❌ No user_id in session - returning 401")
             return jsonify({'error': 'User not authenticated'}), 401
         
         deleted = False
