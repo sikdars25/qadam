@@ -154,20 +154,21 @@ def get_user_by_username(username):
     try:
         container = get_cosmos_container('users')
         
-        print(f"🔍 Querying users container with partition_key={username}")
+        print(f"🔍 Querying users container for username={username}")
         
-        # Query by username (partition key)
-        # When querying with partition_key, we get all items in that partition
-        # So we just need to select all items (username is already filtered by partition)
-        query = "SELECT * FROM c"
+        # Query by username with cross-partition query
+        # Note: Container has partition key /user_id, not /username
+        # So we need to use cross-partition query to find by username
+        query = "SELECT * FROM c WHERE c.username = @username"
+        parameters = [{"name": "@username", "value": username}]
         
         print(f"   Query: {query}")
-        print(f"   Partition Key: {username}")
+        print(f"   Using cross-partition query (partition key is /user_id)")
         
         items = list(container.query_items(
             query=query,
-            partition_key=username,  # This filters to only items with this partition key
-            enable_cross_partition_query=False
+            parameters=parameters,
+            enable_cross_partition_query=True  # Required since we're not filtering by partition key
         ))
         
         print(f"   Items returned: {len(items)}")
