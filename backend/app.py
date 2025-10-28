@@ -184,12 +184,18 @@ def login():
     # Try Cosmos DB first if enabled
     if COSMOS_DB_ENABLED:
         try:
+            print(f"🔍 Querying Cosmos DB for user: {username}")
             cosmos_user = get_user_by_username(username)
             if cosmos_user:
                 user = cosmos_to_mysql_format(cosmos_user)
                 print(f"✓ User found in Cosmos DB: {username}")
+                print(f"   User data: id={user.get('id')}, username={user.get('username')}, has_password={bool(user.get('password'))}")
+            else:
+                print(f"⚠️ User not found in Cosmos DB: {username}")
         except Exception as e:
             print(f"⚠️ Cosmos DB query failed, falling back to MySQL: {e}")
+            import traceback
+            traceback.print_exc()
     
     # Fallback to MySQL if Cosmos DB not available or user not found
     if not user:
