@@ -287,6 +287,35 @@ def logout():
     session.clear()
     return jsonify({'success': True, 'message': 'Logged out successfully'})
 
+@app.route('/api/test-cosmos', methods=['GET'])
+def test_cosmos():
+    """Test Cosmos DB connection and list users"""
+    try:
+        if not COSMOS_DB_ENABLED:
+            return jsonify({'error': 'Cosmos DB not enabled'}), 500
+        
+        from cosmos_db import get_cosmos_container
+        container = get_cosmos_container('users')
+        
+        # Query all users
+        query = "SELECT c.id, c.username, c.email FROM c"
+        items = list(container.query_items(
+            query=query,
+            enable_cross_partition_query=True
+        ))
+        
+        return jsonify({
+            'cosmos_enabled': COSMOS_DB_ENABLED,
+            'user_count': len(items),
+            'users': items[:5]  # First 5 users
+        })
+    except Exception as e:
+        import traceback
+        return jsonify({
+            'error': str(e),
+            'traceback': traceback.format_exc()
+        }), 500
+
 @app.route('/api/session-check', methods=['GET'])
 def session_check():
     """Check if user is authenticated"""
