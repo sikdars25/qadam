@@ -154,10 +154,15 @@ def get_user_by_username(username):
     try:
         container = get_cosmos_container('users')
         
+        print(f"🔍 Querying users container with partition_key={username}")
+        
         # Query by username (partition key)
         # When querying with partition_key, we get all items in that partition
         # So we just need to select all items (username is already filtered by partition)
         query = "SELECT * FROM c"
+        
+        print(f"   Query: {query}")
+        print(f"   Partition Key: {username}")
         
         items = list(container.query_items(
             query=query,
@@ -165,16 +170,22 @@ def get_user_by_username(username):
             enable_cross_partition_query=False
         ))
         
+        print(f"   Items returned: {len(items)}")
+        
         if items:
             user = items[0]
             print(f"✓ User found: {username}")
+            print(f"   User ID: {user.get('id')}")
+            print(f"   Has password: {bool(user.get('password'))}")
             return user
         else:
             print(f"❌ User not found: {username}")
+            print(f"   Query returned 0 items")
             return None
             
     except Exception as e:
         print(f"❌ Error fetching user: {e}")
+        print(f"   Exception type: {type(e).__name__}")
         import traceback
         traceback.print_exc()
         return None
