@@ -105,20 +105,35 @@ def migrate_container(source_db, target_db, container_name, partition_key):
                 if not partition_key_value:
                     print(f"    ⚠ Warning: Document {doc_id} missing partition key '{partition_key_field}'")
                     # Add default partition key based on container
-                    if container_name == 'uploaded_papers' and not item.get('user_id'):
+                    if container_name == 'uploaded_papers':
                         # Use paper_id as user_id for papers without user_id
                         item['user_id'] = item.get('id', 'unknown')
                         partition_key_value = item['user_id']
                         print(f"      → Added default user_id: {partition_key_value}")
-                    elif container_name == 'textbooks' and not item.get('subject'):
-                        # Use a default subject for textbooks
-                        item['subject'] = item.get('title', 'General')
-                        partition_key_value = item['subject']
+                    elif container_name == 'textbooks':
+                        # Try to get subject from various fields
+                        subject = item.get('subject') or item.get('title') or item.get('name') or 'General'
+                        item['subject'] = subject
+                        partition_key_value = subject
                         print(f"      → Added default subject: {partition_key_value}")
+                    elif container_name == 'users':
+                        # Use email or id as username for users without username
+                        username = item.get('username') or item.get('email') or item.get('id', 'unknown')
+                        item['username'] = username
+                        partition_key_value = username
+                        print(f"      → Added default username: {partition_key_value}")
                     else:
-                        print(f"      ❌ Skipping document - cannot determine partition key")
-                        skipped += 1
-                        continue
+                        # For other containers, try to use a generic approach
+                        # Use the document ID as the partition key value
+                        item[partition_key_field] = item.get('id', 'unknown')
+                        partition_key_value = item[partition_key_field]
+                        print(f"      → Added default {partition_key_field}: {partition_key_value}")
+                
+                # Double-check partition key value exists
+                if not partition_key_value:
+                    print(f"      ❌ Skipping document - cannot determine partition key")
+                    skipped += 1
+                    continue
                 
                 try:
                     target_container.read_item(item=doc_id, partition_key=partition_key_value)
