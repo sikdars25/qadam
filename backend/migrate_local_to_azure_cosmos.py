@@ -98,8 +98,30 @@ def migrate_container(source_db, target_db, container_name, partition_key):
             try:
                 # Check if document already exists in target
                 doc_id = item.get('id')
+                partition_key_field = partition_key.replace('/', '')
+                partition_key_value = item.get(partition_key_field)
+                
+                # Handle missing partition key field
+                if not partition_key_value:
+                    print(f"    ⚠ Warning: Document {doc_id} missing partition key '{partition_key_field}'")
+                    # Add default partition key based on container
+                    if container_name == 'uploaded_papers' and not item.get('user_id'):
+                        # Use paper_id as user_id for papers without user_id
+                        item['user_id'] = item.get('id', 'unknown')
+                        partition_key_value = item['user_id']
+                        print(f"      → Added default user_id: {partition_key_value}")
+                    elif container_name == 'textbooks' and not item.get('subject'):
+                        # Use a default subject for textbooks
+                        item['subject'] = item.get('title', 'General')
+                        partition_key_value = item['subject']
+                        print(f"      → Added default subject: {partition_key_value}")
+                    else:
+                        print(f"      ❌ Skipping document - cannot determine partition key")
+                        skipped += 1
+                        continue
+                
                 try:
-                    target_container.read_item(item=doc_id, partition_key=item.get(partition_key.replace('/', '')))
+                    target_container.read_item(item=doc_id, partition_key=partition_key_value)
                     print(f"    ⏭ Skipped (exists): {doc_id}")
                     skipped += 1
                     continue
