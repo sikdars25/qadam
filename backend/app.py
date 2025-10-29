@@ -2049,8 +2049,22 @@ def parse_questions(paper_id):
         if not paper:
             return jsonify({'error': 'Paper not found'}), 404
         
+        # Check if file exists, try different path variations
         if not os.path.exists(file_path):
-            return jsonify({'error': 'File not found'}), 404
+            print(f"⚠️ File not found at: {file_path}")
+            
+            # Try with /home/site/wwwroot prefix (Azure path)
+            azure_path = os.path.join('/home/site/wwwroot', file_path)
+            if os.path.exists(azure_path):
+                file_path = azure_path
+                print(f"✓ Found file at Azure path: {azure_path}")
+            else:
+                print(f"❌ File not found at Azure path either: {azure_path}")
+                return jsonify({
+                    'error': 'File not found',
+                    'message': f'The uploaded file could not be found on the server.',
+                    'file_path': file_path
+                }), 404
         
         # Parse the question paper
         print(f"📄 Parsing question paper: {file_path}")
