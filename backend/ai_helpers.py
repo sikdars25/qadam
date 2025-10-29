@@ -217,6 +217,8 @@ def generate_solution(question_text, context="", subject=""):
     Returns:
         Generated solution text
     """
+    context_section = f'Context from textbook:\n{context}\n' if context else ''
+    
     prompt = f"""You are an expert tutor. Generate a detailed solution for the following question.
 
 Subject: {subject if subject else 'General'}
@@ -224,7 +226,7 @@ Subject: {subject if subject else 'General'}
 Question:
 {question_text}
 
-{f'Context from textbook:\n{context}\n' if context else ''}
+{context_section}
 
 Provide a step-by-step solution with:
 1. Understanding the question
