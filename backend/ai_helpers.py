@@ -123,7 +123,7 @@ def search_similar_texts(query_text, document_texts, document_ids=None, top_k=5)
 # GROQ API - TEXT GENERATION
 # ============================================================================
 
-def generate_with_groq(prompt, model="llama-3.1-70b-versatile", max_tokens=1000, temperature=0.7):
+def generate_with_groq(prompt, model="llama-3.3-70b-versatile", max_tokens=1000, temperature=0.7):
     """
     Generate text using Groq API
     
