@@ -5,13 +5,13 @@ on:
     branches:
       - main
     paths:
-      - 'backend/ocr/**'
+      - 'ocr/**'
       - '.github/workflows/deploy-ocr-function.yml'
   workflow_dispatch:
 
 env:
   AZURE_FUNCTIONAPP_NAME: 'qadam-ocr'
-  AZURE_FUNCTIONAPP_PACKAGE_PATH: 'backend/ocr'
+  AZURE_FUNCTIONAPP_PACKAGE_PATH: 'ocr'
   PYTHON_VERSION: '3.10'
 
 jobs:

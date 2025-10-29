@@ -122,7 +122,7 @@ Response:
 ### 1. Install Dependencies
 
 ```bash
-cd backend/ocr
+cd ocr
 pip install -r requirements.txt
 ```
 

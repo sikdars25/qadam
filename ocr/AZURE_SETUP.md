@@ -92,11 +92,11 @@ az functionapp config appsettings set \
 
 ### Step 6: Deploy
 
-The GitHub Action will automatically deploy when you push to main:
+The GitHub Action will automatically deploy when you push changes to the `ocr/` folder:
 
 ```bash
 # Already done - code is pushed!
-# GitHub Actions will deploy automatically
+# GitHub Actions will deploy automatically when ocr/ folder changes
 ```
 
 Check deployment status:
