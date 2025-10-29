@@ -1735,16 +1735,32 @@ def get_solution():
     try:
         data = request.json
         question_text = data.get('question_text')
-        context = data.get('context', '')
+        textbook_id = data.get('textbook_id')
+        subject = data.get('subject', '')
         
         if not question_text:
             return jsonify({'error': 'question_text required'}), 400
         
-        result = generate_solution(question_text, context)
+        # Load textbook index if available
+        textbook_index = None
+        if textbook_id:
+            index_path = f"vector_indices/{textbook_id}/index.pkl"
+            if os.path.exists(index_path):
+                textbook_index = TextbookIndex.load(index_path)
+                print(f"✓ Loaded textbook index for solution generation")
         
-        return jsonify(result)
+        # Generate solution using new AI service
+        solution = generate_solution(question_text, textbook_index=textbook_index, subject=subject)
+        
+        return jsonify({
+            'success': True,
+            'solution': solution,
+            'question': question_text
+        })
     
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/index-textbook/<textbook_id>', methods=['POST'])
@@ -1769,23 +1785,34 @@ def index_textbook(textbook_id):
         if not textbook:
             return jsonify({'error': 'Textbook not found'}), 404
         
-        result = extract_chapters_from_textbook(
-            textbook['file_path'],
-            textbook_id
-        )
+        # Index the textbook using new AI service
+        file_path = textbook['file_path']
+        index = extract_chapters_from_textbook(file_path, textbook_id, chapter_detection='auto')
+        
+        # Save the index to disk
+        index_dir = f"vector_indices/{textbook_id}"
+        os.makedirs(index_dir, exist_ok=True)
+        index_path = f"{index_dir}/index.pkl"
+        index.save(index_path)
+        
+        result = {
+            'success': True,
+            'textbook_id': textbook_id,
+            'chapters': len(index.chapters),
+            'message': f'Successfully indexed {len(index.chapters)} sections'
+        }
         
         # If extraction was successful, mark textbook as indexed
-        if result and 'error' not in result:
-            conn = get_db_connection()
-            cursor = conn.cursor()
-            cursor.execute(
-                'UPDATE textbooks SET chapters_extracted = 1 WHERE id = %s',
-                (textbook_id,)
-            )
-            conn.commit()
-            cursor.close()
-            conn.close()
-            print(f"✓ Marked textbook {textbook_id} as indexed")
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            'UPDATE textbooks SET chapters_extracted = 1 WHERE id = %s',
+            (textbook_id,)
+        )
+        conn.commit()
+        cursor.close()
+        conn.close()
+        print(f"✓ Marked textbook {textbook_id} as indexed")
         
         return jsonify(result)
     
@@ -1837,17 +1864,25 @@ def get_textbook_chapters(textbook_id):
         if not file_path:
             return jsonify({'error': 'Textbook file path not found'}), 404
         
-        # Try to load chapters from vector index metadata
+        # Try to load chapters from vector index
         try:
-            from ai_service import load_textbook_chapters
-            chapters = load_textbook_chapters(textbook_id)
-            
-            if chapters:
+            index_path = f"vector_indices/{textbook_id}/index.pkl"
+            if os.path.exists(index_path):
+                index = TextbookIndex.load(index_path)
+                chapters = [
+                    {
+                        'name': ch['name'],
+                        'preview': ch['text'][:200] + '...' if len(ch['text']) > 200 else ch['text']
+                    }
+                    for ch in index.chapters
+                ]
+                
                 return jsonify({
                     'success': True,
                     'chapters': chapters,
                     'textbook_id': textbook_id,
-                    'title': textbook.get('title')
+                    'title': textbook.get('title'),
+                    'total_chapters': len(chapters)
                 })
             else:
                 return jsonify({
@@ -1857,6 +1892,8 @@ def get_textbook_chapters(textbook_id):
                 }), 404
         except Exception as e:
             print(f"Error loading chapters: {e}")
+            import traceback
+            traceback.print_exc()
             return jsonify({
                 'success': False,
                 'error': str(e),
@@ -1925,11 +1962,23 @@ def index_textbook_uuid(textbook_id):
                     'file_path': file_path
                 }), 404
         
-        # Extract chapters and create vector index
-        from ai_service import extract_chapters_from_textbook
-        result = extract_chapters_from_textbook(file_path, textbook_id)
+        # Index the textbook using new AI service
+        index = extract_chapters_from_textbook(file_path, textbook_id, chapter_detection='auto')
         
-        # If extraction was successful, mark textbook as indexed
+        # Save the index to disk
+        index_dir = f"vector_indices/{textbook_id}"
+        os.makedirs(index_dir, exist_ok=True)
+        index_path = f"{index_dir}/index.pkl"
+        index.save(index_path)
+        
+        result = {
+            'success': True,
+            'textbook_id': textbook_id,
+            'chapters': len(index.chapters),
+            'message': f'Successfully indexed {len(index.chapters)} sections'
+        }
+        
+        # Mark textbook as indexed
         if result and 'error' not in result:
             if COSMOS_DB_ENABLED:
                 try:
