@@ -8,8 +8,8 @@ Werkzeug==2.3.7
 azure-functions==1.18.0
 
 # OCR - PaddleOCR (Lightweight alternative to Tesseract)
-paddleocr==2.7.3
-paddlepaddle==2.5.2
+paddleocr==2.8.1
+paddlepaddle==3.0.0
 
 # Image Processing
 Pillow==10.2.0
