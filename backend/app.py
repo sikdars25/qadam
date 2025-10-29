@@ -60,20 +60,21 @@ except Exception as e:
     print(f"⚠️ Cosmos DB disabled due to error: {e}")
     COSMOS_DB_ENABLED = False
 
-# Try to import AI service, but don't fail if dependencies aren't installed yet
+# Try to import AI service (lightweight version)
 try:
-    from ai_service import (
+    from ai_service_new import (
         analyze_question_paper,
-        generate_solution,
-        extract_chapters_from_textbook,
-        map_questions_to_chapters,
-        solve_question_with_llm
+        generate_question_solution as generate_solution,
+        index_textbook as extract_chapters_from_textbook,
+        semantic_search_textbook,
+        TextbookIndex,
+        get_service_status
     )
     AI_ENABLED = True
+    print("✅ AI features enabled (lightweight)")
 except ImportError as e:
-    print(f"AI features disabled: {e}")
-    print("Install AI dependencies: pip install -r requirements-ai.txt")
-    print("Or run: install_all_ai.bat")
+    print(f"AI features disabled due to missing dependencies: {e}")
+    print("Run: pip install -r requirements.txt")
     AI_ENABLED = False
 except Exception as e:
     print(f"AI features disabled due to error: {e}")
