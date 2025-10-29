@@ -8,8 +8,8 @@ PyMuPDF==1.23.8
 python-docx==1.1.0
 Pillow==10.2.0
 
-# OCR (basic - Tesseract)
-pytesseract==0.3.10
+# OCR - Moved to separate Function App (backend/ocr/)
+# pytesseract==0.3.10  # No longer needed - using PaddleOCR in separate service
 
 # Utilities
 python-dotenv==1.0.0

@@ -1,0 +1,29 @@
+# OCR Function App - Lightweight Dependencies
+# This is a separate Azure Function App for OCR processing
+
+# Core Flask/Function Dependencies
+Flask==2.3.3
+Flask-CORS==4.0.0
+Werkzeug==2.3.7
+azure-functions==1.18.0
+
+# OCR - PaddleOCR (Lightweight alternative to Tesseract)
+paddleocr==2.7.3
+paddlepaddle==2.5.2
+
+# Image Processing
+Pillow==10.2.0
+opencv-python-headless==4.8.1.78
+
+# PDF Processing (for extracting images from PDFs)
+PyMuPDF==1.23.8
+
+# Utilities
+python-dotenv==1.0.0
+requests==2.31.0
+
+# Note: PaddleOCR is much better than Tesseract for:
+# - Handwritten text recognition
+# - Multiple languages (80+ languages)
+# - Better accuracy on low-quality images
+# - No system binary required (pure Python)
