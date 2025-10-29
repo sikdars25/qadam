@@ -306,10 +306,20 @@ def semantic_search(query, documents, top_k=5):
 
 def check_ai_availability():
     """Check which AI features are available"""
+    # Check if Tesseract is available
+    ocr_available = False
+    try:
+        import pytesseract
+        # Try to get version to verify it's actually installed
+        pytesseract.get_tesseract_version()
+        ocr_available = True
+    except (ImportError, pytesseract.TesseractNotFoundError, FileNotFoundError):
+        ocr_available = False
+    
     status = {
-        'groq_api': groq_client is not None,
-        'tfidf_vectorizer': True,  # Always available
-        'ocr': True  # Tesseract (assumed installed)
+        'groq_api': bool(os.getenv('GROQ_API_KEY')),
+        'tfidf_vectorizer': True,  # Always available with scikit-learn
+        'ocr': ocr_available  # Tesseract (only if system binary is installed)
     }
     return status
 

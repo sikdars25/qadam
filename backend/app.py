@@ -2415,8 +2415,19 @@ def parse_single_question():
                 # Extract text based on file type
                 if file_type in ['jpg', 'jpeg', 'png']:
                     # OCR for images
-                    image = Image.open(temp_path)
-                    question_text = pytesseract.image_to_string(image)
+                    try:
+                        image = Image.open(temp_path)
+                        question_text = pytesseract.image_to_string(image)
+                    except pytesseract.TesseractNotFoundError:
+                        return jsonify({
+                            'error': 'OCR not available on Azure. Please use text input or PDF/DOCX files instead.',
+                            'suggestion': 'Copy and paste the question text, or upload a PDF/DOCX file.'
+                        }), 503
+                    except Exception as ocr_error:
+                        return jsonify({
+                            'error': f'OCR failed: {str(ocr_error)}',
+                            'suggestion': 'Please use text input or PDF/DOCX files instead.'
+                        }), 500
                     
                 elif file_type == 'pdf':
                     # Extract from PDF
