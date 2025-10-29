@@ -3,7 +3,7 @@ name: Deploy OCR Function App
 on:
   push:
     branches:
-      - main
+      - backend-ocr
     paths:
       - 'ocr/**'
       - '.github/workflows/deploy-ocr-function.yml'
