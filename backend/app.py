@@ -1194,12 +1194,6 @@ def delete_paper_endpoint(paper_id):
             os.remove(file_path)
             print(f"✓ Deleted file: {file_path}")
         
-        # Delete FAISS index if exists
-        faiss_index_path = f"./vector_db/paper_{paper_id}_questions.index"
-        if os.path.exists(faiss_index_path):
-            os.remove(faiss_index_path)
-            print(f"✓ Deleted FAISS index")
-        
         if deleted:
             return jsonify({
                 'success': True,
