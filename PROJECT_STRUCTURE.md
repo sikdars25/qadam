@@ -1,6 +1,13 @@
 # QAdam Project Structure
 
-## 📁 Directory Layout
+## 🌿 Branch Structure
+
+- **`main`** - Frontend + Main Backend
+- **`backend-ocr`** - OCR Service (separate deployment)
+
+> **Note:** The OCR service is maintained in a separate branch (`backend-ocr`) to keep dependencies isolated and allow independent deployment.
+
+## 📁 Directory Layout (main branch)
 
 ```
 qadam/
@@ -19,18 +26,10 @@ qadam/
 │   ├── ocr_client.py           # OCR service client
 │   └── question_parser.py      # Question parsing logic
 │
-├── ocr/                        # OCR Service (Separate Azure Function App)
-│   ├── HttpTrigger/            # Azure Function trigger
-│   ├── app.py                  # Flask app with PaddleOCR
-│   ├── requirements.txt        # OCR-specific dependencies
-│   ├── README.md               # API documentation
-│   └── AZURE_SETUP.md          # Deployment guide
-│
 └── .github/
     └── workflows/
         ├── azure-static-web-apps.yml      # Frontend deployment
-        ├── main_qadam-backend.yml         # Backend deployment
-        └── deploy-ocr-function.yml        # OCR service deployment
+        └── main_qadam-backend.yml         # Backend deployment
 ```
 
 ## 🎯 Service Architecture
@@ -87,7 +86,8 @@ qadam/
 
 ### OCR Service
 - **Platform:** Azure Function App (Consumption Plan)
-- **Trigger:** Push to `main` branch (ocr/ changes)
+- **Branch:** `backend-ocr` (separate branch)
+- **Trigger:** Push to `backend-ocr` branch (ocr/ changes)
 - **URL:** `https://qadam-ocr.azurewebsites.net`
 
 ## 📦 Dependencies
@@ -173,8 +173,7 @@ DEFAULT_OCR_LANGUAGE=en
 
 - **Frontend:** `frontend/README.md`
 - **Backend:** `backend/README.md`
-- **OCR Service:** `ocr/README.md`
-- **OCR Setup:** `ocr/AZURE_SETUP.md`
+- **OCR Service:** See `backend-ocr` branch
 - **Blob Storage:** `backend/BLOB_STORAGE_SETUP.md`
 - **AI Migration:** `backend/MIGRATION_TO_NEW_AI.md`
 - **Azure Limitations:** `backend/AZURE_LIMITATIONS.md`
@@ -205,6 +204,8 @@ python app.py
 
 ### OCR Service
 ```bash
+# Switch to backend-ocr branch
+git checkout backend-ocr
 cd ocr
 pip install -r requirements.txt
 python app.py
