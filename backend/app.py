@@ -2019,8 +2019,6 @@ def parse_questions(paper_id):
     try:
         from question_parser import parse_question_paper_fixed as parse_question_paper
         import json
-        import faiss
-        import numpy as np
         
         # Get paper details - Try Cosmos DB first
         paper = None
@@ -2060,12 +2058,6 @@ def parse_questions(paper_id):
         if not os.path.exists(file_path):
             return jsonify({'error': 'File not found'}), 404
         
-        # Delete old FAISS index if exists
-        faiss_index_path = f"./vector_db/paper_{paper_id}_questions.index"
-        if os.path.exists(faiss_index_path):
-            os.remove(faiss_index_path)
-            print(f"✓ Deleted old FAISS index")
-        
         # Parse the question paper
         print(f"📄 Parsing question paper: {file_path}")
         result = parse_question_paper(file_path)
@@ -2075,31 +2067,6 @@ def parse_questions(paper_id):
         
         questions = result.get('questions', [])
         print(f"✓ Parsed {len(questions)} questions from paper")
-        
-        # Store in FAISS vector database
-        if AI_ENABLED:
-            try:
-                from ai_service import get_embedding_model
-                model = get_embedding_model()
-                
-                # Create embeddings for questions
-                question_texts = [q['question_text'] for q in questions]
-                embeddings = model.encode(question_texts, show_progress_bar=False)
-                embeddings_np = np.array(embeddings).astype('float32')
-                
-                # Create FAISS index
-                dimension = embeddings_np.shape[1]
-                index = faiss.IndexFlatL2(dimension)
-                index.add(embeddings_np)
-                
-                # Save FAISS index
-                index_path = f"./vector_db/paper_{paper_id}_questions.index"
-                os.makedirs("./vector_db", exist_ok=True)
-                faiss.write_index(index, index_path)
-                
-                print(f"✓ Stored {len(questions)} questions in FAISS")
-            except Exception as e:
-                print(f"⚠ FAISS storage failed: {e}")
         
         # Store in database - Try Cosmos DB first, fallback to MySQL
         saved = False
@@ -2190,7 +2157,7 @@ def parse_questions(paper_id):
                 print(f"⚠️ MySQL storage failed: {db_error}")
         
         if not saved:
-            print(f"⚠️ WARNING: Questions stored in FAISS only, not in database!")
+            return jsonify({'error': 'Failed to save questions to database'}), 500
         
         return jsonify({
             'success': True,
