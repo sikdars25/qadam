@@ -2658,15 +2658,21 @@ def solve_question():
         
         print(f"🎓 Solving question: {question_text[:60]}...")
         
-        result = solve_question_with_llm(
+        # Use the new AI service to generate solution
+        context = chapter_context if chapter_context else ""
+        solution = generate_solution(
             question_text=question_text,
-            question_type=question_type,
-            subject=subject,
-            chapter_context=chapter_context
+            context=context,
+            subject=subject or ""
         )
         
-        if 'error' in result:
-            return jsonify(result), 500
+        result = {
+            'success': True,
+            'solution': solution,
+            'question_text': question_text,
+            'subject': subject,
+            'question_type': question_type
+        }
         
         # Log token usage
         if result.get('tokens_used'):
