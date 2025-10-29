@@ -953,15 +953,14 @@ def get_subjects():
         'SELECT DISTINCT subject FROM sample_questions ORDER BY subject'
     )
     subjects = cursor.fetchall()
-    cursor.close()
-    conn.close()
-    
     return jsonify([s['subject'] for s in subjects])
 
 @app.route('/api/upload-paper', methods=['POST'])
 def upload_paper():
     """Upload a paper"""
     try:
+        from blob_storage import BLOB_STORAGE_ENABLED, upload_file_to_blob
+        
         print("📤 Upload request received")
         
         if 'file' not in request.files:
@@ -988,26 +987,36 @@ def upload_paper():
             print(f"❌ Invalid file type: {file.filename}")
             return jsonify({'error': 'Invalid file type. Allowed: PDF, DOC, DOCX, TXT'}), 400
         
-        # Ensure upload folder exists
-        os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
-        print(f"✓ Upload folder ready: {app.config['UPLOAD_FOLDER']}")
+        # Upload to Blob Storage if available, otherwise save locally
+        filepath = None
+        blob_name = None
         
-        filename = secure_filename(file.filename)
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        filename = f"{timestamp}_{filename}"
-        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        if BLOB_STORAGE_ENABLED:
+            print("☁️ Uploading to Azure Blob Storage...")
+            result = upload_file_to_blob(file, folder='papers')
+            
+            if result['success']:
+                blob_name = result['blob_name']
+                filepath = blob_name  # Store blob name as filepath
+                print(f"✓ File uploaded to blob: {blob_name}")
+            else:
+                print(f"⚠️ Blob upload failed: {result.get('error')}")
+                print("   Falling back to local storage")
+                BLOB_STORAGE_ENABLED = False  # Fallback to local
         
-        print(f"💾 Saving to: {filepath}")
-        file.save(filepath)
-        print(f"✓ File saved successfully")
-        
-        # Verify file exists
-        if not os.path.exists(filepath):
-            print(f"❌ File not found after save: {filepath}")
-            return jsonify({'error': 'Failed to save file'}), 500
-        
-        file_size = os.path.getsize(filepath)
-        print(f"✓ File size: {file_size} bytes")
+        if not BLOB_STORAGE_ENABLED or not filepath:
+            # Fallback to local storage
+            print("💾 Saving to local storage...")
+            os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+            
+            filename = secure_filename(file.filename)
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            filename = f"{timestamp}_{filename}"
+            filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            
+            file.seek(0)  # Reset file pointer
+            file.save(filepath)
+            print(f"✓ File saved locally: {filepath}")
         
         paper_id = None
         saved = False
@@ -1189,10 +1198,20 @@ def delete_paper_endpoint(paper_id):
                         'message': 'Both Cosmos DB and MySQL are unavailable. Please try again later.'
                     }), 503
         
-        # Delete the physical file
-        if file_path and os.path.exists(file_path):
-            os.remove(file_path)
-            print(f"✓ Deleted file: {file_path}")
+        # Delete the physical file (blob or local)
+        from blob_storage import BLOB_STORAGE_ENABLED, delete_blob
+        
+        if file_path:
+            # Check if this is a blob storage path
+            if file_path.startswith('papers/') or file_path.startswith('textbooks/'):
+                if BLOB_STORAGE_ENABLED:
+                    if delete_blob(file_path):
+                        print(f"✓ Deleted blob: {file_path}")
+                    else:
+                        print(f"⚠️ Failed to delete blob: {file_path}")
+            elif os.path.exists(file_path):
+                os.remove(file_path)
+                print(f"✓ Deleted local file: {file_path}")
         
         if deleted:
             return jsonify({
@@ -2049,8 +2068,34 @@ def parse_questions(paper_id):
         if not paper:
             return jsonify({'error': 'Paper not found'}), 404
         
-        # Check if file exists, try different path variations
-        if not os.path.exists(file_path):
+        # Check if file exists or download from blob storage
+        from blob_storage import BLOB_STORAGE_ENABLED, download_blob_to_temp
+        
+        temp_file_path = None
+        
+        # Check if this is a blob storage path
+        if file_path and (file_path.startswith('papers/') or file_path.startswith('textbooks/')):
+            # This is a blob name, download it
+            if BLOB_STORAGE_ENABLED:
+                print(f"☁️ Downloading from blob storage: {file_path}")
+                temp_file_path = download_blob_to_temp(file_path)
+                
+                if temp_file_path:
+                    file_path = temp_file_path
+                    print(f"✓ Downloaded to temp: {temp_file_path}")
+                else:
+                    return jsonify({
+                        'error': 'Failed to download file from storage',
+                        'message': 'Could not retrieve the uploaded file.'
+                    }), 500
+            else:
+                return jsonify({
+                    'error': 'File stored in blob but blob storage not configured',
+                    'message': 'Please configure Azure Blob Storage.'
+                }), 503
+        
+        # Check if local file exists
+        elif not os.path.exists(file_path):
             print(f"⚠️ File not found at: {file_path}")
             
             # Try with /home/site/wwwroot prefix (Azure path)
@@ -2167,6 +2212,14 @@ def parse_questions(paper_id):
         if not saved:
             return jsonify({'error': 'Failed to save questions to database'}), 500
         
+        # Clean up temp file if it was downloaded from blob
+        if temp_file_path and os.path.exists(temp_file_path):
+            try:
+                os.remove(temp_file_path)
+                print(f"🧹 Cleaned up temp file: {temp_file_path}")
+            except Exception as cleanup_error:
+                print(f"⚠️ Failed to clean up temp file: {cleanup_error}")
+        
         return jsonify({
             'success': True,
             'total_questions': len(questions),
@@ -2175,6 +2228,14 @@ def parse_questions(paper_id):
         })
         
     except Exception as e:
+        # Clean up temp file on error
+        if 'temp_file_path' in locals() and temp_file_path and os.path.exists(temp_file_path):
+            try:
+                os.remove(temp_file_path)
+                print(f"🧹 Cleaned up temp file after error: {temp_file_path}")
+            except:
+                pass
+        
         import traceback
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500

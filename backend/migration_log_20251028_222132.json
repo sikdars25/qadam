@@ -1,0 +1,17 @@
+{
+  "timestamp": "2025-10-28T22:21:32.981726",
+  "source": "https://localhost:8081",
+  "target": "https://qadam.documents.azure.com:443/",
+  "database": "qadam",
+  "total_migrated": 9,
+  "total_skipped": 62,
+  "containers": [
+    "users",
+    "uploaded_papers",
+    "textbooks",
+    "question_bank",
+    "usage_logs",
+    "parsed_questions",
+    "ai_search_results"
+  ]
+}

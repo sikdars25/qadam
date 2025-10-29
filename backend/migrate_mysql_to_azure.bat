@@ -85,11 +85,11 @@ echo   Step 2: Azure MySQL Configuration
 echo ========================================
 echo.
 
-set /p AZURE_HOST="Azure MySQL hostname [qadam-db.mysql.database.azure.com]: "
-if "%AZURE_HOST%"=="" set AZURE_HOST=qadam-db.mysql.database.azure.com
+set /p AZURE_HOST="Azure MySQL hostname [qadamdb.mysql.database.azure.com]: "
+if "%AZURE_HOST%"=="" set AZURE_HOST=qadamdb.mysql.database.azure.com
 
-set /p AZURE_USER="Azure MySQL username [qaadmin]: "
-if "%AZURE_USER%"=="" set AZURE_USER=qaadmin
+set /p AZURE_USER="Azure MySQL username [qadamadmin]: "
+if "%AZURE_USER%"=="" set AZURE_USER=qadamadmin
 
 set /p AZURE_PASSWORD="Azure MySQL password: "
 

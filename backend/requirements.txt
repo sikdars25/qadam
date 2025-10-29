@@ -18,7 +18,8 @@ requests==2.31.0
 
 # Azure Services
 azure-functions==1.18.0
-azure-cosmos==4.5.1
+azure-cosmos==4.5.0
+azure-storage-blob==12.19.1
 
 # Database (optional - for MySQL fallback)
 mysql-connector-python==8.0.33
