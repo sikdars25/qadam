@@ -35,6 +35,19 @@ jobs:
         pip install -r requirements.txt --target=".python_packages/lib/site-packages"
         popd
 
+    - name: 'Check if publish profile is set'
+      run: |
+        if [ -z "${{ secrets.AZURE_OCR_FUNCTIONAPP_PUBLISH_PROFILE }}" ]; then
+          echo "❌ ERROR: AZURE_OCR_FUNCTIONAPP_PUBLISH_PROFILE secret is not set!"
+          echo "📋 Please follow these steps:"
+          echo "1. Create Azure Function App 'qadam-ocr'"
+          echo "2. Download publish profile from Azure Portal"
+          echo "3. Add it as GitHub secret: AZURE_OCR_FUNCTIONAPP_PUBLISH_PROFILE"
+          echo "4. See ocr/AZURE_SETUP.md for detailed instructions"
+          exit 1
+        fi
+        echo "✅ Publish profile found"
+    
     - name: 'Run Azure Functions Action'
       uses: Azure/functions-action@v1
       id: deploy-function
