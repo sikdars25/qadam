@@ -7,7 +7,7 @@ import requests
 from typing import Optional, Dict, Any
 
 # OCR Function App URL
-OCR_SERVICE_URL = os.getenv('OCR_SERVICE_URL', 'https://qadam-ocr.azurewebsites.net')
+OCR_SERVICE_URL = os.getenv('OCR_SERVICE_URL', 'https://qadam-ocr-addrcugfg4d4drg7.canadacentral-01.azurewebsites.net')
 
 def ocr_image(image_file, language: str = 'en') -> Dict[str, Any]:
     """

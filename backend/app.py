@@ -2400,13 +2400,9 @@ def parse_single_question():
     """Parse a single question from text, image, or document"""
     try:
         import question_parser
+        import ocr_client  # Use OCR Azure Function instead of pytesseract
         
         # Import with error handling
-        try:
-            import pytesseract
-        except ImportError:
-            return jsonify({'error': 'pytesseract not installed. Run: pip install pytesseract'}), 500
-        
         try:
             from PIL import Image
         except ImportError:
@@ -2450,18 +2446,21 @@ def parse_single_question():
             try:
                 # Extract text based on file type
                 if file_type in ['jpg', 'jpeg', 'png']:
-                    # OCR for images
+                    # OCR for images using Azure OCR Function
                     try:
-                        image = Image.open(temp_path)
-                        question_text = pytesseract.image_to_string(image)
-                    except pytesseract.TesseractNotFoundError:
-                        return jsonify({
-                            'error': 'OCR not available on Azure. Please use text input or PDF/DOCX files instead.',
-                            'suggestion': 'Copy and paste the question text, or upload a PDF/DOCX file.'
-                        }), 503
+                        # Use OCR client to call Azure Function
+                        ocr_result = ocr_client.ocr_image(temp_path, language='en')
+                        
+                        if ocr_result.get('success'):
+                            question_text = ocr_result.get('text', '')
+                        else:
+                            return jsonify({
+                                'error': f"OCR failed: {ocr_result.get('error', 'Unknown error')}",
+                                'suggestion': 'Please use text input or PDF/DOCX files instead.'
+                            }), 500
                     except Exception as ocr_error:
                         return jsonify({
-                            'error': f'OCR failed: {str(ocr_error)}',
+                            'error': f'OCR service error: {str(ocr_error)}',
                             'suggestion': 'Please use text input or PDF/DOCX files instead.'
                         }), 500
                     
