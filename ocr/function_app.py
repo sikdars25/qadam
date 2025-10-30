@@ -197,16 +197,23 @@ def ocr_image(req: func.HttpRequest) -> func.HttpResponse:
         
         # Perform OCR
         logging.info(f"🔍 Performing OCR on image (language: {lang})...")
+        logging.info(f"   Image path: {image_path}")
+        logging.info(f"   Image size: {os.path.getsize(image_path)} bytes")
+        
         try:
             result = ocr.ocr(image_path, cls=True)
-            logging.info(f"OCR processing completed")
+            logging.info(f"✅ OCR processing completed successfully")
         except Exception as ocr_error:
-            logging.error(f"OCR processing failed: {ocr_error}", exc_info=True)
+            logging.error(f"❌ OCR processing failed: {ocr_error}", exc_info=True)
+            logging.error(f"   Error type: {type(ocr_error).__name__}")
+            logging.error(f"   Image path: {image_path}")
+            
             if image_path and os.path.exists(image_path):
                 os.remove(image_path)
+            
             return create_cors_response({
                 'success': False,
-                'error': f'OCR processing failed: {str(ocr_error)}'
+                'error': f'OCR processing failed: {type(ocr_error).__name__} - {str(ocr_error)}'
             }, 500)
         
         # Clean up temp file
