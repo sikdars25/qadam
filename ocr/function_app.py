@@ -1,31 +1,18 @@
 """
-OCR Function App - Separate Azure Function for OCR Processing
+OCR Function App - Native Azure Functions
 Uses PaddleOCR for better accuracy and no system dependencies
 """
 
-from flask import Flask, request, jsonify
-from flask_cors import CORS
+import azure.functions as func
+import logging
+import json
 import os
-from dotenv import load_dotenv
 import tempfile
 import base64
-from io import BytesIO
+from typing import Optional
 
-# Load environment variables
-load_dotenv()
-
-app = Flask(__name__)
-
-# Configure CORS
-FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:3000')
-CORS(app, resources={
-    r"/api/*": {
-        "origins": [FRONTEND_URL, "https://*.azurestaticapps.net"],
-        "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-        "allow_headers": ["Content-Type", "Authorization"],
-        "supports_credentials": True
-    }
-})
+# Create the function app
+app = func.FunctionApp()
 
 # Initialize PaddleOCR (lazy loading)
 ocr_engine = None
@@ -36,30 +23,52 @@ def get_ocr_engine():
     if ocr_engine is None:
         try:
             from paddleocr import PaddleOCR
-            print("🔄 Initializing PaddleOCR...")
+            logging.info("🔄 Initializing PaddleOCR...")
             ocr_engine = PaddleOCR(
                 use_angle_cls=True,  # Enable text angle classification
                 lang='en',  # Default to English
                 use_gpu=False,  # CPU only (Azure doesn't provide GPU)
                 show_log=False  # Reduce logging
             )
-            print("✅ PaddleOCR initialized successfully")
+            logging.info("✅ PaddleOCR initialized successfully")
         except Exception as e:
-            print(f"❌ Failed to initialize PaddleOCR: {e}")
+            logging.error(f"❌ Failed to initialize PaddleOCR: {e}")
             raise
     return ocr_engine
 
-@app.route('/api/health', methods=['GET'])
-def health_check():
+def create_cors_response(body: dict, status_code: int = 200) -> func.HttpResponse:
+    """Create HTTP response with CORS headers"""
+    headers = {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization'
+    }
+    
+    return func.HttpResponse(
+        body=json.dumps(body),
+        status_code=status_code,
+        headers=headers,
+        mimetype='application/json'
+    )
+
+@app.route(route="health", methods=["GET", "OPTIONS"])
+def health_check(req: func.HttpRequest) -> func.HttpResponse:
     """Health check endpoint"""
-    return jsonify({
+    logging.info('Health check requested')
+    
+    # Handle OPTIONS for CORS preflight
+    if req.method == "OPTIONS":
+        return create_cors_response({})
+    
+    return create_cors_response({
         'status': 'healthy',
         'service': 'OCR Function App',
         'ocr_engine': 'PaddleOCR'
     })
 
-@app.route('/api/ocr/image', methods=['POST'])
-def ocr_image():
+@app.route(route="ocr/image", methods=["POST", "OPTIONS"])
+def ocr_image(req: func.HttpRequest) -> func.HttpResponse:
     """
     Extract text from an image using PaddleOCR
     
@@ -77,41 +86,66 @@ def ocr_image():
             'details': [...]  # Detailed OCR results with bounding boxes
         }
     """
+    logging.info('OCR image request received')
+    
+    # Handle OPTIONS for CORS preflight
+    if req.method == "OPTIONS":
+        return create_cors_response({})
+    
     try:
         ocr = get_ocr_engine()
         
         # Get language parameter
-        lang = request.form.get('language', 'en') if request.files else request.json.get('language', 'en')
-        
-        # Get image from request
+        lang = 'en'
         image_path = None
-        temp_file = None
         
-        if 'file' in request.files:
+        # Check if it's a file upload or JSON request
+        content_type = req.headers.get('Content-Type', '')
+        
+        if 'multipart/form-data' in content_type:
             # File upload
-            file = request.files['file']
-            
-            # Save to temp file
-            temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.png')
-            file.save(temp_file.name)
-            image_path = temp_file.name
-            temp_file.close()
-            
-        elif request.json and 'image_base64' in request.json:
-            # Base64 encoded image
-            image_data = base64.b64decode(request.json['image_base64'])
-            
-            # Save to temp file
-            temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.png')
-            temp_file.write(image_data)
-            temp_file.close()
-            image_path = temp_file.name
-            
+            try:
+                files = req.files
+                if 'file' in files:
+                    file = files['file']
+                    
+                    # Get language from form
+                    params = req.params
+                    lang = params.get('language', 'en')
+                    
+                    # Save to temp file
+                    temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.png')
+                    temp_file.write(file.read())
+                    temp_file.close()
+                    image_path = temp_file.name
+                else:
+                    return create_cors_response({'error': 'No file provided'}, 400)
+            except Exception as e:
+                logging.error(f"Error processing file upload: {e}")
+                return create_cors_response({'error': f'File upload error: {str(e)}'}, 400)
         else:
-            return jsonify({'error': 'No image provided'}), 400
+            # JSON request with base64
+            try:
+                req_body = req.get_json()
+                if 'image_base64' in req_body:
+                    lang = req_body.get('language', 'en')
+                    image_data = base64.b64decode(req_body['image_base64'])
+                    
+                    # Save to temp file
+                    temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.png')
+                    temp_file.write(image_data)
+                    temp_file.close()
+                    image_path = temp_file.name
+                else:
+                    return create_cors_response({'error': 'No image_base64 provided'}, 400)
+            except ValueError:
+                return create_cors_response({'error': 'Invalid JSON body'}, 400)
+        
+        if not image_path:
+            return create_cors_response({'error': 'No image provided'}, 400)
         
         # Perform OCR
-        print(f"🔍 Performing OCR on image (language: {lang})...")
+        logging.info(f"🔍 Performing OCR on image (language: {lang})...")
         result = ocr.ocr(image_path, cls=True)
         
         # Clean up temp file
@@ -120,7 +154,7 @@ def ocr_image():
         
         # Parse results
         if not result or not result[0]:
-            return jsonify({
+            return create_cors_response({
                 'success': True,
                 'text': '',
                 'confidence': 0.0,
@@ -151,9 +185,9 @@ def ocr_image():
         full_text = '\n'.join(text_lines)
         avg_confidence = total_confidence / len(result[0]) if result[0] else 0
         
-        print(f"✅ OCR completed: {len(text_lines)} lines detected")
+        logging.info(f"✅ OCR completed: {len(text_lines)} lines detected")
         
-        return jsonify({
+        return create_cors_response({
             'success': True,
             'text': full_text,
             'confidence': round(avg_confidence, 3),
@@ -162,15 +196,14 @@ def ocr_image():
         })
         
     except Exception as e:
-        import traceback
-        traceback.print_exc()
-        return jsonify({
+        logging.error(f"OCR error: {str(e)}", exc_info=True)
+        return create_cors_response({
             'success': False,
             'error': str(e)
-        }), 500
+        }, 500)
 
-@app.route('/api/ocr/pdf', methods=['POST'])
-def ocr_pdf():
+@app.route(route="ocr/pdf", methods=["POST", "OPTIONS"])
+def ocr_pdf(req: func.HttpRequest) -> func.HttpResponse:
     """
     Extract text from PDF using OCR
     
@@ -185,19 +218,31 @@ def ocr_pdf():
             'pages': [...]  # Text per page
         }
     """
+    logging.info('OCR PDF request received')
+    
+    # Handle OPTIONS for CORS preflight
+    if req.method == "OPTIONS":
+        return create_cors_response({})
+    
     try:
         import fitz  # PyMuPDF
-        from PIL import Image
         
-        if 'file' not in request.files:
-            return jsonify({'error': 'No file provided'}), 400
+        content_type = req.headers.get('Content-Type', '')
         
-        file = request.files['file']
-        lang = request.form.get('language', 'en')
+        if 'multipart/form-data' not in content_type:
+            return create_cors_response({'error': 'PDF must be uploaded as multipart/form-data'}, 400)
+        
+        files = req.files
+        if 'file' not in files:
+            return create_cors_response({'error': 'No file provided'}, 400)
+        
+        file = files['file']
+        params = req.params
+        lang = params.get('language', 'en')
         
         # Save PDF to temp file
         temp_pdf = tempfile.NamedTemporaryFile(delete=False, suffix='.pdf')
-        file.save(temp_pdf.name)
+        temp_pdf.write(file.read())
         temp_pdf.close()
         
         # Open PDF
@@ -206,10 +251,10 @@ def ocr_pdf():
         ocr = get_ocr_engine()
         pages_text = []
         
-        print(f"📄 Processing {len(doc)} pages...")
+        logging.info(f"📄 Processing {len(doc)} pages...")
         
         for page_num, page in enumerate(doc, 1):
-            print(f"  Processing page {page_num}/{len(doc)}...")
+            logging.info(f"  Processing page {page_num}/{len(doc)}...")
             
             # Convert page to image
             pix = page.get_pixmap(matrix=fitz.Matrix(2, 2))  # 2x zoom for better quality
@@ -241,9 +286,9 @@ def ocr_pdf():
         # Combine all pages
         full_text = '\n\n'.join(pages_text)
         
-        print(f"✅ PDF OCR completed: {len(doc)} pages processed")
+        logging.info(f"✅ PDF OCR completed: {len(doc)} pages processed")
         
-        return jsonify({
+        return create_cors_response({
             'success': True,
             'text': full_text,
             'total_pages': len(pages_text),
@@ -251,16 +296,21 @@ def ocr_pdf():
         })
         
     except Exception as e:
-        import traceback
-        traceback.print_exc()
-        return jsonify({
+        logging.error(f"PDF OCR error: {str(e)}", exc_info=True)
+        return create_cors_response({
             'success': False,
             'error': str(e)
-        }), 500
+        }, 500)
 
-@app.route('/api/ocr/languages', methods=['GET'])
-def get_supported_languages():
+@app.route(route="ocr/languages", methods=["GET", "OPTIONS"])
+def get_supported_languages(req: func.HttpRequest) -> func.HttpResponse:
     """Get list of supported languages"""
+    logging.info('Languages list requested')
+    
+    # Handle OPTIONS for CORS preflight
+    if req.method == "OPTIONS":
+        return create_cors_response({})
+    
     languages = {
         'en': 'English',
         'ch': 'Chinese',
@@ -281,11 +331,7 @@ def get_supported_languages():
         'ko': 'Korean'
     }
     
-    return jsonify({
+    return create_cors_response({
         'success': True,
         'languages': languages
     })
-
-if __name__ == '__main__':
-    port = int(os.getenv('PORT', 8000))
-    app.run(host='0.0.0.0', port=port, debug=True)

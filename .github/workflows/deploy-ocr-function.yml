@@ -40,14 +40,21 @@ jobs:
         fi
         echo "✅ Publish profile found"
     
-    - name: 'Run Azure Functions Action'
-      uses: Azure/functions-action@v1
-      id: deploy-function
+    - name: 'Login to Azure'
+      uses: azure/login@v1
       with:
-        app-name: ${{ env.AZURE_FUNCTIONAPP_NAME }}
-        package: ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}
-        publish-profile: ${{ secrets.AZURE_OCR_FUNCTIONAPP_PUBLISH_PROFILE }}
-        respect-funcignore: true
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+    
+    - name: 'Deploy to Azure Functions using CLI'
+      run: |
+        cd ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}
+        zip -r ../deploy.zip .
+        cd ..
+        az functionapp deployment source config-zip \
+          --resource-group qadam_ocr \
+          --name ${{ env.AZURE_FUNCTIONAPP_NAME }} \
+          --src deploy.zip \
+          --build-remote true
 
     - name: 'Deployment Summary'
       run: |
