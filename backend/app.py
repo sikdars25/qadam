@@ -2496,29 +2496,45 @@ def parse_single_question():
         if not question_text or not question_text.strip():
             return jsonify({'error': 'Could not extract text from input'}), 400
         
-        # Parse the question using Groq AI
-        print(f"Parsing single question: {question_text[:100]}...")
+        # Check if GROQ_API_KEY is available for AI parsing
+        groq_api_key = os.getenv('GROQ_API_KEY')
         
-        # Create a simple question block
-        question_block = {
-            'block_number': 1,
-            'raw_text': question_text.strip(),
-            'instruction': None
-        }
-        
-        # Use the existing Groq parser
-        parsed_questions = question_parser.parse_with_groq_fixed([question_block])
-        
-        if parsed_questions and len(parsed_questions) > 0:
-            parsed_question = parsed_questions[0]
+        if groq_api_key:
+            # Parse the question using Groq AI
+            print(f"Parsing single question with Groq AI: {question_text[:100]}...")
+            
+            # Create a simple question block
+            question_block = {
+                'block_number': 1,
+                'raw_text': question_text.strip(),
+                'instruction': None
+            }
+            
+            # Use the existing Groq parser
+            parsed_questions = question_parser.parse_with_groq_fixed([question_block])
+            
+            if parsed_questions and len(parsed_questions) > 0:
+                parsed_question = parsed_questions[0]
+                
+                return jsonify({
+                    'success': True,
+                    'question': parsed_question,
+                    'extracted_text': question_text[:500]  # First 500 chars for reference
+                })
+            else:
+                return jsonify({'error': 'Failed to parse question with AI'}), 500
+        else:
+            # GROQ_API_KEY not set - return simple OCR result without AI parsing
+            print(f"⚠️ GROQ_API_KEY not set - returning OCR text without AI parsing")
+            print(f"Extracted text: {question_text[:100]}...")
             
             return jsonify({
                 'success': True,
-                'question': parsed_question,
-                'extracted_text': question_text[:500]  # First 500 chars for reference
+                'question_text': question_text.strip(),
+                'extracted_text': question_text.strip(),
+                'message': 'OCR completed. Set GROQ_API_KEY for AI-powered question parsing.',
+                'ai_parsing': False
             })
-        else:
-            return jsonify({'error': 'Failed to parse question'}), 500
             
     except Exception as e:
         import traceback
