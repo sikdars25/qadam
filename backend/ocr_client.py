@@ -1,5 +1,6 @@
 """
 OCR Client - Calls the separate OCR Function App
+Version: 1.1 - Fixed timeout and added warmup
 """
 
 import os
