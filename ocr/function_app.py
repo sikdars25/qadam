@@ -61,10 +61,23 @@ def health_check(req: func.HttpRequest) -> func.HttpResponse:
     if req.method == "OPTIONS":
         return create_cors_response({})
     
+    # Check if PaddleOCR is installed
+    paddleocr_installed = False
+    paddleocr_version = None
+    try:
+        import paddleocr
+        paddleocr_installed = True
+        paddleocr_version = paddleocr.__version__ if hasattr(paddleocr, '__version__') else 'unknown'
+    except ImportError:
+        pass
+    
     return create_cors_response({
         'status': 'healthy',
         'service': 'OCR Function App',
-        'ocr_engine': 'PaddleOCR'
+        'ocr_engine': 'PaddleOCR',
+        'paddleocr_installed': paddleocr_installed,
+        'paddleocr_version': paddleocr_version,
+        'python_version': os.sys.version
     })
 
 @app.route(route="ocr/image", methods=["POST", "OPTIONS"], auth_level=func.AuthLevel.ANONYMOUS)
