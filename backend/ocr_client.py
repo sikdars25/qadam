@@ -70,6 +70,47 @@ def preprocess_image(image_bytes: bytes, max_dimension: int = 2048) -> bytes:
         # Return original if preprocessing fails
         return image_bytes
 
+def ocr_image_with_retry(image_file, language: str = 'en', max_retries: int = 3) -> Dict[str, Any]:
+    """
+    Extract text from image with automatic retry on failure
+    
+    Args:
+        image_file: File object or file path
+        language: Language code (default: 'en')
+        max_retries: Maximum number of retry attempts (default: 3)
+    
+    Returns:
+        OCR result dictionary
+    """
+    import time
+    
+    for attempt in range(max_retries):
+        result = ocr_image(image_file, language)
+        
+        if result.get('success'):
+            return result
+        
+        # Check if error is retryable
+        error = result.get('error', '')
+        is_retryable = (
+            'could not execute a primitive' in error or
+            'RuntimeError' in error or
+            'timeout' in error.lower() or
+            '500' in error
+        )
+        
+        if is_retryable and attempt < max_retries - 1:
+            wait_time = 2 ** attempt  # Exponential backoff: 1s, 2s, 4s
+            print(f"⚠️ OCR failed (attempt {attempt + 1}/{max_retries}): {error}")
+            print(f"   Retrying in {wait_time}s...")
+            time.sleep(wait_time)
+            continue
+        
+        # Non-retryable error or max retries reached
+        return result
+    
+    return {'success': False, 'error': 'Max retries exceeded', 'text': ''}
+
 def ocr_image(image_file, language: str = 'en') -> Dict[str, Any]:
     """
     Extract text from image using OCR service
