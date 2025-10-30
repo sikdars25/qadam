@@ -2964,6 +2964,30 @@ def health_check():
     """Health check endpoint"""
     return jsonify({'status': 'healthy', 'message': 'Backend is running'})
 
+@app.route('/api/ocr/warmup', methods=['POST'])
+def warmup_ocr():
+    """Warmup OCR service to download models"""
+    try:
+        import ocr_client
+        print("🔥 Warming up OCR service...")
+        success = ocr_client.warmup_ocr_service()
+        
+        if success:
+            return jsonify({
+                'success': True,
+                'message': 'OCR service warmed up successfully'
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'message': 'OCR service warmup failed'
+            }), 503
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
 # ============================================
 # ADMIN USER MANAGEMENT ENDPOINTS
 # ============================================

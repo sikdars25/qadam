@@ -34,12 +34,12 @@ def ocr_image(image_file, language: str = 'en') -> Dict[str, Any]:
             with open(image_file, 'rb') as f:
                 files = {'file': f}
                 data = {'language': language}
-                response = requests.post(url, files=files, data=data, timeout=60)
+                response = requests.post(url, files=files, data=data, timeout=120)  # 2 min timeout for model download
         else:
             # File object
             files = {'file': image_file}
             data = {'language': language}
-            response = requests.post(url, files=files, data=data, timeout=60)
+            response = requests.post(url, files=files, data=data, timeout=120)  # 2 min timeout for model download
         
         if response.status_code == 200:
             return response.json()
@@ -125,6 +125,27 @@ def check_ocr_service() -> bool:
     try:
         url = f"{OCR_SERVICE_URL}/api/health"
         response = requests.get(url, timeout=5)
+        return response.status_code == 200
+    except:
+        return False
+
+def warmup_ocr_service() -> bool:
+    """
+    Warmup OCR service by sending a small test image
+    This triggers model downloads on first run
+    """
+    try:
+        import base64
+        # 1x1 pixel PNG image
+        tiny_image = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
+        
+        url = f"{OCR_SERVICE_URL}/api/ocr/image"
+        payload = {
+            'image_base64': tiny_image,
+            'language': 'en'
+        }
+        
+        response = requests.post(url, json=payload, timeout=180)  # 3 min timeout for first warmup
         return response.status_code == 200
     except:
         return False
