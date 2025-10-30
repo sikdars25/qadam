@@ -52,7 +52,7 @@ def create_cors_response(body: dict, status_code: int = 200) -> func.HttpRespons
         mimetype='application/json'
     )
 
-@app.route(route="health", methods=["GET", "OPTIONS"])
+@app.route(route="health", methods=["GET", "OPTIONS"], auth_level=func.AuthLevel.ANONYMOUS)
 def health_check(req: func.HttpRequest) -> func.HttpResponse:
     """Health check endpoint"""
     logging.info('Health check requested')
@@ -67,7 +67,7 @@ def health_check(req: func.HttpRequest) -> func.HttpResponse:
         'ocr_engine': 'PaddleOCR'
     })
 
-@app.route(route="ocr/image", methods=["POST", "OPTIONS"])
+@app.route(route="ocr/image", methods=["POST", "OPTIONS"], auth_level=func.AuthLevel.ANONYMOUS)
 def ocr_image(req: func.HttpRequest) -> func.HttpResponse:
     """
     Extract text from an image using PaddleOCR
@@ -202,7 +202,7 @@ def ocr_image(req: func.HttpRequest) -> func.HttpResponse:
             'error': str(e)
         }, 500)
 
-@app.route(route="ocr/pdf", methods=["POST", "OPTIONS"])
+@app.route(route="ocr/pdf", methods=["POST", "OPTIONS"], auth_level=func.AuthLevel.ANONYMOUS)
 def ocr_pdf(req: func.HttpRequest) -> func.HttpResponse:
     """
     Extract text from PDF using OCR
@@ -302,7 +302,7 @@ def ocr_pdf(req: func.HttpRequest) -> func.HttpResponse:
             'error': str(e)
         }, 500)
 
-@app.route(route="ocr/languages", methods=["GET", "OPTIONS"])
+@app.route(route="ocr/languages", methods=["GET", "OPTIONS"], auth_level=func.AuthLevel.ANONYMOUS)
 def get_supported_languages(req: func.HttpRequest) -> func.HttpResponse:
     """Get list of supported languages"""
     logging.info('Languages list requested')
