@@ -1,14 +1,74 @@
 """
 OCR Client - Calls the separate OCR Function App
-Version: 1.1 - Fixed timeout and added warmup
+Version: 1.2 - Added automatic image resizing
 """
 
 import os
 import requests
 from typing import Optional, Dict, Any
+from PIL import Image
+import io
 
 # OCR Function App URL
 OCR_SERVICE_URL = os.getenv('OCR_SERVICE_URL', 'https://qadam-ocr-addrcugfg4d4drg7.canadacentral-01.azurewebsites.net')
+
+def preprocess_image(image_bytes: bytes, max_dimension: int = 2048) -> bytes:
+    """
+    Preprocess image before OCR:
+    - Resize if too large
+    - Optimize file size
+    - Validate format
+    
+    Args:
+        image_bytes: Raw image bytes
+        max_dimension: Maximum width or height (default: 2048)
+    
+    Returns:
+        Processed image bytes
+    """
+    try:
+        # Open image
+        img = Image.open(io.BytesIO(image_bytes))
+        original_size = img.size
+        
+        # Check if resize needed
+        if max(img.size) > max_dimension:
+            print(f"📏 Resizing image from {img.size} to fit {max_dimension}px")
+            
+            # Calculate new size maintaining aspect ratio
+            ratio = max_dimension / max(img.size)
+            new_size = (int(img.width * ratio), int(img.height * ratio))
+            
+            # Resize with high-quality algorithm
+            img = img.resize(new_size, Image.Resampling.LANCZOS)
+            print(f"✅ Resized to {img.size}")
+        
+        # Convert to RGB if needed (remove alpha channel)
+        if img.mode in ('RGBA', 'LA', 'P'):
+            print(f"🎨 Converting {img.mode} to RGB")
+            background = Image.new('RGB', img.size, (255, 255, 255))
+            if img.mode == 'P':
+                img = img.convert('RGBA')
+            background.paste(img, mask=img.split()[-1] if img.mode in ('RGBA', 'LA') else None)
+            img = background
+        
+        # Save optimized
+        buffer = io.BytesIO()
+        img.save(buffer, format='PNG', optimize=True)
+        processed_bytes = buffer.getvalue()
+        
+        # Log size reduction
+        original_kb = len(image_bytes) / 1024
+        processed_kb = len(processed_bytes) / 1024
+        if original_kb > processed_kb:
+            print(f"💾 Reduced size: {original_kb:.1f}KB → {processed_kb:.1f}KB")
+        
+        return processed_bytes
+        
+    except Exception as e:
+        print(f"⚠️ Image preprocessing failed: {e}")
+        # Return original if preprocessing fails
+        return image_bytes
 
 def ocr_image(image_file, language: str = 'en') -> Dict[str, Any]:
     """
@@ -29,18 +89,24 @@ def ocr_image(image_file, language: str = 'en') -> Dict[str, Any]:
     try:
         url = f"{OCR_SERVICE_URL}/api/ocr/image"
         
-        # Prepare file
+        # Read image bytes
         if isinstance(image_file, str):
             # File path
             with open(image_file, 'rb') as f:
-                files = {'file': f}
-                data = {'language': language}
-                response = requests.post(url, files=files, data=data, timeout=120)  # 2 min timeout for model download
+                image_bytes = f.read()
         else:
             # File object
-            files = {'file': image_file}
-            data = {'language': language}
-            response = requests.post(url, files=files, data=data, timeout=120)  # 2 min timeout for model download
+            image_bytes = image_file.read()
+        
+        # Preprocess image (resize if needed)
+        print(f"📸 Original image size: {len(image_bytes) / 1024:.1f}KB")
+        processed_bytes = preprocess_image(image_bytes)
+        print(f"📸 Processed image size: {len(processed_bytes) / 1024:.1f}KB")
+        
+        # Send to OCR service
+        files = {'file': ('image.png', io.BytesIO(processed_bytes), 'image/png')}
+        data = {'language': language}
+        response = requests.post(url, files=files, data=data, timeout=120)  # 2 min timeout
         
         if response.status_code == 200:
             return response.json()
