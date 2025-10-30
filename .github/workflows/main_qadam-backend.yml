@@ -84,8 +84,8 @@ jobs:
       - name: 'Configure CORS'
         run: |
           echo "Configuring CORS for Function App..."
-          az functionapp cors remove --name qadam-backend --resource-group <your-resource-group> --allowed-origins '*' || true
-          az functionapp cors add --name qadam-backend --resource-group <your-resource-group> --allowed-origins https://zealous-ocean-06e22b51e.3.azurestaticapps.net
-          az functionapp cors add --name qadam-backend --resource-group <your-resource-group> --allowed-origins http://localhost:3000
-          az functionapp config appsettings set --name qadam-backend --resource-group <your-resource-group> --settings CORS_CREDENTIALS=true
+          az functionapp cors remove --name qadam-backend --resource-group qadam_bend_group --allowed-origins '*' || true
+          az functionapp cors add --name qadam-backend --resource-group qadam_bend_group --allowed-origins https://zealous-ocean-06e22b51e.3.azurestaticapps.net
+          az functionapp cors add --name qadam-backend --resource-group qadam_bend_group --allowed-origins http://localhost:3000
+          az functionapp config appsettings set --name qadam-backend --resource-group qadam_bend_group --settings CORS_CREDENTIALS=true
           echo "CORS configured successfully"
