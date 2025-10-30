@@ -137,6 +137,8 @@ def warmup_ocr_service() -> bool:
     """
     try:
         import base64
+        print(f"🔥 Warming up OCR service at {OCR_SERVICE_URL}")
+        
         # 1x1 pixel PNG image
         tiny_image = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
         
@@ -146,9 +148,17 @@ def warmup_ocr_service() -> bool:
             'language': 'en'
         }
         
+        print(f"📤 Sending warmup request to {url}")
         response = requests.post(url, json=payload, timeout=180)  # 3 min timeout for first warmup
-        return response.status_code == 200
-    except:
+        
+        if response.status_code == 200:
+            print("✅ Warmup successful!")
+            return True
+        else:
+            print(f"⚠️ Warmup returned status {response.status_code}")
+            return False
+    except Exception as e:
+        print(f"❌ Warmup failed: {e}")
         return False
 
 def get_supported_languages() -> Dict[str, str]:
