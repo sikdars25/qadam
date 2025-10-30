@@ -106,7 +106,8 @@ def ocr_image(req: func.HttpRequest) -> func.HttpResponse:
         return create_cors_response({})
     
     try:
-        ocr = get_ocr_engine()
+        logging.info(f"Content-Type: {req.headers.get('Content-Type', 'not set')}")
+        logging.info(f"Method: {req.method}")
         
         # Get language parameter
         lang = 'en'
@@ -118,23 +119,32 @@ def ocr_image(req: func.HttpRequest) -> func.HttpResponse:
         if 'multipart/form-data' in content_type:
             # File upload
             try:
+                logging.info("Processing multipart/form-data request")
                 files = req.files
+                logging.info(f"Files received: {list(files.keys()) if files else 'None'}")
+                
                 if 'file' in files:
                     file = files['file']
+                    logging.info(f"File name: {file.filename if hasattr(file, 'filename') else 'unknown'}")
                     
                     # Get language from form
                     params = req.params
                     lang = params.get('language', 'en')
+                    logging.info(f"Language: {lang}")
                     
                     # Save to temp file
                     temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.png')
-                    temp_file.write(file.read())
+                    file_content = file.read()
+                    logging.info(f"File size: {len(file_content)} bytes")
+                    temp_file.write(file_content)
                     temp_file.close()
                     image_path = temp_file.name
+                    logging.info(f"Saved to temp file: {image_path}")
                 else:
-                    return create_cors_response({'error': 'No file provided'}, 400)
+                    logging.error("No 'file' field in multipart data")
+                    return create_cors_response({'error': 'No file provided', 'received_fields': list(files.keys()) if files else []}, 400)
             except Exception as e:
-                logging.error(f"Error processing file upload: {e}")
+                logging.error(f"Error processing file upload: {e}", exc_info=True)
                 return create_cors_response({'error': f'File upload error: {str(e)}'}, 400)
         else:
             # JSON request with base64
@@ -155,11 +165,49 @@ def ocr_image(req: func.HttpRequest) -> func.HttpResponse:
                 return create_cors_response({'error': 'Invalid JSON body'}, 400)
         
         if not image_path:
+            logging.error("No image path set")
             return create_cors_response({'error': 'No image provided'}, 400)
+        
+        # Initialize OCR engine
+        try:
+            logging.info("Initializing OCR engine...")
+            ocr = get_ocr_engine()
+            logging.info("OCR engine initialized successfully")
+        except Exception as ocr_init_error:
+            logging.error(f"Failed to initialize OCR engine: {ocr_init_error}", exc_info=True)
+            return create_cors_response({
+                'success': False,
+                'error': f'OCR initialization failed: {str(ocr_init_error)}'
+            }, 500)
+        
+        # Validate image file
+        try:
+            from PIL import Image as PILImage
+            test_img = PILImage.open(image_path)
+            test_img.verify()
+            logging.info(f"Image validated: {test_img.format}, size: {test_img.size}")
+        except Exception as img_error:
+            logging.error(f"Invalid image file: {img_error}")
+            if image_path and os.path.exists(image_path):
+                os.remove(image_path)
+            return create_cors_response({
+                'success': False,
+                'error': f'Invalid image file: {str(img_error)}'
+            }, 400)
         
         # Perform OCR
         logging.info(f"🔍 Performing OCR on image (language: {lang})...")
-        result = ocr.ocr(image_path, cls=True)
+        try:
+            result = ocr.ocr(image_path, cls=True)
+            logging.info(f"OCR processing completed")
+        except Exception as ocr_error:
+            logging.error(f"OCR processing failed: {ocr_error}", exc_info=True)
+            if image_path and os.path.exists(image_path):
+                os.remove(image_path)
+            return create_cors_response({
+                'success': False,
+                'error': f'OCR processing failed: {str(ocr_error)}'
+            }, 500)
         
         # Clean up temp file
         if image_path and os.path.exists(image_path):
