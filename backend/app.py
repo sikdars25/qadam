@@ -2988,6 +2988,79 @@ def warmup_ocr():
             'error': str(e)
         }), 500
 
+@app.route('/api/ocr/extract', methods=['POST'])
+def extract_text_ocr():
+    """
+    Simple OCR endpoint - extract text from image without question parsing
+    This bypasses the question parser for direct OCR testing
+    """
+    try:
+        import ocr_client
+        from werkzeug.utils import secure_filename
+        import os
+        from datetime import datetime
+        
+        # Check if file is uploaded
+        if 'file' not in request.files:
+            return jsonify({
+                'success': False,
+                'error': 'No file uploaded'
+            }), 400
+        
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({
+                'success': False,
+                'error': 'No file selected'
+            }), 400
+        
+        # Get language parameter (default: en)
+        language = request.form.get('language', 'en')
+        
+        # Save file temporarily
+        temp_filename = secure_filename(f"ocr_temp_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png")
+        temp_path = os.path.join(app.config['UPLOAD_FOLDER'], temp_filename)
+        file.save(temp_path)
+        
+        try:
+            # Call OCR service
+            print(f"📸 Processing OCR for file: {temp_filename}")
+            ocr_result = ocr_client.ocr_image(temp_path, language=language)
+            
+            # Clean up temp file
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
+            
+            # Return OCR result directly
+            if ocr_result.get('success'):
+                return jsonify({
+                    'success': True,
+                    'text': ocr_result.get('text', ''),
+                    'confidence': ocr_result.get('confidence', 0),
+                    'lines_detected': ocr_result.get('lines_detected', 0),
+                    'details': ocr_result.get('details', []),
+                    'message': 'OCR completed successfully'
+                })
+            else:
+                return jsonify({
+                    'success': False,
+                    'error': ocr_result.get('error', 'OCR processing failed')
+                }), 500
+                
+        except Exception as ocr_error:
+            # Clean up temp file on error
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
+            raise ocr_error
+            
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
 # ============================================
 # ADMIN USER MANAGEMENT ENDPOINTS
 # ============================================
