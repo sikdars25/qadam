@@ -92,11 +92,25 @@ const SingleQuestionUpload = ({ onClose, onQuestionParsed }) => {
           }
         });
 
-        if (ocrResponse.data.success && ocrResponse.data.question) {
-          questionToSolve = ocrResponse.data.question.question_text;
-          console.log('Extracted text from image:', questionToSolve);
+        if (ocrResponse.data.success) {
+          // Handle both response formats:
+          // 1. With AI parsing: { success: true, question: { question_text: "..." } }
+          // 2. Without AI parsing: { success: true, question_text: "...", extracted_text: "..." }
+          questionToSolve = ocrResponse.data.question?.question_text || 
+                           ocrResponse.data.question_text || 
+                           ocrResponse.data.extracted_text;
+          
+          if (questionToSolve && questionToSolve.trim()) {
+            console.log('✅ Extracted text from image:', questionToSolve);
+          } else {
+            setError('No text found in image. Please try typing the question instead.');
+            setLoading(false);
+            setSolving(false);
+            return;
+          }
         } else {
-          setError('Failed to extract text from image. Please try typing the question instead.');
+          const errorMsg = ocrResponse.data.error || 'Failed to extract text from image';
+          setError(`${errorMsg}. Please try typing the question instead.`);
           setLoading(false);
           setSolving(false);
           return;
