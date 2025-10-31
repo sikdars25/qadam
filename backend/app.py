@@ -84,7 +84,7 @@ except Exception as e:
 
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY', 'your-secret-key-here-change-in-production')
-# Updated: Oct 31, 2025 - Groq SDK 0.11.0 deployment
+# Updated: Oct 31, 2025 7:40 PM - GitHub Actions deployment with Groq SDK 0.11.0
 
 # Session configuration
 # Detect if running in Azure (production) or locally
