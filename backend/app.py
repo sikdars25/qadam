@@ -62,7 +62,7 @@ except Exception as e:
 
 # Try to import AI service (lightweight version)
 try:
-    from ai_service_new import (
+    from ai_service import (
         analyze_question_paper,
         generate_question_solution as generate_solution,
         index_textbook as extract_chapters_from_textbook,
@@ -2761,8 +2761,8 @@ def solve_question():
         
         print(f"🎓 Solving question: {question_text[:60]}...")
         
-        # Use the new AI service to generate solution
-        # Note: generate_solution is actually generate_question_solution from ai_service_new
+        # Use the AI service to generate solution
+        # Note: generate_solution is actually generate_question_solution from ai_service
         # It accepts textbook_index, not context
         solution = generate_solution(
             question_text=question_text,
