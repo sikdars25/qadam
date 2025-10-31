@@ -1638,58 +1638,98 @@ def download_textbook(textbook_id):
 @app.route('/api/paper-file/<paper_id>', methods=['GET'])
 def get_paper_file(paper_id):
     """Get paper file for viewing"""
-    conn = get_db_connection()
-    cursor = conn.cursor(dictionary=True)
-    cursor.execute(
-        'SELECT * FROM uploaded_papers WHERE id = %s',
-        (paper_id,)
-    )
-    paper = cursor.fetchone()
-    cursor.close()
-    conn.close()
-    
-    if not paper:
-        return jsonify({'error': 'Paper not found'}), 404
-    
-    file_path = paper['file_path']
-    
-    if not os.path.exists(file_path):
-        return jsonify({'error': 'File not found'}), 404
-    
-    # Get file extension
-    file_ext = file_path.rsplit('.', 1)[1].lower()
-    
-    return jsonify({
-        'success': True,
-        'file_type': file_ext,
-        'file_name': os.path.basename(file_path),
-        'title': paper['title'],
-        'subject': paper['subject']
-    })
+    try:
+        if COSMOS_DB_ENABLED:
+            # Use Cosmos DB
+            query = "SELECT * FROM c WHERE c.id = @paper_id AND c.type = 'paper'"
+            parameters = [{"name": "@paper_id", "value": paper_id}]
+            papers = list(papers_container.query_items(
+                query=query,
+                parameters=parameters,
+                enable_cross_partition_query=True
+            ))
+            
+            if not papers:
+                return jsonify({'error': 'Paper not found'}), 404
+            
+            paper = papers[0]
+        else:
+            # Fallback to MySQL
+            conn = get_db_connection()
+            cursor = conn.cursor(dictionary=True)
+            cursor.execute(
+                'SELECT * FROM uploaded_papers WHERE id = %s',
+                (paper_id,)
+            )
+            paper = cursor.fetchone()
+            cursor.close()
+            conn.close()
+            
+            if not paper:
+                return jsonify({'error': 'Paper not found'}), 404
+        
+        file_path = paper.get('file_path')
+        
+        if not file_path or not os.path.exists(file_path):
+            return jsonify({'error': 'File not found'}), 404
+        
+        # Get file extension
+        file_ext = file_path.rsplit('.', 1)[1].lower()
+        
+        return jsonify({
+            'success': True,
+            'file_type': file_ext,
+            'file_name': os.path.basename(file_path),
+            'title': paper.get('title', ''),
+            'subject': paper.get('subject', '')
+        })
+    except Exception as e:
+        print(f"❌ Error in get_paper_file: {e}")
+        return jsonify({'error': 'Failed to retrieve paper'}), 500
 
 @app.route('/api/download-paper/<paper_id>', methods=['GET'])
 def download_paper(paper_id):
     """Download or serve paper file"""
-    conn = get_db_connection()
-    cursor = conn.cursor(dictionary=True)
-    cursor.execute(
-        'SELECT * FROM uploaded_papers WHERE id = %s',
-        (paper_id,)
-    )
-    paper = cursor.fetchone()
-    cursor.close()
-    conn.close()
-    
-    if not paper:
-        return jsonify({'error': 'Paper not found'}), 404
-    
-    file_path = paper['file_path']
-    
-    if not os.path.exists(file_path):
-        return jsonify({'error': 'File not found'}), 404
-    
-    # Serve the file with proper MIME type
-    return send_file(file_path, mimetype='application/pdf' if file_path.endswith('.pdf') else None)
+    try:
+        if COSMOS_DB_ENABLED:
+            # Use Cosmos DB
+            query = "SELECT * FROM c WHERE c.id = @paper_id AND c.type = 'paper'"
+            parameters = [{"name": "@paper_id", "value": paper_id}]
+            papers = list(papers_container.query_items(
+                query=query,
+                parameters=parameters,
+                enable_cross_partition_query=True
+            ))
+            
+            if not papers:
+                return jsonify({'error': 'Paper not found'}), 404
+            
+            paper = papers[0]
+        else:
+            # Fallback to MySQL
+            conn = get_db_connection()
+            cursor = conn.cursor(dictionary=True)
+            cursor.execute(
+                'SELECT * FROM uploaded_papers WHERE id = %s',
+                (paper_id,)
+            )
+            paper = cursor.fetchone()
+            cursor.close()
+            conn.close()
+            
+            if not paper:
+                return jsonify({'error': 'Paper not found'}), 404
+        
+        file_path = paper.get('file_path')
+        
+        if not file_path or not os.path.exists(file_path):
+            return jsonify({'error': 'File not found'}), 404
+        
+        # Serve the file with proper MIME type
+        return send_file(file_path, mimetype='application/pdf' if file_path.endswith('.pdf') else None)
+    except Exception as e:
+        print(f"❌ Error in download_paper: {e}")
+        return jsonify({'error': 'Failed to download paper'}), 500
 
 @app.route('/api/analyze-paper', methods=['POST'])
 def analyze_paper():
