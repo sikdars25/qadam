@@ -2721,10 +2721,11 @@ def solve_question():
         print(f"🎓 Solving question: {question_text[:60]}...")
         
         # Use the new AI service to generate solution
-        context = chapter_context if chapter_context else ""
+        # Note: generate_solution is actually generate_question_solution from ai_service_new
+        # It accepts textbook_index, not context
         solution = generate_solution(
             question_text=question_text,
-            context=context,
+            textbook_index=None,  # TODO: Load textbook index if available
             subject=subject or ""
         )
         
