@@ -28,7 +28,7 @@ mysql-connector-python==8.0.33
 
 # AI Features (Lightweight - ~100 MB total)
 # OCR: Tesseract (already included above)
-# Text Generation: Groq API (Updated to fix initialization issues)
+# Text Generation: Groq API (Updated to v0.11.0 to fix initialization issues)
 groq==0.11.0
 # Embeddings & Vector Search: scikit-learn for TF-IDF
 scikit-learn==1.3.2
