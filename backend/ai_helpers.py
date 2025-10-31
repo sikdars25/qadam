@@ -313,11 +313,14 @@ def check_ai_availability():
         # Try to get version to verify it's actually installed
         pytesseract.get_tesseract_version()
         ocr_available = True
-    except (ImportError, pytesseract.TesseractNotFoundError, FileNotFoundError):
+    except ImportError:
+        ocr_available = False
+    except Exception:
+        # Catch any other errors (TesseractNotFoundError, FileNotFoundError, etc.)
         ocr_available = False
     
     status = {
-        'groq_api': bool(os.getenv('GROQ_API_KEY')),
+        'groq_api': bool(groq_client),  # Check if Groq client was initialized successfully
         'tfidf_vectorizer': True,  # Always available with scikit-learn
         'ocr': ocr_available  # Tesseract (only if system binary is installed)
     }
