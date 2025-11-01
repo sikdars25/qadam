@@ -3,13 +3,16 @@ set -e
 
 echo "🚀 Starting OCR Service Deployment..."
 
-# Navigate to app directory
+# Navigate to repository root
 cd /opt/qadam-ocr
 
 # Pull latest code
 echo "📥 Pulling latest code from GitHub..."
 git fetch origin backend-ocr
 git reset --hard origin/backend-ocr
+
+# Navigate to ocr directory
+cd ocr
 
 # Create/activate virtual environment
 echo "🐍 Setting up Python environment..."

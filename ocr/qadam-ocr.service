@@ -5,9 +5,9 @@ After=network.target
 [Service]
 Type=simple
 User=qadamuser
-WorkingDirectory=/opt/qadam-ocr
-Environment="PATH=/opt/qadam-ocr/venv/bin"
-ExecStart=/opt/qadam-ocr/venv/bin/python app.py
+WorkingDirectory=/opt/qadam-ocr/ocr
+Environment="PATH=/opt/qadam-ocr/ocr/venv/bin"
+ExecStart=/opt/qadam-ocr/ocr/venv/bin/python app.py
 Restart=always
 RestartSec=10
 
