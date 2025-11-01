@@ -37,10 +37,31 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt -t .
 
+      - name: Clean up unnecessary files
+        run: |
+          cd ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}
+          # Remove test directories
+          find . -type d -name "tests" -o -name "test" -o -name "Tests" | xargs rm -rf || true
+          # Remove .dist-info directories
+          find . -type d -name "*.dist-info" | xargs rm -rf || true
+          # Remove build artifacts
+          find . -type f -name "*.c" -o -name "*.cpp" -o -name "*.h" | xargs rm -f || true
+          # Remove Cython source files (keep only compiled .so files)
+          find . -path "*/Cython/*" -name "*.py" -o -name "*.pyx" | xargs rm -f || true
+
       - name: Zip artifact for deployment
         run: |
           cd ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}
-          zip -r ../ocr-release.zip . -x ".git/*" -x "__pycache__/*" -x "*.pyc" -x "venv/*" -x ".env*"
+          zip -r ../ocr-release.zip . \
+            -x ".git/*" \
+            -x "__pycache__/*" \
+            -x "*.pyc" \
+            -x "*.pyo" \
+            -x "venv/*" \
+            -x ".env*" \
+            -x "*.dist-info/*" \
+            -x "*/tests/*" \
+            -x "*/test/*"
 
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
