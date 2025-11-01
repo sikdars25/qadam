@@ -1,0 +1,84 @@
+# Azure Functions deployment workflow for AI Service
+
+name: Build and deploy Python project to Azure Function App - qadam-ai
+
+on:
+  push:
+    branches:
+      - backend-ai
+    paths:
+      - 'ai/**'
+      - '.github/workflows/backend-ai_qadam-ai.yml'
+  workflow_dispatch:
+
+env:
+  AZURE_FUNCTIONAPP_PACKAGE_PATH: 'ai'
+  PYTHON_VERSION: '3.10'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python version
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        working-directory: ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}
+        run: |
+          python -m pip install --upgrade pip
+          pip install --target="./.python_packages/lib/site-packages" -r requirements.txt
+
+      - name: Zip artifact for deployment
+        working-directory: ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}
+        run: zip -r ../ai-release.zip . -x ".git/*" -x "__pycache__/*" -x "*.pyc"
+
+      - name: Upload artifact for deployment job
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-app
+          path: ai-release.zip
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    
+    steps:
+      - name: Download artifact from build job
+        uses: actions/download-artifact@v4
+        with:
+          name: python-app
+
+      - name: Unzip artifact for deployment
+        run: |
+          unzip ai-release.zip -d ai-deploy
+          rm ai-release.zip
+        
+      - name: 'Deploy to Azure Functions'
+        uses: Azure/functions-action@v1
+        id: deploy-to-function
+        with:
+          app-name: 'qadam-ai'
+          slot-name: 'Production'
+          package: ai-deploy
+          publish-profile: ${{ secrets.AZURE_AI_FUNCTIONAPP_PUBLISH_PROFILE }}
+          scm-do-build-during-deployment: true
+          enable-oryx-build: true
+      
+      - name: 'Configure App Settings'
+        run: |
+          echo "✅ AI Function App deployed successfully!"
+          echo "📦 Function App: qadam-ai"
+          echo "🔗 URL: https://qadam-ai.azurewebsites.net"
+          echo ""
+          echo "⚠️ IMPORTANT: Set GROQ_API_KEY in Azure Portal"
+          echo "   1. Go to Azure Portal → qadam-ai Function App"
+          echo "   2. Configuration → Application settings"
+          echo "   3. Add: GROQ_API_KEY = your_groq_api_key"
