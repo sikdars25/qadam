@@ -2,7 +2,7 @@
 
 Separate Azure Function App for OCR processing using PaddleOCR.
 
-**Last Deployment**: November 1, 2025 12:15 PM IST
+**Last Deployment**: November 1, 2025 12:36 PM IST
 
 ## 🎯 Why Separate Function App?
 
