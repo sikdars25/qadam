@@ -47,9 +47,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: python-app
-          path: |
-            ocr-release.zip
-            !venv/
+          path: ocr-release.zip
 
   deploy:
     runs-on: ubuntu-latest
@@ -61,18 +59,13 @@ jobs:
         with:
           name: python-app
 
-      - name: Unzip artifact for deployment
-        run: |
-          unzip ocr-release.zip -d ocr-deploy
-          rm ocr-release.zip
-        
       - name: 'Deploy to Azure Functions'
         uses: Azure/functions-action@v1
         id: deploy-to-function
         with:
           app-name: 'qadam-ocr'
           slot-name: 'Production'
-          package: ocr-deploy
+          package: ocr-release.zip
           publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_EA3F5B515DFA46F3B811340FCBDEE901 }}
-          scm-do-build-during-deployment: true
-          enable-oryx-build: true
+          scm-do-build-during-deployment: false
+          enable-oryx-build: false
