@@ -1,0 +1,15 @@
+[Unit]
+Description=Qadam OCR Service
+After=network.target
+
+[Service]
+Type=simple
+User=azureuser
+WorkingDirectory=/opt/qadam-ocr
+Environment="PATH=/opt/qadam-ocr/venv/bin"
+ExecStart=/opt/qadam-ocr/venv/bin/python app.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,84 @@
+name: Deploy OCR to Azure VM
+
+on:
+  push:
+    branches:
+      - backend-ocr
+    paths:
+      - 'ocr/**'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.VM_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.VM_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Check if first time setup needed
+        id: check_setup
+        run: |
+          ssh ${{ secrets.VM_USERNAME }}@${{ secrets.VM_HOST }} << 'EOF'
+            if [ ! -d "/opt/qadam-ocr/.git" ]; then
+              echo "needs_setup=true" >> $GITHUB_OUTPUT
+            else
+              echo "needs_setup=false" >> $GITHUB_OUTPUT
+            fi
+          EOF
+
+      - name: Initial setup (first time only)
+        if: steps.check_setup.outputs.needs_setup == 'true'
+        run: |
+          ssh ${{ secrets.VM_USERNAME }}@${{ secrets.VM_HOST }} << 'EOF'
+            echo "🔧 First time setup..."
+            cd /opt/qadam-ocr
+            git init
+            git remote add origin https://github.com/sikdars25/qadam.git
+            git fetch origin backend-ocr
+            git checkout backend-ocr
+          EOF
+
+      - name: Deploy to VM
+        run: |
+          ssh ${{ secrets.VM_USERNAME }}@${{ secrets.VM_HOST }} << 'EOF'
+            cd /opt/qadam-ocr
+            chmod +x deploy.sh
+            ./deploy.sh
+          EOF
+
+      - name: Wait for service to start
+        run: sleep 15
+
+      - name: Health check
+        run: |
+          for i in {1..5}; do
+            if curl -f http://${{ secrets.VM_HOST }}/api/health; then
+              echo "✅ OCR Service is healthy!"
+              exit 0
+            fi
+            echo "Attempt $i failed, retrying..."
+            sleep 5
+          done
+          echo "❌ Health check failed"
+          exit 1
+
+      - name: Deployment summary
+        if: success()
+        run: |
+          echo "🎉 Deployment successful!"
+          echo "📍 OCR Service URL: http://${{ secrets.VM_HOST }}"
+          echo "🔍 Health Check: http://${{ secrets.VM_HOST }}/api/health"
+          echo "📝 API Endpoints:"
+          echo "  - POST /api/extract-text"
+          echo "  - POST /api/extract-text-with-boxes"
+          echo "  - POST /api/extract-from-pdf"
