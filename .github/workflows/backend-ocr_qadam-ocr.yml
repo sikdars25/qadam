@@ -31,11 +31,16 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
-      # Skip installing dependencies - let Azure remote build handle it
+      - name: Install dependencies
+        run: |
+          cd ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt -t .
 
       - name: Zip artifact for deployment
-        working-directory: ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}
-        run: zip -r ../ocr-release.zip . -x ".git/*" -x "__pycache__/*" -x "*.pyc" -x "*.python_packages/*" -x "venv/*"
+        run: |
+          cd ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}
+          zip -r ../ocr-release.zip . -x ".git/*" -x "__pycache__/*" -x "*.pyc" -x "venv/*" -x ".env*"
 
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
@@ -61,4 +66,3 @@ jobs:
           slot-name: 'Production'
           package: ocr-release.zip
           publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_EA3F5B515DFA46F3B811340FCBDEE901 }}
-          respect-funcignore: true
