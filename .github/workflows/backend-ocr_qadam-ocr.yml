@@ -35,19 +35,22 @@ jobs:
         run: |
           cd ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}
           python -m pip install --upgrade pip
-          pip install -r requirements.txt -t .
+          # Install with no cache and only binary wheels
+          pip install -r requirements.txt -t . --no-cache-dir --only-binary=:all: || pip install -r requirements.txt -t . --no-cache-dir
 
       - name: Clean up unnecessary files
         run: |
           cd ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}
-          # Remove test directories
-          find . -type d -name "tests" -o -name "test" -o -name "Tests" | xargs rm -rf || true
-          # Remove .dist-info directories
-          find . -type d -name "*.dist-info" | xargs rm -rf || true
-          # Remove build artifacts
-          find . -type f -name "*.c" -o -name "*.cpp" -o -name "*.h" | xargs rm -f || true
-          # Remove Cython source files (keep only compiled .so files)
-          find . -path "*/Cython/*" -name "*.py" -o -name "*.pyx" | xargs rm -f || true
+          # Remove test directories and files
+          find . -type d \( -name "tests" -o -name "test" -o -name "Tests" -o -name "__pycache__" \) -exec rm -rf {} + 2>/dev/null || true
+          # Remove .dist-info and .egg-info
+          find . -type d \( -name "*.dist-info" -o -name "*.egg-info" \) -exec rm -rf {} + 2>/dev/null || true
+          # Remove documentation and examples
+          find . -type d \( -name "docs" -o -name "doc" -o -name "examples" -o -name "samples" \) -exec rm -rf {} + 2>/dev/null || true
+          # Remove source files but keep .so and .pyd
+          find . -type f \( -name "*.c" -o -name "*.cpp" -o -name "*.h" -o -name "*.pyx" -o -name "*.pxd" \) -delete 2>/dev/null || true
+          # Remove markdown and text documentation
+          find . -type f \( -name "*.md" -o -name "*.rst" -o -name "*.txt" \) ! -name "requirements.txt" -delete 2>/dev/null || true
 
       - name: Zip artifact for deployment
         run: |
