@@ -9,8 +9,9 @@ from typing import Optional, Dict, Any
 from PIL import Image
 import io
 
-# OCR Function App URL
-OCR_SERVICE_URL = os.getenv('OCR_SERVICE_URL', 'https://qadam-ocr-addrcugfg4d4drg7.canadacentral-01.azurewebsites.net')
+# OCR Service URL - Now running on Azure VM instead of Function App
+# Default to VM URL (update with your actual VM IP)
+OCR_SERVICE_URL = os.getenv('OCR_SERVICE_URL', 'http://YOUR_VM_IP_HERE')
 
 def preprocess_image(image_bytes: bytes, max_dimension: int = 2048) -> bytes:
     """
@@ -128,7 +129,7 @@ def ocr_image(image_file, language: str = 'en') -> Dict[str, Any]:
         }
     """
     try:
-        url = f"{OCR_SERVICE_URL}/api/ocr/image"
+        url = f"{OCR_SERVICE_URL}/api/extract-text"
         
         # Read image bytes
         if isinstance(image_file, str):
@@ -188,7 +189,7 @@ def ocr_pdf(pdf_file, language: str = 'en') -> Dict[str, Any]:
         }
     """
     try:
-        url = f"{OCR_SERVICE_URL}/api/ocr/pdf"
+        url = f"{OCR_SERVICE_URL}/api/extract-from-pdf"
         
         # Prepare file
         if isinstance(pdf_file, str):
@@ -249,7 +250,7 @@ def warmup_ocr_service() -> bool:
         # 1x1 pixel PNG image
         tiny_image = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
         
-        url = f"{OCR_SERVICE_URL}/api/ocr/image"
+        url = f"{OCR_SERVICE_URL}/api/extract-text"
         payload = {
             'image_base64': tiny_image,
             'language': 'en'
@@ -271,7 +272,7 @@ def warmup_ocr_service() -> bool:
 def get_supported_languages() -> Dict[str, str]:
     """Get list of supported languages from OCR service"""
     try:
-        url = f"{OCR_SERVICE_URL}/api/ocr/languages"
+        url = f"{OCR_SERVICE_URL}/api/languages"
         response = requests.get(url, timeout=5)
         
         if response.status_code == 200:
