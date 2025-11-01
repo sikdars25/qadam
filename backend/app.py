@@ -60,21 +60,20 @@ except Exception as e:
     print(f"⚠️ Cosmos DB disabled due to error: {e}")
     COSMOS_DB_ENABLED = False
 
-# Try to import AI service (lightweight version)
+# Import AI client to call VM service
 try:
-    from ai_service import (
-        analyze_question_paper,
-        generate_question_solution as generate_solution,
-        index_textbook as extract_chapters_from_textbook,
-        semantic_search_textbook,
-        TextbookIndex,
-        get_service_status
+    from ai_client import (
+        solve_question_via_vm,
+        check_ai_service,
+        AI_AVAILABLE
     )
-    AI_ENABLED = True
-    print("✅ AI features enabled (lightweight)")
+    AI_ENABLED = AI_AVAILABLE
+    if AI_ENABLED:
+        print("✅ AI features enabled (VM service)")
+    else:
+        print("⚠️ AI service on VM not available")
 except ImportError as e:
-    print(f"AI features disabled due to missing dependencies: {e}")
-    print("Run: pip install -r requirements.txt")
+    print(f"AI client import failed: {e}")
     AI_ENABLED = False
 except Exception as e:
     print(f"AI features disabled due to error: {e}")
@@ -1765,15 +1764,11 @@ def analyze_paper():
         if not paper or not textbook:
             return jsonify({'error': 'Paper or textbook not found'}), 404
         
-        # Perform analysis
-        result = analyze_question_paper(
-            paper_id,
-            paper['file_path'],
-            textbook_id,
-            textbook['file_path']
-        )
-        
-        return jsonify(result)
+        # TODO: Implement paper analysis via VM service
+        return jsonify({
+            'error': 'Paper analysis feature is being migrated to VM service',
+            'message': 'This feature will be available soon'
+        }), 503
     
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -1795,16 +1790,12 @@ def get_solution():
         if not question_text:
             return jsonify({'error': 'question_text required'}), 400
         
-        # Load textbook index if available
-        textbook_index = None
-        if textbook_id:
-            index_path = f"vector_indices/{textbook_id}/index.pkl"
-            if os.path.exists(index_path):
-                textbook_index = TextbookIndex.load(index_path)
-                print(f"✓ Loaded textbook index for solution generation")
-        
-        # Generate solution using new AI service
-        solution = generate_solution(question_text, textbook_index=textbook_index, subject=subject)
+        # Generate solution using AI VM service
+        solution = solve_question_via_vm(
+            question_text=question_text,
+            subject=subject or "",
+            context=""
+        )
         
         return jsonify({
             'success': True,
@@ -1839,36 +1830,11 @@ def index_textbook(textbook_id):
         if not textbook:
             return jsonify({'error': 'Textbook not found'}), 404
         
-        # Index the textbook using new AI service
-        file_path = textbook['file_path']
-        index = extract_chapters_from_textbook(file_path, textbook_id, chapter_detection='auto')
-        
-        # Save the index to disk
-        index_dir = f"vector_indices/{textbook_id}"
-        os.makedirs(index_dir, exist_ok=True)
-        index_path = f"{index_dir}/index.pkl"
-        index.save(index_path)
-        
-        result = {
-            'success': True,
-            'textbook_id': textbook_id,
-            'chapters': len(index.chapters),
-            'message': f'Successfully indexed {len(index.chapters)} sections'
-        }
-        
-        # If extraction was successful, mark textbook as indexed
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute(
-            'UPDATE textbooks SET chapters_extracted = 1 WHERE id = %s',
-            (textbook_id,)
-        )
-        conn.commit()
-        cursor.close()
-        conn.close()
-        print(f"✓ Marked textbook {textbook_id} as indexed")
-        
-        return jsonify(result)
+        # TODO: Implement textbook indexing via VM service
+        return jsonify({
+            'error': 'Textbook indexing feature is being migrated to VM service',
+            'message': 'This feature will be available soon'
+        }), 503
     
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -2016,24 +1982,14 @@ def index_textbook_uuid(textbook_id):
                     'file_path': file_path
                 }), 404
         
-        # Index the textbook using new AI service
-        index = extract_chapters_from_textbook(file_path, textbook_id, chapter_detection='auto')
+        # TODO: Implement textbook indexing via VM service
+        return jsonify({
+            'error': 'Textbook indexing feature is being migrated to VM service',
+            'message': 'This feature will be available soon'
+        }), 503
         
-        # Save the index to disk
-        index_dir = f"vector_indices/{textbook_id}"
-        os.makedirs(index_dir, exist_ok=True)
-        index_path = f"{index_dir}/index.pkl"
-        index.save(index_path)
-        
-        result = {
-            'success': True,
-            'textbook_id': textbook_id,
-            'chapters': len(index.chapters),
-            'message': f'Successfully indexed {len(index.chapters)} sections'
-        }
-        
-        # Mark textbook as indexed
-        if result and 'error' not in result:
+        # Mark textbook as indexed (disabled for now)
+        if False:
             if COSMOS_DB_ENABLED:
                 try:
                     # Update in Cosmos DB
