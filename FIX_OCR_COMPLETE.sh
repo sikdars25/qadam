@@ -49,10 +49,10 @@ if [ -f "app_easyocr.py" ]; then
     echo "✅ Using EasyOCR (lightweight)"
     cp app_easyocr.py app.py
     
-    # Install EasyOCR dependencies
+    # Install EasyOCR dependencies (Python 3.12 compatible)
     pip install flask==3.0.0 flask-cors==4.0.0
     pip install easyocr==1.7.0
-    pip install pillow==10.2.0 numpy==1.24.3
+    pip install "pillow>=10.0.0" "numpy>=1.26.0"
     pip install gunicorn==21.2.0
     
     # Download EasyOCR models
@@ -69,7 +69,7 @@ else
     echo "⚠️  Using PaddleOCR (fallback)"
     pip install flask==3.0.0 flask-cors==4.0.0
     pip install paddleocr==2.8.1
-    pip install pillow==10.2.0 numpy==1.24.3
+    pip install "pillow>=10.0.0" "numpy>=1.26.0"
     pip install gunicorn==21.2.0
 fi
 

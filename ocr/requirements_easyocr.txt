@@ -5,12 +5,12 @@ flask-cors==4.0.0
 # EasyOCR (lightweight alternative to PaddleOCR)
 easyocr==1.7.0
 
-# Image processing
-Pillow==10.2.0
-numpy==1.24.3
+# Image processing (Python 3.12 compatible versions)
+Pillow>=10.0.0
+numpy>=1.26.0
 
 # Optional: For PDF support
-PyMuPDF==1.23.8
+PyMuPDF>=1.23.0
 
 # Production server
 gunicorn==21.2.0
