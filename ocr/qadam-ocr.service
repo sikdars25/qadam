@@ -4,7 +4,7 @@ After=network.target
 
 [Service]
 Type=simple
-User=azureuser
+User=qadamuser
 WorkingDirectory=/opt/qadam-ocr
 Environment="PATH=/opt/qadam-ocr/venv/bin"
 ExecStart=/opt/qadam-ocr/venv/bin/python app.py

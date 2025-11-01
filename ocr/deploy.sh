@@ -14,7 +14,7 @@ git reset --hard origin/backend-ocr
 # Create/activate virtual environment
 echo "🐍 Setting up Python environment..."
 if [ ! -d "venv" ]; then
-    python3.10 -m venv venv
+    python3 -m venv venv
 fi
 source venv/bin/activate
 
