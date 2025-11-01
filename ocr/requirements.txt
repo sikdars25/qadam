@@ -1,8 +1,9 @@
-# OCR Function App - Native Azure Functions
-# This is a separate Azure Function App for OCR processing
+# OCR Service - Flask App on Azure VM
+# Direct Flask application without Azure Functions wrapper
 
-# Core Azure Functions
-azure-functions
+# Flask
+Flask==3.0.0
+flask-cors==4.0.0
 
 # OCR - PaddleOCR (Lightweight alternative to Tesseract)
 paddleocr==2.8.1
