@@ -24,21 +24,6 @@ jobs:
           echo "${{ secrets.VM_SSH_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H ${{ secrets.VM_HOST }} >> ~/.ssh/known_hosts
-
-      - name: Check if first time setup needed
-        id: check_setup
-        run: |
-          ssh ${{ secrets.VM_USERNAME }}@${{ secrets.VM_HOST }} << 'EOF'
-            if [ ! -d "/opt/qadam-ocr/.git" ]; then
-              echo "needs_setup=true" >> $GITHUB_OUTPUT
-            else
-              echo "needs_setup=false" >> $GITHUB_OUTPUT
-            fi
-          EOF
-
-      - name: Initial setup (first time only)
-        if: steps.check_setup.outputs.needs_setup == 'true'
-        run: |
           ssh ${{ secrets.VM_USERNAME }}@${{ secrets.VM_HOST }} << 'EOF'
             echo "🔧 First time setup..."
             cd /opt/qadam-ocr
