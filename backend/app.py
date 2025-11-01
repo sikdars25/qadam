@@ -2761,13 +2761,12 @@ def solve_question():
         
         print(f"🎓 Solving question: {question_text[:60]}...")
         
-        # Use the AI service to generate solution
-        # Note: generate_solution is actually generate_question_solution from ai_service
-        # It accepts textbook_index, not context
-        solution = generate_solution(
+        # Use the AI service on VM to generate solution
+        from ai_client import solve_question_via_vm
+        solution = solve_question_via_vm(
             question_text=question_text,
-            textbook_index=None,  # TODO: Load textbook index if available
-            subject=subject or ""
+            subject=subject or "",
+            context=chapter_context or ""
         )
         
         result = {
