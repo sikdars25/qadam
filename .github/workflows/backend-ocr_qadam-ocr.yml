@@ -31,18 +31,17 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
-      - name: Create and start virtual environment
-        run: |
-          python -m venv venv
-          source venv/bin/activate
-
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        working-directory: ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}
+        run: |
+          python -m pip install --upgrade pip
+          pip install --target="./.python_packages/lib/site-packages" -r requirements.txt
 
       # Optional: Add step to run tests here
 
       - name: Zip artifact for deployment
-        run: zip ocr-release.zip ./* -r
+        working-directory: ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}
+        run: zip -r ../ocr-release.zip . -x ".git/*" -x "__pycache__/*" -x "*.pyc"
 
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
@@ -64,7 +63,7 @@ jobs:
 
       - name: Unzip artifact for deployment
         run: |
-          unzip ocr-release.zip
+          unzip ocr-release.zip -d ocr-deploy
           rm ocr-release.zip
         
       - name: 'Deploy to Azure Functions'
@@ -73,6 +72,7 @@ jobs:
         with:
           app-name: 'qadam-ocr'
           slot-name: 'Production'
-          package: ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}
-
+          package: ocr-deploy
           publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_EA3F5B515DFA46F3B811340FCBDEE901 }}
+          scm-do-build-during-deployment: true
+          enable-oryx-build: true
