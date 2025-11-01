@@ -12,6 +12,10 @@ import tempfile
 import base64
 from typing import Optional
 import io
+import gc
+import time
+from PIL import Image
+import numpy as np
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
@@ -20,20 +24,83 @@ logging.basicConfig(level=logging.INFO)
 # Initialize PaddleOCR (lazy loading)
 ocr_engine = None
 
+def preprocess_image(image_data):
+    """Optimize image for OCR - resize and enhance"""
+    try:
+        # Load image
+        img = Image.open(io.BytesIO(image_data))
+        
+        # Convert to RGB if needed
+        if img.mode != 'RGB':
+            img = img.convert('RGB')
+        
+        # Resize if too large (max 2000px width for speed)
+        max_width = 2000
+        if img.width > max_width:
+            ratio = max_width / img.width
+            new_size = (max_width, int(img.height * ratio))
+            img = img.resize(new_size, Image.LANCZOS)
+            logging.info(f"📐 Resized image to {new_size}")
+        
+        # Convert to numpy array
+        img_np = np.array(img)
+        
+        return img_np
+    except Exception as e:
+        logging.error(f"Image preprocessing failed: {e}")
+        raise
+
+def extract_text_with_retry(image_data, max_retries=2):
+    """Extract text with automatic retry on failure"""
+    for attempt in range(max_retries):
+        try:
+            # Preprocess image
+            img = preprocess_image(image_data)
+            
+            # Get OCR engine
+            ocr = get_ocr_engine()
+            
+            # Run OCR directly on numpy array
+            logging.info(f"🔍 Running OCR (attempt {attempt + 1}/{max_retries})")
+            result = ocr.ocr(img, cls=True)
+            
+            # Clear image from memory immediately
+            del img
+            gc.collect()
+            
+            return result
+            
+        except Exception as e:
+            if attempt < max_retries - 1:
+                logging.warning(f"OCR attempt {attempt + 1} failed: {e}, retrying...")
+                time.sleep(0.5)  # Brief pause before retry
+                gc.collect()  # Clean memory before retry
+            else:
+                logging.error(f"All OCR attempts failed: {e}")
+                raise
+    
+    return None
+
 def get_ocr_engine():
-    """Get or initialize PaddleOCR engine"""
+    """Get or initialize PaddleOCR engine with optimized settings"""
     global ocr_engine
     if ocr_engine is None:
         try:
             from paddleocr import PaddleOCR
-            logging.info("🔄 Initializing PaddleOCR...")
+            logging.info("📄 Initializing PaddleOCR (optimized)...")
             ocr_engine = PaddleOCR(
-                use_angle_cls=True,
-                lang='en',
-                use_gpu=False,
-                show_log=False
+                use_angle_cls=True,          # Keep for rotated text
+                lang='en',                    # English only (faster)
+                use_gpu=False,                # CPU mode for VM
+                show_log=False,               # Reduce logging overhead
+                det_db_thresh=0.3,            # Lower threshold for better detection
+                det_db_box_thresh=0.5,        # Filter low-confidence boxes
+                rec_batch_num=6,              # Process 6 lines at once (faster)
+                max_text_length=25,           # Limit text length (faster)
+                use_mp=True,                  # Enable multiprocessing
+                total_process_num=2           # Use 2 processes (balance speed/memory)
             )
-            logging.info("✅ PaddleOCR initialized successfully")
+            logging.info("✅ PaddleOCR initialized successfully (optimized)")
         except Exception as e:
             logging.error(f"❌ Failed to initialize PaddleOCR: {e}")
             raise
@@ -125,18 +192,9 @@ def extract_text():
                 'text': ''
             }), 400
         
-        # Save to temporary file
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.png') as tmp_file:
-            tmp_file.write(image_data)
-            tmp_path = tmp_file.name
-        
+        # Perform OCR with retry logic (no temp file needed)
         try:
-            # Initialize OCR engine
-            ocr = get_ocr_engine()
-            
-            # Perform OCR
-            logging.info(f"🔍 Running OCR with language: {language}")
-            result = ocr.ocr(tmp_path, cls=True)
+            result = extract_text_with_retry(image_data)
             
             # Process results
             if not result or not result[0]:
@@ -173,20 +231,25 @@ def extract_text():
             
             logging.info(f"✅ OCR completed: {len(texts)} lines detected")
             
-            return jsonify({
+            response_data = {
                 'success': True,
                 'text': full_text,
-                'confidence': avg_confidence,
-                'details': details
-            })
-        
+                'confidence': round(avg_confidence, 3)
+            }
+            
+            # Only include details if requested (saves bandwidth)
+            if request.args.get('include_details') == 'true':
+                response_data['details'] = details
+            
+            return jsonify(response_data)
+
         finally:
-            # Clean up temp file
-            if os.path.exists(tmp_path):
-                os.unlink(tmp_path)
+            # Clean up memory
+            gc.collect()
     
     except Exception as e:
         logging.error(f"❌ OCR failed: {str(e)}")
+        gc.collect()  # Clean up on error
         return jsonify({
             'success': False,
             'error': str(e),
