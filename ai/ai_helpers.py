@@ -15,10 +15,13 @@ groq_client = None
 
 if GROQ_API_KEY:
     try:
+        # Initialize Groq client without proxies argument
         groq_client = Groq(api_key=GROQ_API_KEY)
         print("✅ Groq API initialized")
     except Exception as e:
         print(f"⚠️ Groq API initialization failed: {e}")
+        import traceback
+        traceback.print_exc()
 else:
     print("⚠️ GROQ_API_KEY not set - AI features will be limited")
 
