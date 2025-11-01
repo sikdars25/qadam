@@ -1,0 +1,16 @@
+[Unit]
+Description=Qadam AI Service
+After=network.target
+
+[Service]
+Type=simple
+User=qadamuser
+WorkingDirectory=/opt/qadam-ai/ai
+Environment="PATH=/opt/qadam-ai/ai/venv/bin"
+Environment="GROQ_API_KEY=${GROQ_API_KEY}"
+ExecStart=/opt/qadam-ai/ai/venv/bin/python app.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

@@ -1,4 +1,11 @@
-azure-functions
+# Flask
+Flask==3.0.0
+flask-cors==4.0.0
+
+# Build tools
+setuptools>=65.0.0
+
+# AI & ML
 groq==0.11.0
 scikit-learn
 numpy
