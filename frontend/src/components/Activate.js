@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import axiosInstance from '../config/axios';
 import './Login.css';
 
 const Activate = () => {
@@ -22,7 +22,7 @@ const Activate = () => {
     // Activate account
     const activateAccount = async () => {
       try {
-        const response = await axios.get(`http://localhost:5000/api/activate/${token}`);
+        const response = await axiosInstance.get(`http://localhost:5000/api/activate/${token}`);
         
         if (response.data.success) {
           setStatus('success');

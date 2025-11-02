@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import axios from 'axios';
+import axiosInstance from '../config/axios';
+import API_URL from '../config/api';
 import './CompactUpload.css';
 
 const CompactUpload = ({ type, user, onSuccess }) => {
@@ -41,7 +42,7 @@ const CompactUpload = ({ type, user, onSuccess }) => {
 
     try {
       const endpoint = type === 'textbook' ? '/api/upload-textbook' : '/api/upload-paper';
-      const response = await axios.post(`http://localhost:5000${endpoint}`, data, {
+      const response = await axiosInstance.post(`${API_URL}${endpoint}`, data, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
 

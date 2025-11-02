@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import axios from 'axios';
+import axiosInstance from '../config/axios';
 import './Login.css';
 import Register from './Register';
 import API_URL from '../config/api';
@@ -18,7 +18,7 @@ const Login = ({ onLogin }) => {
     setLoading(true);
 
     try {
-      const response = await axios.post(`${API_URL}/api/login`, {
+      const response = await axiosInstance.post(`${API_URL}/api/login`, {
         username,
         password
       }, {

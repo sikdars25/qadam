@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import axiosInstance from '../config/axios';
 import './AdminDashboard.css';
 
 function AdminDashboard({ user, onLogout }) {
@@ -14,7 +14,7 @@ function AdminDashboard({ user, onLogout }) {
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      const response = await axios.get('http://localhost:5000/api/admin/users');
+      const response = await axiosInstance.get('http://localhost:5000/api/admin/users');
       setUsers(response.data.users);
       setError('');
     } catch (err) {
@@ -27,7 +27,7 @@ function AdminDashboard({ user, onLogout }) {
 
   const fetchUsageAnalytics = async () => {
     try {
-      const response = await axios.get('http://localhost:5000/api/admin/usage-analytics');
+      const response = await axiosInstance.get('http://localhost:5000/api/admin/usage-analytics');
       setUsageAnalytics(response.data);
     } catch (err) {
       console.error('Failed to load usage analytics:', err);
@@ -41,7 +41,7 @@ function AdminDashboard({ user, onLogout }) {
 
   const toggleUserStatus = async (userId, currentStatus) => {
     try {
-      const response = await axios.post(
+      const response = await axiosInstance.post(
         `http://localhost:5000/api/admin/users/${userId}/toggle-active`
       );
       
@@ -62,7 +62,7 @@ function AdminDashboard({ user, onLogout }) {
     }
 
     try {
-      const response = await axios.delete(
+      const response = await axiosInstance.delete(
         `http://localhost:5000/api/admin/users/${userId}`,
         {
           withCredentials: true

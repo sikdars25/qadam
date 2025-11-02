@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import axios from 'axios';
+import axiosInstance from '../config/axios';
 import './Register.css';
 import API_URL from '../config/api';
 
@@ -45,7 +45,7 @@ const Register = ({ onBack, onRegisterSuccess }) => {
     setLoading(true);
 
     try {
-      const response = await axios.post(`${API_URL}/api/register`, {
+      const response = await axiosInstance.post(`${API_URL}/api/register`, {
         fullName: formData.fullName,
         username: formData.username,
         email: formData.email,

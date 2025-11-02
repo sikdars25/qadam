@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import axiosInstance from '../config/axios';
+import API_URL from '../config/api';
 import './EnhancedPDFViewer.css';
 
 const EnhancedPDFViewer = ({ paperId, textbookId, onClose }) => {
@@ -26,7 +27,7 @@ const EnhancedPDFViewer = ({ paperId, textbookId, onClose }) => {
     setError('');
     
     try {
-      const response = await axios.post('http://localhost:5000/api/analyze-paper', {
+      const response = await axiosInstance.post(`${API_URL}/api/analyze-paper`, {
         paper_id: paperId,
         textbook_id: textbookId
       });
@@ -70,7 +71,7 @@ const EnhancedPDFViewer = ({ paperId, textbookId, onClose }) => {
         ? `Chapter ${question.chapters[0].chapter_number}: ${question.chapters[0].chapter_title}`
         : '';
 
-      const response = await axios.post('http://localhost:5000/api/generate-solution', {
+      const response = await axiosInstance.post(`${API_URL}/api/generate-solution`, {
         question_text: question.question_text,
         context: context
       });
