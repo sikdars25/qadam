@@ -86,11 +86,8 @@ const SingleQuestionUpload = ({ onClose, onQuestionParsed }) => {
         ocrFormData.append('input_type', 'file');
         ocrFormData.append('file_type', 'png');
 
-        const ocrResponse = await axiosInstance.post(`${API_URL}/api/parse-single-question`, ocrFormData, {
-          headers: {
-            'Content-Type': 'multipart/form-data'
-          }
-        });
+        // Don't set Content-Type manually - let axios set it with boundary
+        const ocrResponse = await axiosInstance.post(`${API_URL}/api/parse-single-question`, ocrFormData);
 
         if (ocrResponse.data.success) {
           // Handle both response formats:

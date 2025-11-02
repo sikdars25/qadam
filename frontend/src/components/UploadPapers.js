@@ -228,11 +228,8 @@ const UploadPapers = ({ user }) => {
     formData.append('user_id', user.id);
 
     try {
-      const response = await axiosInstance.post('/api/upload-paper', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        }
-      });
+      // Don't set Content-Type manually - let axios set it with boundary
+      const response = await axiosInstance.post('/api/upload-paper', formData);
 
       if (response.data.success) {
         setMessage({ type: 'success', text: 'Paper uploaded successfully!' });
@@ -271,11 +268,8 @@ const UploadPapers = ({ user }) => {
     formData.append('user_id', user.id);
 
     try {
-      const response = await axiosInstance.post('/api/upload-textbook', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        }
-      });
+      // Don't set Content-Type manually - let axios set it with boundary
+      const response = await axiosInstance.post('/api/upload-textbook', formData);
 
       if (response.data.success) {
         setTextbookMessage({ type: 'success', text: 'Textbook uploaded successfully!' });

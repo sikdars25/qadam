@@ -42,9 +42,8 @@ const CompactUpload = ({ type, user, onSuccess }) => {
 
     try {
       const endpoint = type === 'textbook' ? '/api/upload-textbook' : '/api/upload-paper';
-      const response = await axiosInstance.post(`${API_URL}${endpoint}`, data, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
+      // Don't set Content-Type manually - let axios set it with boundary
+      const response = await axiosInstance.post(`${API_URL}${endpoint}`, data);
 
       if (response.data.success) {
         setMessage({ type: 'success', text: `${type === 'textbook' ? 'Textbook' : 'Paper'} uploaded successfully!` });
