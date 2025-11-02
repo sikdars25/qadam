@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import axiosInstance from '../config/axios';  // Use axios instance with JWT
 import './ParsedQuestionsView.css';
 import API_URL from '../config/api';
 
@@ -90,7 +90,7 @@ const ParsedQuestionsView = ({ paperId, onClose, embedded = false }) => {
         ? `${API_URL}/api/parsed-questions?paper_id=${paperId}`
         : `${API_URL}/api/parsed-questions`;
       
-      const response = await axios.get(url);
+      const response = await axiosInstance.get(url);
       setQuestions(response.data);
     } catch (err) {
       console.error('Error fetching parsed questions:', err);
@@ -102,7 +102,7 @@ const ParsedQuestionsView = ({ paperId, onClose, embedded = false }) => {
   const handleSolveQuestion = async (question) => {
     setSolvingQuestion(true);
     try {
-      const response = await axios.post(`${API_URL}/api/solve-question`, {
+      const response = await axiosInstance.post('/api/solve-question', {
         question_text: question.question_text,
         question_type: question.question_type,
         subject: question.subject,
@@ -120,7 +120,7 @@ const ParsedQuestionsView = ({ paperId, onClose, embedded = false }) => {
         
         // Save to Question Bank
         try {
-          await axios.post(`${API_URL}/api/save-solved-question`, {
+          await axiosInstance.post('/api/save-solved-question', {
             question_text: question.question_text,
             solution: response.data.solution,
             subject: question.subject,

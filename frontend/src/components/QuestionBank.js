@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import axiosInstance from '../config/axios';  // Use axios instance with JWT
 import './QuestionBank.css';
 import API_URL from '../config/api';
 
@@ -20,9 +20,7 @@ const QuestionBank = () => {
     try {
       setLoading(true);
       setError('');
-      const response = await axios.get(`${API_URL}/api/question-bank`, {
-        withCredentials: true
-      });
+      const response = await axiosInstance.get('/api/question-bank');
       
       if (response.data.success) {
         setQuestions(response.data.questions);
@@ -52,9 +50,7 @@ const QuestionBank = () => {
     }
 
     try {
-      const response = await axios.delete(`${API_URL}/api/question-bank/${questionId}`, {
-        withCredentials: true
-      });
+      const response = await axiosInstance.delete(`/api/question-bank/${questionId}`);
       
       if (response.data.success) {
         setQuestions(questions.filter(q => q.id !== questionId));
