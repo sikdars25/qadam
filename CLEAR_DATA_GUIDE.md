@@ -2,17 +2,19 @@
 
 ## 🗑️ Purpose
 
-This script clears all papers, textbooks, and parsed questions from Cosmos DB. Use this when:
+This script clears all papers, textbooks, and parsed questions from **Cosmos DB AND Blob Storage**. Use this when:
 - You have data inconsistencies
 - Delete operations are failing
 - You want to start fresh with clean data
+- Frontend still shows files after database cleanup
 
 ## ⚠️ What Gets Deleted
 
-- ✅ **Uploaded Papers** - All question papers
-- ✅ **Textbooks** - All textbook files
+- ✅ **Uploaded Papers** - Database records AND PDF/TXT files
+- ✅ **Textbooks** - Database records AND PDF files
 - ✅ **Parsed Questions** - All parsed question data
 - ✅ **AI Search Results** - All AI search cache
+- ✅ **Blob Storage Files** - All uploaded files from Azure Blob Storage
 
 ## ✅ What's Preserved
 
@@ -34,37 +36,37 @@ cd /opt/qadam-backend/proxy
 # Activate virtual environment
 source venv/bin/activate
 
-# Run the script
-python3 clear_all_data.py
+# Run the script (includes blob storage cleanup)
+python3 clear_all_data_with_blobs.py
 ```
 
 ### Expected Output:
 
 ```
 ============================================================
-🗑️  CLEAR ALL DATA - Cosmos DB
+🗑️  CLEAR ALL DATA - Cosmos DB + Blob Storage
 ============================================================
 
 ⚠️  WARNING: This will delete ALL data from:
-   - Uploaded Papers
-   - Textbooks
-   - Parsed Questions
-   - AI Search Results
+   - Uploaded Papers (DB + Files)
+   - Textbooks (DB + Files)
+   - Parsed Questions (DB)
+   - AI Search Results (DB)
 
 Are you sure you want to continue? Type 'YES' to confirm: YES
 
 🚀 Starting cleanup...
 
-🗑️  Clearing Uploaded Papers...
+🗑️  Clearing Uploaded Papers from Cosmos DB...
    Found 15 items
    Deleted 10/15...
    ✅ Deleted 15 items
 
-🗑️  Clearing Textbooks...
+🗑️  Clearing Textbooks from Cosmos DB...
    Found 3 items
    ✅ Deleted 3 items
 
-🗑️  Clearing Parsed Questions...
+🗑️  Clearing Parsed Questions from Cosmos DB...
    Found 45 items
    Deleted 10/45...
    Deleted 20/45...
@@ -72,16 +74,26 @@ Are you sure you want to continue? Type 'YES' to confirm: YES
    Deleted 40/45...
    ✅ Deleted 45 items
 
-🗑️  Clearing AI Search Results...
+🗑️  Clearing AI Search Results from Cosmos DB...
    Found 0 items
    ✓ Container is already empty
 
+🗑️  Clearing Blob Storage (qadam-files)...
+   Found 18 files
+   Deleted 10/18 files...
+   ✅ Deleted 18 files
+
 ============================================================
-✅ Cleanup complete! Total items deleted: 63
+✅ Cleanup complete! Total items deleted: 81
 ============================================================
 
 📝 Note: User accounts and question bank are preserved
    You can now upload papers and textbooks fresh
+
+🔄 IMPORTANT: Restart the backend service for changes to take effect:
+   sudo systemctl restart qadam-backend
+
+🌐 Then refresh the frontend (Ctrl+Shift+R) to clear browser cache
 ```
 
 ## 🔐 Safety Features
@@ -167,8 +179,9 @@ EOF
 
 - The script is **idempotent** - safe to run multiple times
 - Deletion is **permanent** - cannot be undone
-- **Blob storage files** are NOT deleted (only database records)
+- **Both database records AND blob files** are deleted
 - Consider backing up important data before running
+- Requires Azure Blob Storage connection string in `.env`
 
 ---
 
