@@ -119,6 +119,11 @@ def main():
     print()
     print("📝 Note: User accounts and question bank are preserved")
     print("   You can now upload papers and textbooks fresh")
+    print()
+    print("🔄 IMPORTANT: Restart the backend service for changes to take effect:")
+    print("   sudo systemctl restart qadam-backend")
+    print()
+    print("🌐 Then refresh the frontend (Ctrl+Shift+R) to clear browser cache")
 
 if __name__ == '__main__':
     main()
