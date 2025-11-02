@@ -486,17 +486,58 @@ def get_paper_by_id(paper_id):
         return None
 
 def delete_paper(paper_id, user_id):
-    """Delete a paper"""
+    """Delete a paper - tries multiple approaches to handle partition key issues"""
     try:
         container = get_cosmos_container('uploaded_papers')
-        print(f"🔍 Attempting to delete paper_id={paper_id} (type: {type(paper_id).__name__}) with partition_key={user_id} (type: {type(user_id).__name__})")
+        print(f"🔍 Attempting to delete paper_id={paper_id} with partition_key={user_id}")
         
-        # Ensure user_id is a string (Cosmos DB partition keys must be strings)
-        user_id_str = str(user_id) if user_id is not None else None
+        # First, try to find the document to get the exact partition key value
+        query = "SELECT * FROM c WHERE c.id = @paper_id"
+        parameters = [{"name": "@paper_id", "value": paper_id}]
+        items = list(container.query_items(
+            query=query,
+            parameters=parameters,
+            enable_cross_partition_query=True
+        ))
         
-        # Delete the item
-        container.delete_item(item=paper_id, partition_key=user_id_str)
-        print(f"✅ Paper deleted from Cosmos DB: {paper_id}")
+        if not items:
+            print(f"❌ Paper not found in Cosmos DB: {paper_id}")
+            return False
+        
+        paper_doc = items[0]
+        actual_user_id = paper_doc.get('user_id')
+        print(f"📋 Found paper: {paper_doc.get('title')}")
+        print(f"📋 Actual user_id in document: {actual_user_id} (type: {type(actual_user_id).__name__})")
+        print(f"📋 Provided user_id: {user_id} (type: {type(user_id).__name__})")
+        
+        # Try different partition key formats
+        partition_keys_to_try = [
+            actual_user_id,  # Use the exact value from the document
+            str(actual_user_id),  # Try as string
+            int(actual_user_id) if isinstance(actual_user_id, str) and actual_user_id.isdigit() else None,  # Try as int
+        ]
+        
+        # Remove None and duplicates
+        partition_keys_to_try = list(set([pk for pk in partition_keys_to_try if pk is not None]))
+        
+        deleted = False
+        for pk in partition_keys_to_try:
+            try:
+                print(f"🔑 Trying partition key: {pk} (type: {type(pk).__name__})")
+                container.delete_item(item=paper_id, partition_key=pk)
+                print(f"✅ Successfully deleted paper with partition_key={pk}")
+                deleted = True
+                break
+            except exceptions.CosmosResourceNotFoundError:
+                print(f"   ❌ Not found with partition_key={pk}")
+                continue
+            except Exception as e:
+                print(f"   ❌ Error with partition_key={pk}: {e}")
+                continue
+        
+        if not deleted:
+            print(f"❌ Failed to delete paper after trying all partition key formats")
+            return False
         
         # Also delete associated parsed questions
         try:
@@ -515,14 +556,10 @@ def delete_paper(paper_id, user_id):
             print(f"⚠️ Error deleting parsed questions: {pq_error}")
         
         return True
-    except exceptions.CosmosResourceNotFoundError as e:
-        print(f"❌ Paper not found in Cosmos DB: {paper_id}, partition_key={user_id}")
-        print(f"   Error details: {e}")
-        return False
+        
     except Exception as e:
         print(f"❌ Error deleting paper from Cosmos DB: {e}")
         print(f"   Error type: {type(e).__name__}")
-        print(f"   Paper ID: {paper_id}, User ID: {user_id}")
         import traceback
         traceback.print_exc()
         return False
