@@ -9,7 +9,7 @@ from mysql.connector import Error as MySQLError
 from werkzeug.utils import secure_filename
 from werkzeug.security import check_password_hash, generate_password_hash
 from datetime import datetime
-from jwt_auth import generate_token, token_required, get_current_user
+from jwt_auth import generate_token, token_required, get_current_user, admin_required
 
 # Cosmos DB imports
 try:
@@ -1141,8 +1141,9 @@ def get_uploaded_papers():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/delete-paper/<paper_id>', methods=['DELETE'])
+@token_required
 def delete_paper_endpoint(paper_id):
-    """Delete a question paper and its associated data - Uses Cosmos DB if enabled"""
+    """Delete a question paper and its associated data - JWT authentication required"""
     try:
         user_id = session.get('user_id')
         username = session.get('username')
@@ -1493,8 +1494,9 @@ def serve_textbook_page_image(textbook_id, page_number):
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/map-questions-to-chapters', methods=['POST'])
+@token_required
 def map_questions_to_chapters_endpoint():
-    """Map questions to textbook chapters using semantic search"""
+    """Map questions to textbook chapters using semantic search - JWT authentication required"""
     try:
         if not AI_ENABLED:
             return jsonify({'error': 'AI features not available'}), 503
@@ -1537,8 +1539,9 @@ def map_questions_to_chapters_endpoint():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/delete-textbook/<textbook_id>', methods=['DELETE'])
+@token_required
 def delete_textbook_endpoint(textbook_id):
-    """Delete a textbook - Uses Cosmos DB if enabled"""
+    """Delete a textbook - JWT authentication required"""
     try:
         deleted = False
         file_path = None
@@ -1764,8 +1767,9 @@ def download_paper(paper_id):
         return jsonify({'error': 'Failed to download paper'}), 500
 
 @app.route('/api/analyze-paper', methods=['POST'])
+@token_required
 def analyze_paper():
-    """Analyze question paper against textbook"""
+    """Analyze question paper against textbook - JWT authentication required"""
     if not AI_ENABLED:
         return jsonify({
             'error': 'AI features not available. Please install dependencies: pip install PyMuPDF sentence-transformers chromadb openai python-dotenv'
@@ -1807,8 +1811,9 @@ def analyze_paper():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/generate-solution', methods=['POST'])
+@token_required
 def get_solution():
-    """Generate solution for a question"""
+    """Generate solution for a question - JWT authentication required"""
     if not AI_ENABLED:
         return jsonify({
             'error': 'AI features not available. Please install dependencies first.'
@@ -2057,8 +2062,9 @@ def index_textbook_uuid(textbook_id):
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/parse-questions/<paper_id>', methods=['POST'])
+@token_required
 def parse_questions(paper_id):
-    """Parse questions from a paper using OCR + Groq AI"""
+    """Parse questions from a paper using OCR + Groq AI - JWT authentication required"""
     try:
         from question_parser import parse_question_paper_fixed as parse_question_paper
         import json
@@ -2426,8 +2432,9 @@ def clean_duplicates():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/parse-single-question', methods=['POST'])
+@token_required
 def parse_single_question():
-    """Parse a single question from text, image, or document"""
+    """Parse a single question from text, image, or document - JWT authentication required"""
     try:
         import question_parser
         import ocr_client  # Use OCR Azure Function instead of pytesseract
@@ -2572,8 +2579,9 @@ def parse_single_question():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/save-ai-search-results', methods=['POST'])
+@token_required
 def save_ai_search_results_endpoint():
-    """Save AI search results to database"""
+    """Save AI search results to database - JWT authentication required"""
     import json  # Explicit import to avoid scope issues
     try:
         data = request.get_json()
@@ -2733,8 +2741,9 @@ def get_last_ai_search():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/solve-question', methods=['POST'])
+@token_required
 def solve_question():
-    """Solve a question using LLM with detailed step-by-step solution"""
+    """Solve a question using LLM with detailed step-by-step solution - JWT authentication required"""
     if not AI_ENABLED:
         return jsonify({'error': 'AI features are not enabled'}), 503
     
@@ -2790,8 +2799,9 @@ def solve_question():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/save-solved-question', methods=['POST'])
+@token_required
 def save_solved_question():
-    """Save a solved question to the Question Bank - Uses Cosmos DB if enabled"""
+    """Save a solved question to the Question Bank - JWT authentication required"""
     try:
         data = request.json
         question_text = data.get('question_text')
@@ -2890,8 +2900,9 @@ def save_solved_question():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/question-bank', methods=['GET'])
+@token_required
 def get_question_bank():
-    """Get all questions from Question Bank for current user - Uses Cosmos DB if enabled"""
+    """Get all questions from Question Bank for current user - JWT authentication required"""
     try:
         user_id = session.get('user_id')
         username = session.get('username')
@@ -2951,8 +2962,9 @@ def get_question_bank():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/question-bank/<question_id>', methods=['DELETE'])
+@token_required
 def delete_question_from_bank(question_id):
-    """Delete a question from Question Bank - Uses Cosmos DB if enabled"""
+    """Delete a question from Question Bank - JWT authentication required"""
     try:
         user_id = session.get('user_id')
         if not user_id:
@@ -3112,8 +3124,9 @@ def extract_text_ocr():
 # ============================================
 
 @app.route('/api/admin/users', methods=['GET'])
+@admin_required
 def get_all_users():
-    """Get all users (admin only)"""
+    """Get all users (admin only) - JWT admin authentication required"""
     # TODO: Add proper admin authentication check
     conn = get_db_connection()
     
@@ -3147,8 +3160,9 @@ def get_all_users():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/admin/users/<int:user_id>/toggle-active', methods=['POST'])
+@admin_required
 def toggle_user_active(user_id):
-    """Activate or deactivate a user (admin only)"""
+    """Activate or deactivate a user (admin only) - JWT admin authentication required"""
     conn = get_db_connection()
     
     try:
@@ -3191,8 +3205,9 @@ def toggle_user_active(user_id):
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/admin/users/<int:user_id>', methods=['DELETE'])
+@admin_required
 def delete_user(user_id):
-    """Delete a user account (admin only)"""
+    """Delete a user account (admin only) - JWT admin authentication required"""
     conn = get_db_connection()
     
     try:
@@ -3234,8 +3249,9 @@ def delete_user(user_id):
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/admin/usage-analytics', methods=['GET'])
+@admin_required
 def get_usage_analytics():
-    """Get usage analytics including token usage and questions solved by each user (admin only)"""
+    """Get usage analytics including token usage and questions solved by each user (admin only) - JWT admin authentication required"""
     conn = get_db_connection()
     
     try:

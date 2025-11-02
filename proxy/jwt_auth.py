@@ -138,3 +138,49 @@ def get_current_user():
         }
     
     return None
+
+def admin_required(f):
+    """
+    Decorator to protect admin-only routes
+    Requires JWT authentication and admin role
+    """
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        # First check authentication
+        token = get_token_from_request()
+        
+        if token:
+            payload = decode_token(token)
+            if payload:
+                # Set session data from token for compatibility
+                session['user_id'] = payload['user_id']
+                session['username'] = payload['username']
+                session['role'] = payload.get('role', 'student')
+                
+                # Check if user is admin
+                if payload.get('role') == 'admin':
+                    print(f"✅ Admin JWT auth: user_id={payload['user_id']}, username={payload['username']}")
+                    return f(*args, **kwargs)
+                else:
+                    print(f"❌ Access denied: user {payload['username']} is not admin")
+                    return jsonify({'error': 'Admin access required'}), 403
+            else:
+                return jsonify({'error': 'Invalid or expired token'}), 401
+        
+        # Fall back to session authentication
+        user_id = session.get('user_id')
+        role = session.get('role', 'student')
+        
+        if user_id:
+            if role == 'admin':
+                print(f"✅ Admin session auth: user_id={user_id}")
+                return f(*args, **kwargs)
+            else:
+                print(f"❌ Access denied: user {user_id} is not admin")
+                return jsonify({'error': 'Admin access required'}), 403
+        
+        # No valid authentication
+        print("❌ No valid authentication (no token or session)")
+        return jsonify({'error': 'Authentication required'}), 401
+    
+    return decorated
