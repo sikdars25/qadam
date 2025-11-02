@@ -683,11 +683,37 @@ def delete_textbook(textbook_id, subject):
     """Delete a textbook"""
     try:
         container = get_cosmos_container('textbooks')
+        print(f"🔍 Attempting delete: id={textbook_id}, partition_key={subject}")
+        
+        # Verify the item exists first
+        try:
+            item = container.read_item(item=textbook_id, partition_key=subject)
+            print(f"✓ Item found before delete: {item.get('title', 'Unknown')}")
+        except Exception as read_error:
+            print(f"⚠️ Could not read item before delete: {read_error}")
+            # Try to find it with cross-partition query
+            query = "SELECT * FROM c WHERE c.id = @id"
+            items = list(container.query_items(
+                query=query,
+                parameters=[{"name": "@id", "value": textbook_id}],
+                enable_cross_partition_query=True
+            ))
+            if items:
+                actual_subject = items[0].get('subject')
+                print(f"⚠️ Found item with different partition key: {actual_subject} (expected: {subject})")
+                subject = actual_subject  # Use the actual partition key
+            else:
+                print(f"❌ Item not found in database")
+                return False
+        
+        # Now delete with correct partition key
         container.delete_item(item=textbook_id, partition_key=subject)
         print(f"✅ Textbook deleted: {textbook_id}")
         return True
     except Exception as e:
         print(f"❌ Error deleting textbook: {e}")
+        import traceback
+        traceback.print_exc()
         return False
 
 # ============================================================================
