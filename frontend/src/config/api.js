@@ -5,10 +5,10 @@
  */
 
 // Get API URL from environment variable
-// Production: Azure VM (130.107.48.166) - HTTP only (no SSL)
+// Production: Azure VM (130.107.48.166) - HTTPS with self-signed cert
 // Development: Local Flask server
-// IMPORTANT: Using HTTP because backend has no valid SSL certificate
-const API_URL = 'http://130.107.48.166'; // Hardcoded to ensure HTTP is used
+// Using HTTPS to avoid mixed content errors (frontend is HTTPS)
+const API_URL = process.env.REACT_APP_API_URL || 'https://130.107.48.166';
 
 console.log('🌐 API URL:', API_URL);
 console.log('🔧 Environment:', process.env.REACT_APP_ENV || 'development');
