@@ -9,6 +9,7 @@ from mysql.connector import Error as MySQLError
 from werkzeug.utils import secure_filename
 from werkzeug.security import check_password_hash, generate_password_hash
 from datetime import datetime
+from jwt_auth import generate_token, token_required, get_current_user
 
 # Cosmos DB imports
 try:
@@ -269,10 +270,20 @@ def login():
     # Check if user is admin
     is_admin = user['is_admin'] if 'is_admin' in user.keys() else 0
     
+    # Generate JWT token
+    role = 'admin' if is_admin else 'student'
+    jwt_token = generate_token(
+        user_id=user['id'],
+        username=user['username'],
+        role=role
+    )
+    
     print(f"✅ Session created for user {user['username']} (ID: {user['id']})")
+    print(f"✅ JWT token generated")
     
     return jsonify({
         'success': True,
+        'token': jwt_token,
         'user': {
             'id': user['id'],
             'username': user['username'],
@@ -955,12 +966,20 @@ def get_subjects():
     return jsonify([s['subject'] for s in subjects])
 
 @app.route('/api/upload-paper', methods=['POST'])
+@token_required
 def upload_paper():
-    """Upload a paper"""
+    """Upload a paper - JWT authentication required"""
     try:
         from blob_storage import BLOB_STORAGE_ENABLED, upload_file_to_blob
         
         print("📤 Upload request received")
+        
+        # Get authenticated user from JWT token or session
+        current_user = get_current_user()
+        if not current_user:
+            return jsonify({'error': 'Authentication required'}), 401
+        
+        print(f"🔐 Authenticated user: {current_user['username']} (ID: {current_user['user_id']})")
         
         if 'file' not in request.files:
             print("❌ No file in request")
@@ -969,7 +988,8 @@ def upload_paper():
         file = request.files['file']
         title = request.form.get('title')
         subject = request.form.get('subject')
-        user_id = request.form.get('user_id')
+        # Use authenticated user_id from JWT token instead of form data
+        user_id = current_user['user_id']
         
         print(f"📝 Title: {title}, Subject: {subject}, User: {user_id}")
         print(f"📄 Filename: {file.filename}")
@@ -1230,10 +1250,18 @@ def delete_paper_endpoint(paper_id):
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/upload-textbook', methods=['POST'])
+@token_required
 def upload_textbook():
-    """Upload a textbook"""
+    """Upload a textbook - JWT authentication required"""
     try:
         print("📚 Textbook upload request received")
+        
+        # Get authenticated user from JWT token or session
+        current_user = get_current_user()
+        if not current_user:
+            return jsonify({'error': 'Authentication required'}), 401
+        
+        print(f"🔐 Authenticated user: {current_user['username']} (ID: {current_user['user_id']})")
         
         if 'file' not in request.files:
             print("❌ No file in request")
@@ -1243,7 +1271,8 @@ def upload_textbook():
         title = request.form.get('title')
         subject = request.form.get('subject')
         author = request.form.get('author', '')
-        user_id = request.form.get('user_id')
+        # Use authenticated user_id from JWT token instead of form data
+        user_id = current_user['user_id']
         
         print(f"📝 Title: {title}, Subject: {subject}, Author: {author}, User: {user_id}")
         print(f"📄 Filename: {file.filename}")
