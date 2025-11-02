@@ -3,6 +3,7 @@ import axios from 'axios';
 import './Login.css';
 import Register from './Register';
 import API_URL from '../config/api';
+import { setToken, setUser } from '../utils/auth';
 
 const Login = ({ onLogin }) => {
   const [username, setUsername] = useState('');
@@ -24,7 +25,18 @@ const Login = ({ onLogin }) => {
         withCredentials: true  // Enable cookies for session management
       });
 
-      if (response.data.success) {
+      if (response.data.message === 'Login successful' || response.data.success) {
+        // Store JWT token if provided
+        if (response.data.token) {
+          setToken(response.data.token);
+          console.log('🔑 JWT token stored');
+        }
+        
+        // Store user data
+        if (response.data.user) {
+          setUser(response.data.user);
+        }
+        
         onLogin(response.data.user);
       }
     } catch (err) {
