@@ -1,0 +1,124 @@
+name: Deploy Backend Proxy to VM
+
+on:
+  push:
+    branches:
+      - backend-proxy
+    paths:
+      - 'proxy/**'
+      - '.github/workflows/deploy-backend-proxy.yml'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      with:
+        ref: backend-proxy
+    
+    - name: Deploy to VM via SSH
+      uses: appleboy/ssh-action@v1.0.0
+      with:
+        host: ${{ secrets.BACKEND_VM_HOST }}
+        username: ${{ secrets.BACKEND_VM_USERNAME }}
+        key: ${{ secrets.BACKEND_VM_SSH_KEY }}
+        script: |
+          set -e
+          
+          echo "🚀 Deploying Qadam Backend Proxy..."
+          
+          # Create app directory
+          sudo mkdir -p /opt/qadam-backend
+          sudo chown -R $USER:$USER /opt/qadam-backend
+          
+          # Clone or pull repository
+          if [ -d "/opt/qadam-backend/.git" ]; then
+            cd /opt/qadam-backend
+            git fetch origin backend-proxy
+            git checkout backend-proxy
+            git pull origin backend-proxy
+          else
+            git clone -b backend-proxy https://github.com/sikdars25/qadam.git /opt/qadam-backend
+            cd /opt/qadam-backend
+          fi
+          
+          # Navigate to proxy folder
+          cd proxy
+          
+          # Setup Python environment
+          if [ ! -d "venv" ]; then
+            python3 -m venv venv
+          fi
+          
+          source venv/bin/activate
+          
+          # Install dependencies
+          pip install --upgrade pip setuptools wheel
+          pip install -r requirements.txt
+          pip install gunicorn
+          
+          # Create gunicorn config if not exists
+          if [ ! -f "gunicorn_config.py" ]; then
+            cat > gunicorn_config.py << 'GUNICORN_EOF'
+          bind = "127.0.0.1:5000"
+          workers = 4
+          worker_class = "sync"
+          worker_connections = 100
+          timeout = 300
+          keepalive = 5
+          max_requests = 1000
+          max_requests_jitter = 50
+          loglevel = "info"
+          accesslog = "-"
+          errorlog = "-"
+          GUNICORN_EOF
+          fi
+          
+          # Create/update systemd service
+          sudo tee /etc/systemd/system/qadam-backend.service > /dev/null << 'SERVICE_EOF'
+          [Unit]
+          Description=Qadam Backend Service
+          After=network.target
+          
+          [Service]
+          Type=simple
+          User=$USER
+          WorkingDirectory=/opt/qadam-backend/proxy
+          Environment="PATH=/opt/qadam-backend/proxy/venv/bin:/usr/local/bin:/usr/bin:/bin"
+          Environment="COSMOS_ENDPOINT=${{ secrets.COSMOS_ENDPOINT }}"
+          Environment="COSMOS_KEY=${{ secrets.COSMOS_KEY }}"
+          Environment="COSMOS_DATABASE=${{ secrets.COSMOS_DATABASE }}"
+          Environment="AZURE_STORAGE_CONNECTION_STRING=${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}"
+          Environment="OCR_SERVICE_URL=${{ secrets.OCR_SERVICE_URL }}"
+          Environment="AI_SERVICE_URL=${{ secrets.AI_SERVICE_URL }}"
+          Environment="SECRET_KEY=${{ secrets.SECRET_KEY }}"
+          ExecStart=/opt/qadam-backend/proxy/venv/bin/gunicorn -c gunicorn_config.py app:app
+          Restart=always
+          RestartSec=5
+          MemoryMax=4G
+          MemoryHigh=3G
+          StandardOutput=journal
+          StandardError=journal
+          
+          [Install]
+          WantedBy=multi-user.target
+          SERVICE_EOF
+          
+          # Reload and restart service
+          sudo systemctl daemon-reload
+          sudo systemctl enable qadam-backend
+          sudo systemctl restart qadam-backend
+          
+          # Wait for service to start
+          sleep 5
+          
+          # Check service status
+          sudo systemctl status qadam-backend --no-pager -l | head -20
+          
+          echo "✅ Deployment complete!"
+          
+          # Test health endpoint
+          curl -s http://localhost:5000/api/health || echo "⚠️  Health check failed"
