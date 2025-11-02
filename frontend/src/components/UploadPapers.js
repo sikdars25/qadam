@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import axiosInstance from '../config/axios';  // Use axios instance with JWT
 import './UploadPapers.css';
 import ParsedQuestionsView from './ParsedQuestionsView';
 import API_URL from '../config/api';
@@ -130,9 +130,7 @@ const UploadPapers = ({ user }) => {
     setMessage({ type: '', text: '' });
 
     try {
-      const response = await axios.delete(`${API_URL}/api/delete-paper/${paperId}`, {
-        withCredentials: true
-      });
+      const response = await axiosInstance.delete(`/api/delete-paper/${paperId}`);
       
       if (response.data.success) {
         setMessage({ 
@@ -161,9 +159,7 @@ const UploadPapers = ({ user }) => {
     setTextbookMessage({ type: '', text: '' });
 
     try {
-      const response = await axios.delete(`${API_URL}/api/delete-textbook/${textbookId}`, {
-        withCredentials: true
-      });
+      const response = await axiosInstance.delete(`/api/delete-textbook/${textbookId}`);
       
       if (response.data.success) {
         setTextbookMessage({ 
