@@ -1142,20 +1142,25 @@ def delete_paper_endpoint(paper_id):
                 paper_doc = get_paper_by_id(paper_id)
                 if paper_doc:
                     print(f"📄 Found paper in Cosmos DB: {paper_doc.get('title')}")
-                    print(f"📋 Paper document: {paper_doc}")
+                    print(f"📋 Paper document keys: {list(paper_doc.keys())}")
+                    print(f"📋 Paper user_id from doc: {paper_doc.get('user_id')} (type: {type(paper_doc.get('user_id')).__name__})")
+                    print(f"📋 Session user_id: {user_id} (type: {type(user_id).__name__})")
                     file_path = paper_doc.get('file_path')
-                    # Use the user_id from the paper document as partition key
+                    # Use the user_id from the paper document as partition key (it's the source of truth)
                     paper_user_id = paper_doc.get('user_id')
-                    print(f"🔑 Using partition key user_id: {paper_user_id} (type: {type(paper_user_id).__name__})")
+                    print(f"🔑 Deleting with partition key: {paper_user_id}")
                     deleted = delete_paper(paper_id, paper_user_id)
                     if deleted:
-                        print(f"✓ Deleted paper from Cosmos DB: {paper_id}")
+                        print(f"✅ Successfully deleted paper from Cosmos DB: {paper_id}")
                     else:
-                        print(f"⚠️ Cosmos DB delete returned False for paper: {paper_id}")
+                        print(f"❌ Cosmos DB delete returned False for paper: {paper_id}")
+                        print(f"   This usually means a 404 (not found) with the partition key")
                 else:
                     print(f"⚠️ Paper not found in Cosmos DB: {paper_id}")
             except Exception as e:
-                print(f"⚠️ Cosmos DB delete failed, trying MySQL: {e}")
+                print(f"⚠️ Cosmos DB delete failed: {e}")
+                import traceback
+                traceback.print_exc()
         
         # Fallback to MySQL
         if not deleted:
