@@ -16,6 +16,7 @@ Type=simple
 User=qadamuser
 WorkingDirectory=/opt/qadam-backend/proxy
 Environment="PATH=/opt/qadam-backend/proxy/venv/bin:/usr/local/bin:/usr/bin:/bin"
+Environment="BACKEND_HTTPS=true"
 ExecStart=/opt/qadam-backend/proxy/venv/bin/gunicorn -c gunicorn_config.py app:app
 Restart=always
 RestartSec=5

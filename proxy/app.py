@@ -86,18 +86,17 @@ app.secret_key = os.getenv('SECRET_KEY', 'your-secret-key-here-change-in-product
 # Updated: Nov 1, 2025 1:35 AM - Consolidated AI service deployment
 
 # Session configuration
-# Detect if running in Azure (production) or locally
-is_production = (
-    os.getenv('FLASK_ENV') == 'production' or 
-    os.getenv('WEBSITE_SITE_NAME') is not None or  # Azure App Service
-    os.getenv('FUNCTIONS_WORKER_RUNTIME') is not None  # Azure Functions
-)
-app.config['SESSION_COOKIE_SAMESITE'] = 'None' if is_production else 'Lax'
-app.config['SESSION_COOKIE_SECURE'] = is_production  # Only use Secure in production (HTTPS)
+# For VM deployment with HTTPS frontend
+# Check if backend is accessed via HTTPS (from X-Forwarded-Proto header set by Nginx)
+# If HTTPS: use SameSite=None, Secure=True for cross-origin
+# If HTTP: use SameSite=Lax, Secure=False (for testing)
+backend_uses_https = os.getenv('BACKEND_HTTPS', 'true').lower() == 'true'
+app.config['SESSION_COOKIE_SAMESITE'] = 'None' if backend_uses_https else 'Lax'
+app.config['SESSION_COOKIE_SECURE'] = backend_uses_https  # True if HTTPS, False if HTTP
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_DOMAIN'] = None  # Allow cross-domain cookies
 app.config['PERMANENT_SESSION_LIFETIME'] = 86400  # 24 hours
-print(f"🍪 Session cookies: SameSite={'None' if is_production else 'Lax'}, Secure={is_production}, Production={is_production}")
+print(f"🍪 Session cookies: SameSite={'None' if backend_uses_https else 'Lax'}, Secure={backend_uses_https}, HttpOnly=True")
 
 # CORS Configuration for Azure
 # Get frontend URL from environment variable
