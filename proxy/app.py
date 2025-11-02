@@ -1543,75 +1543,111 @@ def map_questions_to_chapters_endpoint():
 def delete_textbook_endpoint(textbook_id):
     """Delete a textbook - JWT authentication required"""
     try:
+        from blob_storage import BLOB_STORAGE_ENABLED, delete_blob
+        
         deleted = False
         file_path = None
         subject = None
         
+        print(f"🗑️ Delete textbook request: {textbook_id}")
+        
         # Try Cosmos DB first
         if COSMOS_DB_ENABLED:
             try:
+                print(f"📊 Trying Cosmos DB delete for textbook: {textbook_id}")
                 # Get textbook info first
                 textbook_doc = get_textbook_by_id(textbook_id)
                 if textbook_doc:
                     file_path = textbook_doc.get('file_path')
                     subject = textbook_doc.get('subject')
+                    print(f"✓ Found textbook in Cosmos DB: subject={subject}, file_path={file_path}")
+                    
+                    # Delete from Cosmos DB
                     deleted = delete_textbook(textbook_id, subject)
                     if deleted:
-                        print(f"✓ Deleted textbook from Cosmos DB: {textbook_id}")
+                        print(f"✅ Deleted textbook from Cosmos DB: {textbook_id}")
+                    else:
+                        print(f"⚠️ Cosmos DB delete returned False")
+                else:
+                    print(f"⚠️ Textbook not found in Cosmos DB: {textbook_id}")
             except Exception as e:
-                print(f"⚠️ Cosmos DB delete failed, trying MySQL: {e}")
+                print(f"⚠️ Cosmos DB delete failed: {e}")
+                import traceback
+                traceback.print_exc()
         
         # Fallback to MySQL
         if not deleted:
             try:
+                print(f"📊 Trying MySQL delete for textbook: {textbook_id}")
                 conn = get_db_connection()
-                cursor = conn.cursor(dictionary=True)
-                
-                # Get textbook info
-                cursor.execute(
-                    'SELECT file_path FROM textbooks WHERE id = %s',
-                    (textbook_id,)
-                )
-                textbook = cursor.fetchone()
-                
-                if not textbook:
+                if conn:
+                    cursor = conn.cursor(dictionary=True)
+                    
+                    # Get textbook info
+                    cursor.execute(
+                        'SELECT file_path FROM textbooks WHERE id = %s',
+                        (textbook_id,)
+                    )
+                    textbook = cursor.fetchone()
+                    
+                    if not textbook:
+                        cursor.close()
+                        conn.close()
+                        print(f"❌ Textbook not found in MySQL: {textbook_id}")
+                        return jsonify({'error': 'Textbook not found'}), 404
+                    
+                    file_path = textbook['file_path']
+                    print(f"✓ Found textbook in MySQL: file_path={file_path}")
+                    
+                    # Delete the textbook record
+                    cursor.execute('DELETE FROM textbooks WHERE id = %s', (textbook_id,))
+                    conn.commit()
                     cursor.close()
                     conn.close()
-                    return jsonify({'error': 'Textbook not found'}), 404
-                
-                file_path = textbook['file_path']
-                
-                # Delete the textbook record
-                cursor.execute('DELETE FROM textbooks WHERE id = %s', (textbook_id,))
-                conn.commit()
-                cursor.close()
-                conn.close()
-                deleted = True
-                print(f"✓ Deleted textbook from MySQL: {textbook_id}")
+                    deleted = True
+                    print(f"✅ Deleted textbook from MySQL: {textbook_id}")
+                else:
+                    print(f"⚠️ MySQL connection not available")
             except Exception as mysql_error:
-                print(f"⚠️ MySQL not available: {mysql_error}")
-                # If both Cosmos DB and MySQL failed, return error
-                if not deleted:
-                    return jsonify({
-                        'error': 'Failed to delete textbook - database unavailable',
-                        'message': 'Both Cosmos DB and MySQL are unavailable. Please try again later.'
-                    }), 503
+                print(f"⚠️ MySQL delete failed: {mysql_error}")
+                import traceback
+                traceback.print_exc()
         
-        # Delete the physical file
-        if file_path and os.path.exists(file_path):
-            os.remove(file_path)
-            print(f"✓ Deleted file: {file_path}")
-        
-        if deleted:
+        # Check if deletion was successful
+        if not deleted:
+            print(f"❌ Failed to delete textbook from both databases")
             return jsonify({
-                'success': True,
-                'message': 'Textbook deleted successfully'
-            })
-        else:
-            return jsonify({'error': 'Failed to delete textbook'}), 500
+                'error': 'Failed to delete textbook',
+                'message': 'Could not delete from database. Please check server logs.'
+            }), 500
+        
+        # Delete the physical file (blob or local)
+        if file_path:
+            print(f"🗑️ Deleting file: {file_path}")
+            # Check if this is a blob storage path
+            if file_path.startswith('textbooks/') or '/' in file_path and not file_path.startswith('/'):
+                if BLOB_STORAGE_ENABLED:
+                    if delete_blob(file_path):
+                        print(f"✅ Deleted blob: {file_path}")
+                    else:
+                        print(f"⚠️ Failed to delete blob: {file_path}")
+                else:
+                    print(f"⚠️ Blob storage not enabled, cannot delete: {file_path}")
+            elif os.path.exists(file_path):
+                os.remove(file_path)
+                print(f"✅ Deleted local file: {file_path}")
+            else:
+                print(f"⚠️ File not found: {file_path}")
+        
+        return jsonify({
+            'success': True,
+            'message': 'Textbook deleted successfully'
+        })
             
     except Exception as e:
-        print(f"Error deleting textbook: {e}")
+        print(f"❌ Error deleting textbook: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/textbook-file/<textbook_id>', methods=['GET'])
