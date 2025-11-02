@@ -134,6 +134,16 @@ print(f"Allowed Origins: {ALLOWED_ORIGINS}")
 print(f"Supports Credentials: True")
 print("=" * 50)
 
+# Add before_request handler to log all incoming requests
+@app.before_request
+def log_request():
+    """Log all incoming requests for debugging"""
+    print(f"📥 {request.method} {request.path}")
+    print(f"   Origin: {request.headers.get('Origin', 'None')}")
+    print(f"   User-Agent: {request.headers.get('User-Agent', 'None')[:50]}")
+    if request.args:
+        print(f"   Query params: {dict(request.args)}")
+
 # Add after_request handler to ensure CORS headers are always set
 @app.after_request
 def after_request(response):
