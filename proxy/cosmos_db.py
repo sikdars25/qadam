@@ -521,19 +521,32 @@ def delete_paper(paper_id, user_id):
         partition_keys_to_try = list(set([pk for pk in partition_keys_to_try if pk is not None]))
         
         deleted = False
-        for pk in partition_keys_to_try:
-            try:
-                print(f"🔑 Trying partition key: {pk} (type: {type(pk).__name__})")
-                container.delete_item(item=paper_id, partition_key=pk)
-                print(f"✅ Successfully deleted paper with partition_key={pk}")
-                deleted = True
-                break
-            except exceptions.CosmosResourceNotFoundError:
-                print(f"   ❌ Not found with partition_key={pk}")
-                continue
-            except Exception as e:
-                print(f"   ❌ Error with partition_key={pk}: {e}")
-                continue
+        
+        # Try using the document directly (sometimes works better than item ID)
+        try:
+            print(f"🔑 Trying to delete using document object")
+            container.delete_item(item=paper_doc, partition_key=actual_user_id)
+            print(f"✅ Successfully deleted paper using document object")
+            deleted = True
+        except Exception as e:
+            print(f"   ❌ Failed with document object: {e}")
+        
+        # If document object didn't work, try different partition key formats
+        if not deleted:
+            for pk in partition_keys_to_try:
+                try:
+                    print(f"🔑 Trying partition key: {pk} (type: {type(pk).__name__})")
+                    container.delete_item(item=paper_id, partition_key=pk)
+                    print(f"✅ Successfully deleted paper with partition_key={pk}")
+                    deleted = True
+                    break
+                except exceptions.CosmosResourceNotFoundError as e:
+                    print(f"   ❌ Not found with partition_key={pk}")
+                    print(f"   Error message: {str(e)}")
+                    continue
+                except Exception as e:
+                    print(f"   ❌ Error with partition_key={pk}: {e}")
+                    continue
         
         if not deleted:
             print(f"❌ Failed to delete paper after trying all partition key formats")
