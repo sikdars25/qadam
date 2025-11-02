@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import axiosInstance from '../config/axios';  // Use axios instance with JWT
 import './SampleQuestions.css';
 import API_URL from '../config/api';
 import EnhancedPDFViewer from './EnhancedPDFViewer';
@@ -30,7 +30,7 @@ const SampleQuestions = () => {
     setLoading(true);
     setError('');
     try {
-      const response = await axios.get(`${API_URL}/api/uploaded-papers`);
+      const response = await axiosInstance.get('/api/uploaded-papers');
       const papers = response.data;
       setUploadedPapers(papers);
       setFilteredPapers(papers);
@@ -47,7 +47,7 @@ const SampleQuestions = () => {
 
   const fetchTextbooks = async () => {
     try {
-      const response = await axios.get(`${API_URL}/api/textbooks`);
+      const response = await axiosInstance.get('/api/textbooks');
       const books = response.data;
       setTextbooks(books);
       setFilteredTextbooks(books);
@@ -89,7 +89,7 @@ const SampleQuestions = () => {
       try {
         const apiUrl = `${API_URL}/api/paper-file/${paper.id}`;
         
-        const response = await axios.get(apiUrl);
+        const response = await axiosInstance.get(apiUrl);
         if (response.data.success) {
           const fileType = response.data.file_type;
           const fileUrl = `${API_URL}/api/download-paper/${paper.id}`;
