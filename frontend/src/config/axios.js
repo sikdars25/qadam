@@ -21,18 +21,26 @@ const axiosInstance = axios.create({
 axiosInstance.interceptors.request.use(
   (config) => {
     const token = getToken();
+    
+    console.log(`🔵 Axios Request: ${config.method?.toUpperCase()} ${config.url}`);
+    
     if (token) {
       config.headers['Authorization'] = `Bearer ${token}`;
+      console.log('  ✅ JWT token added to request');
+    } else {
+      console.log('  ⚠️ No JWT token found');
     }
     
     // For FormData, remove Content-Type to let browser set it with boundary
     if (config.data instanceof FormData) {
       delete config.headers['Content-Type'];
+      console.log('  📎 FormData detected - Content-Type will be set by browser');
     }
     
     return config;
   },
   (error) => {
+    console.error('❌ Axios request error:', error);
     return Promise.reject(error);
   }
 );
