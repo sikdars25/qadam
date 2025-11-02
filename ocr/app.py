@@ -1,28 +1,37 @@
 """
-OCR Service - Flask Application
+OCR Service - Flask Application using EasyOCR
 Direct Flask app without Azure Functions wrapper
 """
 
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import logging
-import json
 import os
-import tempfile
 import base64
-from typing import Optional
 import io
-import gc
-import time
 from PIL import Image
 import numpy as np
+import easyocr
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
 logging.basicConfig(level=logging.INFO)
 
-# Initialize PaddleOCR (lazy loading)
-ocr_engine = None
+# Initialize EasyOCR (lazy loading)
+ocr_reader = None
+
+def get_ocr_reader():
+    """Get or initialize EasyOCR reader"""
+    global ocr_reader
+    if ocr_reader is None:
+        try:
+            logging.info("📄 Initializing EasyOCR...")
+            ocr_reader = easyocr.Reader(['en'], gpu=False)
+            logging.info("✅ EasyOCR initialized successfully")
+        except Exception as e:
+            logging.error(f"❌ Failed to initialize EasyOCR: {e}")
+            raise
+    return ocr_reader
 
 def preprocess_image(image_data):
     """Optimize image for OCR - resize and enhance"""
@@ -48,338 +57,185 @@ def preprocess_image(image_data):
         return img_np
     except Exception as e:
         logging.error(f"Image preprocessing failed: {e}")
-        raise
-
-def extract_text_with_retry(image_data, max_retries=2):
-    """Extract text with automatic retry on failure"""
-    for attempt in range(max_retries):
-        try:
-            # Preprocess image
-            img = preprocess_image(image_data)
-            
-            # Get OCR engine
-            ocr = get_ocr_engine()
-            
-            # Run OCR directly on numpy array
-            logging.info(f"🔍 Running OCR (attempt {attempt + 1}/{max_retries})")
-            result = ocr.ocr(img, cls=True)
-            
-            # Clear image from memory immediately
-            del img
-            gc.collect()
-            
-            return result
-            
-        except Exception as e:
-            if attempt < max_retries - 1:
-                logging.warning(f"OCR attempt {attempt + 1} failed: {e}, retrying...")
-                time.sleep(0.5)  # Brief pause before retry
-                gc.collect()  # Clean memory before retry
-            else:
-                logging.error(f"All OCR attempts failed: {e}")
-                raise
-    
-    return None
-
-def get_ocr_engine():
-    """Get or initialize PaddleOCR engine with optimized settings"""
-    global ocr_engine
-    if ocr_engine is None:
-        try:
-            from paddleocr import PaddleOCR
-            logging.info("📄 Initializing PaddleOCR (optimized)...")
-            ocr_engine = PaddleOCR(
-                use_angle_cls=True,          # Keep for rotated text
-                lang='en',                    # English only (faster)
-                use_gpu=False,                # CPU mode for VM
-                show_log=False,               # Reduce logging overhead
-                det_db_thresh=0.3,            # Lower threshold for better detection
-                det_db_box_thresh=0.5,        # Filter low-confidence boxes
-                rec_batch_num=6,              # Process 6 lines at once (faster)
-                max_text_length=25,           # Limit text length (faster)
-                use_mp=True,                  # Enable multiprocessing
-                total_process_num=2           # Use 2 processes (balance speed/memory)
-            )
-            logging.info("✅ PaddleOCR initialized successfully (optimized)")
-        except Exception as e:
-            logging.error(f"❌ Failed to initialize PaddleOCR: {e}")
-            raise
-    return ocr_engine
-
-@app.route('/', methods=['GET'])
-def root():
-    """Root endpoint"""
-    return jsonify({
-        'service': 'Qadam OCR Service',
-        'status': 'running',
-        'version': '2.0',
-        'endpoints': {
-            'health': '/api/health',
-            'extract_text': '/api/extract-text',
-            'extract_with_boxes': '/api/extract-text-with-boxes',
-            'extract_from_pdf': '/api/extract-from-pdf'
-        }
-    })
+        return None
 
 @app.route('/api/health', methods=['GET'])
-def health_check():
+def health():
     """Health check endpoint"""
     logging.info('Health check requested')
     
-    # Check if PaddleOCR is installed
-    paddleocr_installed = False
-    paddleocr_version = None
+    # Check if EasyOCR is installed
+    easyocr_installed = False
+    easyocr_version = None
     try:
-        import paddleocr
-        paddleocr_installed = True
-        paddleocr_version = paddleocr.__version__ if hasattr(paddleocr, '__version__') else 'unknown'
+        import easyocr
+        easyocr_installed = True
+        easyocr_version = easyocr.__version__ if hasattr(easyocr, '__version__') else 'unknown'
     except ImportError:
         pass
 
     return jsonify({
         'status': 'healthy',
         'service': 'OCR Service (Flask on VM)',
-        'ocr_engine': 'PaddleOCR',
-        'paddleocr_installed': paddleocr_installed,
-        'paddleocr_version': paddleocr_version,
+        'ocr_engine': 'EasyOCR',
+        'easyocr_installed': easyocr_installed,
+        'easyocr_version': easyocr_version,
         'python_version': os.sys.version
     })
 
 @app.route('/api/extract-text', methods=['POST'])
 def extract_text():
     """
-    Extract text from an image using PaddleOCR
+    Extract text from an image using EasyOCR
     
     Request:
         - file: Image file (multipart/form-data)
         OR
         - image_base64: Base64 encoded image (JSON)
-        - language: Optional language code (default: 'en')
     
     Response:
         {
-            'success': True,
-            'text': 'Extracted text...',
-            'confidence': 0.95,
-            'details': [...]
+            "success": true,
+            "text": "extracted text",
+            "confidence": 0.95
         }
     """
     try:
-        logging.info("📥 Received OCR request")
-        
-        # Get language parameter
-        language = request.form.get('language', 'en') if request.files else request.json.get('language', 'en') if request.json else 'en'
-        
-        # Get image data
-        image_data = None
-        
-        # Check for file upload
+        # Get image from request
         if 'file' in request.files:
             file = request.files['file']
             image_data = file.read()
-            logging.info(f"📸 Received file upload: {len(image_data)} bytes")
-        
-        # Check for base64 image
-        elif request.json and 'image_base64' in request.json:
-            image_base64 = request.json['image_base64']
+        elif request.is_json:
+            data = request.get_json()
+            image_base64 = data.get('image_base64', '')
             image_data = base64.b64decode(image_base64)
-            logging.info(f"📸 Received base64 image: {len(image_data)} bytes")
-        
         else:
-            return jsonify({
-                'success': False,
-                'error': 'No image provided. Send either file or image_base64',
-                'text': ''
-            }), 400
+            return jsonify({'success': False, 'error': 'No image provided'}), 400
         
-        # Perform OCR with retry logic (no temp file needed)
-        try:
-            result = extract_text_with_retry(image_data)
-            
-            # Process results
-            if not result or not result[0]:
-                return jsonify({
-                    'success': True,
-                    'text': '',
-                    'confidence': 0.0,
-                    'details': [],
-                    'message': 'No text detected in image'
-                })
-            
-            # Extract text and confidence
-            texts = []
-            confidences = []
-            details = []
-            
-            for line in result[0]:
-                box = line[0]  # Bounding box coordinates
-                text_info = line[1]  # (text, confidence)
-                text = text_info[0]
-                confidence = text_info[1]
-                
-                texts.append(text)
-                confidences.append(confidence)
-                details.append({
+        # Preprocess image
+        img_np = preprocess_image(image_data)
+        if img_np is None:
+            return jsonify({'success': False, 'error': 'Failed to process image'}), 500
+        
+        # Get OCR reader
+        reader = get_ocr_reader()
+        
+        # Perform OCR
+        logging.info("🔍 Performing OCR...")
+        results = reader.readtext(img_np)
+        
+        # Extract text from results
+        # EasyOCR returns: [(bbox, text, confidence), ...]
+        extracted_text = ' '.join([text for (bbox, text, conf) in results])
+        avg_confidence = sum([conf for (_, _, conf) in results]) / len(results) if results else 0
+        
+        logging.info(f"✅ OCR completed: {len(extracted_text)} characters, confidence: {avg_confidence:.2f}")
+        
+        return jsonify({
+            'success': True,
+            'text': extracted_text,
+            'confidence': float(avg_confidence),
+            'details': [
+                {
                     'text': text,
-                    'confidence': confidence,
-                    'box': box
-                })
-            
-            # Combine all text
-            full_text = ' '.join(texts)
-            avg_confidence = sum(confidences) / len(confidences) if confidences else 0.0
-            
-            logging.info(f"✅ OCR completed: {len(texts)} lines detected")
-            
-            response_data = {
-                'success': True,
-                'text': full_text,
-                'confidence': round(avg_confidence, 3)
-            }
-            
-            # Only include details if requested (saves bandwidth)
-            if request.args.get('include_details') == 'true':
-                response_data['details'] = details
-            
-            return jsonify(response_data)
-
-        finally:
-            # Clean up memory
-            gc.collect()
-    
+                    'confidence': float(conf),
+                    'bbox': bbox
+                }
+                for (bbox, text, conf) in results
+            ]
+        })
+        
     except Exception as e:
-        logging.error(f"❌ OCR failed: {str(e)}")
-        gc.collect()  # Clean up on error
+        logging.error(f"❌ OCR error: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({
             'success': False,
-            'error': str(e),
-            'text': ''
+            'error': str(e)
         }), 500
-
-@app.route('/api/extract-text-with-boxes', methods=['POST'])
-def extract_text_with_boxes():
-    """Same as extract-text but returns detailed bounding box information"""
-    return extract_text()
 
 @app.route('/api/extract-from-pdf', methods=['POST'])
 def extract_from_pdf():
     """
-    Extract text from PDF using OCR
+    Extract text from PDF using EasyOCR
     
     Request:
         - file: PDF file (multipart/form-data)
-        - language: Optional language code (default: 'en')
     
     Response:
         {
-            'success': True,
-            'text': 'Combined text from all pages...',
-            'total_pages': 3,
-            'pages': [...]
+            "success": true,
+            "text": "extracted text from all pages",
+            "pages": 5
         }
     """
     try:
-        logging.info("📥 Received PDF OCR request")
-        
-        # Get language parameter
-        language = request.form.get('language', 'en')
-        
-        # Get PDF file
         if 'file' not in request.files:
-            return jsonify({
-                'success': False,
-                'error': 'No PDF file provided',
-                'text': '',
-                'pages': []
-            }), 400
+            return jsonify({'success': False, 'error': 'No file provided'}), 400
         
-        pdf_file = request.files['file']
-        pdf_data = pdf_file.read()
-        logging.info(f"📄 Received PDF: {len(pdf_data)} bytes")
-        
-        # Save to temporary file
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp_file:
-            tmp_file.write(pdf_data)
-            tmp_pdf_path = tmp_file.name
+        file = request.files['file']
         
         try:
-            # Convert PDF to images
             import fitz  # PyMuPDF
             
-            pdf_document = fitz.open(tmp_pdf_path)
-            total_pages = len(pdf_document)
-            logging.info(f"📄 PDF has {total_pages} pages")
+            # Read PDF
+            pdf_bytes = file.read()
+            pdf_document = fitz.open(stream=pdf_bytes, filetype="pdf")
             
             all_text = []
-            pages_data = []
-            
-            # Initialize OCR engine
-            ocr = get_ocr_engine()
+            reader = get_ocr_reader()
             
             # Process each page
-            for page_num in range(total_pages):
+            for page_num in range(len(pdf_document)):
+                logging.info(f"🔍 Processing page {page_num + 1}/{len(pdf_document)}")
                 page = pdf_document[page_num]
                 
                 # Convert page to image
                 pix = page.get_pixmap(matrix=fitz.Matrix(2, 2))  # 2x zoom for better quality
                 img_data = pix.tobytes("png")
                 
-                # Save page image to temp file
-                with tempfile.NamedTemporaryFile(delete=False, suffix='.png') as tmp_img:
-                    tmp_img.write(img_data)
-                    tmp_img_path = tmp_img.name
-                
-                try:
-                    # Perform OCR on page
-                    result = ocr.ocr(tmp_img_path, cls=True)
-                    
-                    if result and result[0]:
-                        page_texts = [line[1][0] for line in result[0]]
-                        page_text = ' '.join(page_texts)
-                        all_text.append(page_text)
-                        
-                        pages_data.append({
-                            'page_number': page_num + 1,
-                            'text': page_text,
-                            'line_count': len(page_texts)
-                        })
-                    else:
-                        pages_data.append({
-                            'page_number': page_num + 1,
-                            'text': '',
-                            'line_count': 0
-                        })
-                
-                finally:
-                    if os.path.exists(tmp_img_path):
-                        os.unlink(tmp_img_path)
+                # Preprocess and perform OCR
+                img_np = preprocess_image(img_data)
+                if img_np is not None:
+                    results = reader.readtext(img_np)
+                    page_text = ' '.join([text for (bbox, text, conf) in results])
+                    all_text.append(page_text)
             
             pdf_document.close()
             
             combined_text = '\n\n'.join(all_text)
-            logging.info(f"✅ PDF OCR completed: {total_pages} pages processed")
+            
+            logging.info(f"✅ PDF OCR completed: {len(combined_text)} characters from {len(all_text)} pages")
             
             return jsonify({
                 'success': True,
                 'text': combined_text,
-                'total_pages': total_pages,
-                'pages': pages_data
+                'pages': len(all_text)
             })
-        
-        finally:
-            # Clean up temp PDF
-            if os.path.exists(tmp_pdf_path):
-                os.unlink(tmp_pdf_path)
-    
+            
+        except ImportError:
+            return jsonify({
+                'success': False,
+                'error': 'PyMuPDF not installed. Cannot process PDF files.'
+            }), 500
+            
     except Exception as e:
-        logging.error(f"❌ PDF OCR failed: {str(e)}")
+        logging.error(f"❌ PDF OCR error: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({
             'success': False,
-            'error': str(e),
-            'text': '',
-            'pages': []
+            'error': str(e)
         }), 500
 
+@app.route('/api/languages', methods=['GET'])
+def get_languages():
+    """Get list of supported languages"""
+    return jsonify({
+        'languages': ['en'],
+        'note': 'To add more languages, update the EasyOCR Reader initialization'
+    })
+
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 8000))
-    app.run(host='0.0.0.0', port=port, debug=False)
+    # For development only
+    app.run(host='0.0.0.0', port=8000, debug=False)
