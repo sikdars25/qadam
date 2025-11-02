@@ -41,7 +41,7 @@ const UploadPapers = ({ user }) => {
 
   const fetchUploadedPapers = async () => {
     try {
-      const response = await axios.get(`${API_URL}/api/uploaded-papers`);
+      const response = await axiosInstance.get('/api/uploaded-papers');
       setUploadedPapers(response.data);
     } catch (err) {
       console.error('Error fetching papers:', err);
@@ -50,7 +50,7 @@ const UploadPapers = ({ user }) => {
 
   const fetchUploadedTextbooks = async () => {
     try {
-      const response = await axios.get(`${API_URL}/api/textbooks`);
+      const response = await axiosInstance.get('/api/textbooks');
       setUploadedTextbooks(response.data);
     } catch (err) {
       console.error('Error fetching textbooks:', err);
@@ -59,7 +59,7 @@ const UploadPapers = ({ user }) => {
 
   const fetchParsedQuestions = async () => {
     try {
-      const response = await axios.get(`${API_URL}/api/parsed-questions`);
+      const response = await axiosInstance.get('/api/parsed-questions');
       setParsedQuestions(response.data);
     } catch (err) {
       console.error('Error fetching parsed questions:', err);
@@ -72,7 +72,7 @@ const UploadPapers = ({ user }) => {
     setParsingPaper(paperId);
 
     try {
-      const response = await axios.post(`${API_URL}/api/parse-questions/${paperId}`);
+      const response = await axiosInstance.post(`/api/parse-questions/${paperId}`);
       
       if (response.data.success) {
         setParsingMessage({ 
@@ -102,7 +102,7 @@ const UploadPapers = ({ user }) => {
     setParsingMessage({ type: '', text: '' });
 
     try {
-      const response = await axios.post(`${API_URL}/api/clean-duplicates`);
+      const response = await axiosInstance.post('/api/clean-duplicates');
       
       if (response.data.success) {
         setParsingMessage({ 
@@ -228,7 +228,7 @@ const UploadPapers = ({ user }) => {
     formData.append('user_id', user.id);
 
     try {
-      const response = await axios.post(`${API_URL}/api/upload-paper`, formData, {
+      const response = await axiosInstance.post('/api/upload-paper', formData, {
         headers: {
           'Content-Type': 'multipart/form-data'
         }
@@ -271,7 +271,7 @@ const UploadPapers = ({ user }) => {
     formData.append('user_id', user.id);
 
     try {
-      const response = await axios.post(`${API_URL}/api/upload-textbook`, formData, {
+      const response = await axiosInstance.post('/api/upload-textbook', formData, {
         headers: {
           'Content-Type': 'multipart/form-data'
         }
