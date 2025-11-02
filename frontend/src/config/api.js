@@ -1,11 +1,11 @@
 /**
  * API Configuration
  * Centralized API endpoint management
- * Automatically uses Azure backend in production, localhost in development
+ * Automatically uses VM backend in production, localhost in development
  */
 
 // Get API URL from environment variable
-// Production: Azure Function App URL
+// Production: Azure VM (130.107.48.166)
 // Development: Local Flask server
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 
