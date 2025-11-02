@@ -1380,51 +1380,73 @@ def get_textbooks():
         subject = request.args.get('subject')
         textbooks = []
         
+        print(f"📚 GET /api/textbooks request - subject={subject}")
+        print(f"   COSMOS_DB_ENABLED={COSMOS_DB_ENABLED}")
+        
         # Try Cosmos DB first
         if COSMOS_DB_ENABLED:
             try:
                 if subject:
+                    print(f"   Querying Cosmos DB for subject: {subject}")
                     cosmos_textbooks = get_textbooks_by_subject(subject)
                 else:
+                    print(f"   Querying Cosmos DB for all textbooks")
                     cosmos_textbooks = get_all_textbooks()
                 
                 if cosmos_textbooks:
                     textbooks = cosmos_textbooks
-                    print(f"✓ Fetched {len(textbooks)} textbooks from Cosmos DB")
+                    print(f"✅ Fetched {len(textbooks)} textbooks from Cosmos DB")
+                else:
+                    print(f"⚠️ Cosmos DB returned empty list")
             except Exception as e:
                 print(f"⚠️ Cosmos DB query failed, falling back to MySQL: {e}")
+                import traceback
+                traceback.print_exc()
         
         # Fallback to MySQL
         if not textbooks:
-            conn = get_db_connection()
-            cursor = conn.cursor(dictionary=True)
-            
-            if subject:
-                cursor.execute('''
-                    SELECT t.*, u.full_name as uploaded_by_name 
-                    FROM textbooks t
-                    LEFT JOIN users u ON t.user_id = u.id
-                    WHERE t.subject = %s
-                    ORDER BY t.created_at DESC
-                ''', (subject,))
-            else:
-                cursor.execute('''
-                    SELECT t.*, u.full_name as uploaded_by_name 
-                    FROM textbooks t
-                    LEFT JOIN users u ON t.user_id = u.id
-                    ORDER BY t.created_at DESC
-                ''')
-            
-            textbooks = cursor.fetchall()
-            cursor.close()
-            conn.close()
-            print(f"✓ Fetched {len(textbooks)} textbooks from MySQL")
+            try:
+                print(f"   Trying MySQL fallback...")
+                conn = get_db_connection()
+                if not conn:
+                    print(f"❌ MySQL connection failed")
+                    return jsonify({'error': 'Database connection failed'}), 503
+                
+                cursor = conn.cursor(dictionary=True)
+                
+                if subject:
+                    cursor.execute('''
+                        SELECT t.*, u.full_name as uploaded_by_name 
+                        FROM textbooks t
+                        LEFT JOIN users u ON t.user_id = u.id
+                        WHERE t.subject = %s
+                        ORDER BY t.created_at DESC
+                    ''', (subject,))
+                else:
+                    cursor.execute('''
+                        SELECT t.*, u.full_name as uploaded_by_name 
+                        FROM textbooks t
+                        LEFT JOIN users u ON t.user_id = u.id
+                        ORDER BY t.created_at DESC
+                    ''')
+                
+                textbooks = cursor.fetchall()
+                cursor.close()
+                conn.close()
+                print(f"✅ Fetched {len(textbooks)} textbooks from MySQL")
+            except Exception as mysql_error:
+                print(f"❌ MySQL query failed: {mysql_error}")
+                import traceback
+                traceback.print_exc()
+                return jsonify({'error': 'Failed to fetch textbooks from database'}), 500
         
         # Debug: Log textbook IDs
         if textbooks:
-            print(f"📚 Returning {len(textbooks)} textbooks")
-            for tb in textbooks:
+            print(f"📚 Returning {len(textbooks)} textbooks:")
+            for tb in textbooks[:5]:  # Log first 5 only
                 print(f"   - {tb.get('title', 'Unknown')}: ID={tb.get('id', 'MISSING')}")
+        else:
+            print(f"⚠️ No textbooks found")
         
         return jsonify(textbooks)
         
