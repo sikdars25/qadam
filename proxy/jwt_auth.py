@@ -83,6 +83,10 @@ def token_required(f):
     """
     @wraps(f)
     def decorated(*args, **kwargs):
+        # Allow OPTIONS requests through without authentication (CORS preflight)
+        if request.method == 'OPTIONS':
+            return f(*args, **kwargs)
+        
         # Try JWT token first
         token = get_token_from_request()
         

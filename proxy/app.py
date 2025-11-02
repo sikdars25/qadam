@@ -2499,10 +2499,13 @@ def clean_duplicates():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@app.route('/api/parse-single-question', methods=['POST'])
+@app.route('/api/parse-single-question', methods=['POST', 'OPTIONS'])
 @token_required
 def parse_single_question():
     """Parse a single question from text, image, or document - JWT authentication required"""
+    # Handle OPTIONS preflight
+    if request.method == 'OPTIONS':
+        return '', 204
     try:
         import question_parser
         import ocr_client  # Use OCR Azure Function instead of pytesseract
