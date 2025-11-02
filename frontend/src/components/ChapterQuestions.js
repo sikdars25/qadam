@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import axiosInstance from '../config/axios';  // Use axios instance with JWT
 import './ChapterQuestions.css';
 import API_URL from '../config/api';
 
