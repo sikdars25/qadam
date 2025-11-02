@@ -20,6 +20,9 @@ build/
 backend/uploads/*
 !backend/uploads/.gitkeep
 
+# Ignore untracked backend folder (code is in proxy/)
+backend/
+
 # Node
 node_modules/
 npm-debug.log*
