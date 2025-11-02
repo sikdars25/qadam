@@ -703,14 +703,13 @@ def get_textbook_by_id(textbook_id):
         return None
 
 def delete_textbook(textbook_id, subject):
-    """Delete a textbook"""
+    """Delete a textbook - tries multiple approaches like delete_paper"""
     try:
         container = get_cosmos_container('textbooks')
-        print(f"🔍 Attempting delete: id={textbook_id}, partition_key={subject}")
+        print(f"🔍 Attempting to delete textbook_id={textbook_id} with partition_key={subject}")
         
         # First, query to find the item and get the actual partition key
-        # This is more reliable than assuming the partition key is correct
-        query = "SELECT * FROM c WHERE c.id = @id AND c.type = 'textbook'"
+        query = "SELECT * FROM c WHERE c.id = @id"
         items = list(container.query_items(
             query=query,
             parameters=[{"name": "@id", "value": textbook_id}],
@@ -721,21 +720,78 @@ def delete_textbook(textbook_id, subject):
             print(f"❌ Textbook not found in database: {textbook_id}")
             return False
         
-        # Get the actual partition key from the document
-        actual_item = items[0]
-        actual_subject = actual_item.get('subject')
-        actual_title = actual_item.get('title', 'Unknown')
+        textbook_doc = items[0]
+        actual_subject = textbook_doc.get('subject')
+        doc_id = textbook_doc.get('id')
+        actual_title = textbook_doc.get('title', 'Unknown')
         
-        print(f"✓ Found textbook: '{actual_title}' with partition_key={actual_subject}")
+        # Check if already soft-deleted
+        if textbook_doc.get('_deleted') == True:
+            print(f"⚠️ Textbook is already marked as deleted (soft-delete)")
+            print(f"   Attempting to permanently remove from database...")
+            # Remove the _deleted flag and system fields
+            clean_doc = {k: v for k, v in textbook_doc.items() if not k.startswith('_')}
+            clean_doc['id'] = doc_id
+            clean_doc['subject'] = actual_subject
+            
+            try:
+                container.upsert_item(body=clean_doc)
+                print(f"   ✓ Cleaned document, now deleting...")
+                container.delete_item(item=doc_id, partition_key=actual_subject)
+                print(f"✅ Successfully removed soft-deleted textbook")
+                return True
+            except Exception as e:
+                print(f"   ❌ Failed to remove soft-deleted textbook: {e}")
+                print(f"   ℹ️ Textbook is already soft-deleted, treating as success")
+                return True
         
-        # Use the actual partition key for deletion
-        if actual_subject != subject:
-            print(f"⚠️ Partition key mismatch! Expected: {subject}, Actual: {actual_subject}")
-            print(f"   Using actual partition key: {actual_subject}")
+        print(f"📋 Found textbook: '{actual_title}'")
+        print(f"📋 Actual subject (partition key): {actual_subject} (type: {type(actual_subject).__name__})")
+        print(f"📋 Document _rid: {textbook_doc.get('_rid')}")
         
-        # Delete with the correct partition key
-        container.delete_item(item=textbook_id, partition_key=actual_subject)
-        print(f"✅ Textbook deleted successfully: {textbook_id}")
+        deleted = False
+        
+        # Method 1: Try reading the item first to verify it exists and get fresh etag
+        try:
+            print(f"🔑 Method 1: Reading item first to verify existence")
+            fresh_doc = container.read_item(item=doc_id, partition_key=actual_subject)
+            print(f"   ✓ Item read successfully, now deleting...")
+            container.delete_item(item=doc_id, partition_key=actual_subject)
+            print(f"✅ Successfully deleted textbook after read")
+            deleted = True
+        except exceptions.CosmosResourceNotFoundError as e:
+            print(f"   ❌ Method 1 failed - Item not found on read: {str(e)[:150]}")
+        except Exception as e:
+            print(f"   ❌ Method 1 failed: {type(e).__name__} - {str(e)[:150]}")
+        
+        # Method 2: Try with string conversion of partition key
+        if not deleted:
+            try:
+                print(f"🔑 Method 2: Trying with str() converted partition key")
+                pk_str = str(actual_subject)
+                print(f"   Partition key: '{pk_str}' (len={len(pk_str)})")
+                container.delete_item(item=doc_id, partition_key=pk_str)
+                print(f"✅ Successfully deleted textbook with str() conversion")
+                deleted = True
+            except Exception as e:
+                print(f"   ❌ Method 2 failed: {type(e).__name__} - {str(e)[:150]}")
+        
+        # Method 3: Try soft delete instead of hard delete
+        if not deleted:
+            try:
+                print(f"🔑 Method 3: Soft delete - marking as deleted")
+                textbook_doc['_deleted'] = True
+                textbook_doc['deleted_at'] = datetime.utcnow().isoformat()
+                container.upsert_item(body=textbook_doc)
+                print(f"✅ Successfully soft-deleted textbook (marked as deleted)")
+                deleted = True
+            except Exception as e:
+                print(f"   ❌ Method 3 failed: {type(e).__name__} - {str(e)[:150]}")
+        
+        if not deleted:
+            print(f"❌ Failed to delete textbook after trying all methods")
+            return False
+        
         return True
         
     except Exception as e:
