@@ -10,7 +10,7 @@ import API_URL from './api';
 // Create axios instance
 const axiosInstance = axios.create({
   baseURL: API_URL,
-  timeout: 30000,
+  timeout: 120000, // 2 minutes - increased for OCR and AI operations
   withCredentials: true, // Still send cookies for backward compatibility
   headers: {
     'Content-Type': 'application/json',

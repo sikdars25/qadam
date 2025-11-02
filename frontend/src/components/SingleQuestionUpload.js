@@ -158,7 +158,15 @@ const SingleQuestionUpload = ({ onClose, onQuestionParsed }) => {
       }
     } catch (err) {
       console.error('Error solving question:', err);
-      setError('Error: ' + (err.response?.data?.error || err.message));
+      
+      // Handle timeout errors specifically
+      if (err.code === 'ECONNABORTED' || err.message.includes('timeout')) {
+        setError('Request timed out. The image might be too complex or the server is busy. Please try again or use the text input method.');
+      } else if (err.response?.status === 401) {
+        setError('Authentication required. Please log in again.');
+      } else {
+        setError('Error: ' + (err.response?.data?.error || err.message));
+      }
     } finally {
       setLoading(false);
       setSolving(false);
