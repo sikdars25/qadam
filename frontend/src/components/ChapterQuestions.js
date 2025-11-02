@@ -116,7 +116,7 @@ const ChapterQuestions = () => {
 
   const fetchPapers = async () => {
     try {
-      const response = await axios.get(`${API_URL}/api/uploaded-papers`);
+      const response = await axiosInstance.get(`${API_URL}/api/uploaded-papers`);
       setPapers(response.data);
     } catch (err) {
       console.error('Error fetching papers:', err);
@@ -127,7 +127,7 @@ const ChapterQuestions = () => {
   const fetchAllTextbooks = async () => {
     try {
       // Fetch all uploaded textbooks
-      const response = await axios.get(`${API_URL}/api/textbooks`);
+      const response = await axiosInstance.get(`${API_URL}/api/textbooks`);
       const uploadedTextbooks = response.data || [];
       
       // Use uploaded textbooks directly, with default chapter structure as fallback
@@ -199,7 +199,7 @@ const ChapterQuestions = () => {
 
     try {
       // Fetch all questions from the selected paper
-      const response = await axios.get(
+      const response = await axiosInstance.get(
         `${API_URL}/api/parsed-questions?paper_id=${selectedPaper.id}`
       );
       
@@ -245,7 +245,7 @@ const ChapterQuestions = () => {
 
       // Try to get chapters to see if indexed
       try {
-        await axios.get(`${API_URL}/api/textbook-chapters/${selectedTextbook.uploadedId}`);
+        await axiosInstance.get(`${API_URL}/api/textbook-chapters/${selectedTextbook.uploadedId}`);
         console.log('✓ Textbook already indexed');
         setMessage({ type: 'info', text: '✓ Textbook already indexed. Running AI search...' });
       } catch (err) {
@@ -261,7 +261,7 @@ const ChapterQuestions = () => {
       if (needsIndexing) {
         setMessage({ type: 'info', text: '📚 Indexing textbook... This may take a few minutes.' });
         
-        const indexResponse = await axios.post(
+        const indexResponse = await axiosInstance.post(
           `${API_URL}/api/index-textbook/${selectedTextbook.uploadedId}`
         );
 
@@ -280,7 +280,7 @@ const ChapterQuestions = () => {
       setMessage({ type: 'info', text: '🤖 Running AI Search with LLM analysis...' });
 
       // Fetch all questions from the selected paper
-      const questionsResponse = await axios.get(
+      const questionsResponse = await axiosInstance.get(
         `${API_URL}/api/parsed-questions?paper_id=${selectedPaper.id}`
       );
       
@@ -299,7 +299,7 @@ const ChapterQuestions = () => {
       console.log(`📊 Found ${allQuestions.length} questions to map`);
 
       // Use semantic search to map questions to chapters
-      const mappingResponse = await axios.post(
+      const mappingResponse = await axiosInstance.post(
         `${API_URL}/api/map-questions-to-chapters`,
         {
           questions: allQuestions,
@@ -387,7 +387,7 @@ const ChapterQuestions = () => {
       console.log('  Textbook ID:', selectedTextbook.uploadedId);
       console.log('  Chapters:', Object.keys(chapterGroups).length);
       
-      const response = await axios.post(`${API_URL}/api/save-ai-search-results`, {
+      const response = await axiosInstance.post(`${API_URL}/api/save-ai-search-results`, {
         paper_id: selectedPaper.id,
         textbook_id: selectedTextbook.uploadedId,
         search_results: chapterGroups
@@ -415,7 +415,7 @@ const ChapterQuestions = () => {
     console.log('  Textbook ID:', selectedTextbook.uploadedId);
 
     try {
-      const response = await axios.get(
+      const response = await axiosInstance.get(
         `${API_URL}/api/get-last-ai-search?paper_id=${selectedPaper.id}&textbook_id=${selectedTextbook.uploadedId}`
       );
       
@@ -506,7 +506,7 @@ const ChapterQuestions = () => {
         ? question.chapters[0].chapter_title 
         : selectedChapter?.name;
       
-      const response = await axios.post(`${API_URL}/api/solve-question`, {
+      const response = await axiosInstance.post(`${API_URL}/api/solve-question`, {
         question_text: question.question_text,
         question_type: question.question_type,
         subject: selectedPaper?.subject,
@@ -524,7 +524,7 @@ const ChapterQuestions = () => {
         
         // Save to Question Bank
         try {
-          await axios.post(`${API_URL}/api/save-solved-question`, {
+          await axiosInstance.post(`${API_URL}/api/save-solved-question`, {
             question_text: question.question_text,
             solution: response.data.solution,
             subject: selectedPaper?.subject,
