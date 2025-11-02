@@ -451,6 +451,7 @@ def get_all_papers():
         query = """
             SELECT * FROM c 
             WHERE c.type = 'paper'
+            AND (NOT IS_DEFINED(c._deleted) OR c._deleted = false)
             ORDER BY c.uploaded_at DESC
         """
         
@@ -470,7 +471,7 @@ def get_paper_by_id(paper_id):
     try:
         container = get_cosmos_container('uploaded_papers')
         
-        query = "SELECT * FROM c WHERE c.id = @paper_id AND c.type = 'paper'"
+        query = "SELECT * FROM c WHERE c.id = @paper_id AND c.type = 'paper' AND (NOT IS_DEFINED(c._deleted) OR c._deleted = false)"
         parameters = [{"name": "@paper_id", "value": paper_id}]
         
         items = list(container.query_items(
@@ -507,55 +508,48 @@ def delete_paper(paper_id, user_id):
         paper_doc = items[0]
         actual_user_id = paper_doc.get('user_id')
         doc_id = paper_doc.get('id')
-        doc_rid = paper_doc.get('_rid')
+        
+        # Check if already soft-deleted
+        if paper_doc.get('_deleted') == True:
+            print(f"⚠️ Paper is already marked as deleted (soft-delete)")
+            print(f"   Attempting to permanently remove from database...")
+            # Document is soft-deleted, we need to actually remove it
+            # Remove the _deleted flag and system fields that might interfere
+            clean_doc = {k: v for k, v in paper_doc.items() if not k.startswith('_')}
+            clean_doc['id'] = doc_id
+            clean_doc['user_id'] = actual_user_id
+            
+            try:
+                # Replace with clean version, then delete
+                container.upsert_item(body=clean_doc)
+                print(f"   ✓ Cleaned document, now deleting...")
+                container.delete_item(item=doc_id, partition_key=actual_user_id)
+                print(f"✅ Successfully removed soft-deleted paper")
+                return True
+            except Exception as e:
+                print(f"   ❌ Failed to remove soft-deleted paper: {e}")
+                # If that fails, just return True since it's already marked deleted
+                print(f"   ℹ️ Paper is already soft-deleted, treating as success")
+                return True
         
         print(f"📋 Found paper: {paper_doc.get('title')}")
-        print(f"📋 Document ID: {doc_id}")
-        print(f"📋 Document _rid: {doc_rid}")
         print(f"📋 Actual user_id in document: {actual_user_id} (type: {type(actual_user_id).__name__})")
-        print(f"📋 Provided user_id: {user_id} (type: {type(user_id).__name__})")
         
         deleted = False
         
-        # Method 1: Try using upsert to "delete" by replacing with a tombstone, then delete
+        # Try direct delete with actual partition key
         try:
-            print(f"🔑 Method 1: Trying direct delete with id and partition key")
+            print(f"🔑 Attempting delete with id={doc_id}, partition_key={actual_user_id}")
             container.delete_item(item=doc_id, partition_key=actual_user_id)
             print(f"✅ Successfully deleted paper")
             deleted = True
         except exceptions.CosmosResourceNotFoundError as e:
-            print(f"   ❌ Method 1 failed: NotFound - {str(e)[:200]}")
+            print(f"   ❌ Delete failed: NotFound - {str(e)[:200]}")
         except Exception as e:
-            print(f"   ❌ Method 1 failed: {type(e).__name__} - {str(e)[:200]}")
-        
-        # Method 2: Try with document's _self link
-        if not deleted and '_self' in paper_doc:
-            try:
-                print(f"🔑 Method 2: Trying with _self link")
-                # Use read to get the latest etag, then delete
-                read_doc = container.read_item(item=doc_id, partition_key=actual_user_id)
-                container.delete_item(item=read_doc['id'], partition_key=read_doc['user_id'])
-                print(f"✅ Successfully deleted paper using fresh read")
-                deleted = True
-            except Exception as e:
-                print(f"   ❌ Method 2 failed: {type(e).__name__} - {str(e)[:200]}")
-        
-        # Method 3: Try replacing the document to mark as deleted, then actually delete
-        if not deleted:
-            try:
-                print(f"🔑 Method 3: Trying replace then delete")
-                paper_doc['_deleted'] = True
-                paper_doc['deleted_at'] = datetime.utcnow().isoformat()
-                container.upsert_item(body=paper_doc)
-                print(f"   ✓ Marked as deleted, now removing...")
-                container.delete_item(item=doc_id, partition_key=actual_user_id)
-                print(f"✅ Successfully deleted after marking")
-                deleted = True
-            except Exception as e:
-                print(f"   ❌ Method 3 failed: {type(e).__name__} - {str(e)[:200]}")
+            print(f"   ❌ Delete failed: {type(e).__name__} - {str(e)[:200]}")
         
         if not deleted:
-            print(f"❌ Failed to delete paper after trying all partition key formats")
+            print(f"❌ Failed to delete paper")
             return False
         
         # Also delete associated parsed questions
@@ -645,6 +639,7 @@ def get_all_textbooks():
         query = """
             SELECT * FROM c 
             WHERE c.type = 'textbook'
+            AND (NOT IS_DEFINED(c._deleted) OR c._deleted = false)
             ORDER BY c.uploaded_at DESC
         """
         
@@ -664,7 +659,7 @@ def get_textbook_by_id(textbook_id):
     try:
         container = get_cosmos_container('textbooks')
         
-        query = "SELECT * FROM c WHERE c.id = @textbook_id AND c.type = 'textbook'"
+        query = "SELECT * FROM c WHERE c.id = @textbook_id AND c.type = 'textbook' AND (NOT IS_DEFINED(c._deleted) OR c._deleted = false)"
         parameters = [{"name": "@textbook_id", "value": textbook_id}]
         
         items = list(container.query_items(
