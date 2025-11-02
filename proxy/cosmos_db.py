@@ -506,47 +506,53 @@ def delete_paper(paper_id, user_id):
         
         paper_doc = items[0]
         actual_user_id = paper_doc.get('user_id')
+        doc_id = paper_doc.get('id')
+        doc_rid = paper_doc.get('_rid')
+        
         print(f"📋 Found paper: {paper_doc.get('title')}")
+        print(f"📋 Document ID: {doc_id}")
+        print(f"📋 Document _rid: {doc_rid}")
         print(f"📋 Actual user_id in document: {actual_user_id} (type: {type(actual_user_id).__name__})")
         print(f"📋 Provided user_id: {user_id} (type: {type(user_id).__name__})")
         
-        # Try different partition key formats
-        partition_keys_to_try = [
-            actual_user_id,  # Use the exact value from the document
-            str(actual_user_id),  # Try as string
-            int(actual_user_id) if isinstance(actual_user_id, str) and actual_user_id.isdigit() else None,  # Try as int
-        ]
-        
-        # Remove None and duplicates
-        partition_keys_to_try = list(set([pk for pk in partition_keys_to_try if pk is not None]))
-        
         deleted = False
         
-        # Try using the document directly (sometimes works better than item ID)
+        # Method 1: Try using upsert to "delete" by replacing with a tombstone, then delete
         try:
-            print(f"🔑 Trying to delete using document object")
-            container.delete_item(item=paper_doc, partition_key=actual_user_id)
-            print(f"✅ Successfully deleted paper using document object")
+            print(f"🔑 Method 1: Trying direct delete with id and partition key")
+            container.delete_item(item=doc_id, partition_key=actual_user_id)
+            print(f"✅ Successfully deleted paper")
             deleted = True
+        except exceptions.CosmosResourceNotFoundError as e:
+            print(f"   ❌ Method 1 failed: NotFound - {str(e)[:200]}")
         except Exception as e:
-            print(f"   ❌ Failed with document object: {e}")
+            print(f"   ❌ Method 1 failed: {type(e).__name__} - {str(e)[:200]}")
         
-        # If document object didn't work, try different partition key formats
+        # Method 2: Try with document's _self link
+        if not deleted and '_self' in paper_doc:
+            try:
+                print(f"🔑 Method 2: Trying with _self link")
+                # Use read to get the latest etag, then delete
+                read_doc = container.read_item(item=doc_id, partition_key=actual_user_id)
+                container.delete_item(item=read_doc['id'], partition_key=read_doc['user_id'])
+                print(f"✅ Successfully deleted paper using fresh read")
+                deleted = True
+            except Exception as e:
+                print(f"   ❌ Method 2 failed: {type(e).__name__} - {str(e)[:200]}")
+        
+        # Method 3: Try replacing the document to mark as deleted, then actually delete
         if not deleted:
-            for pk in partition_keys_to_try:
-                try:
-                    print(f"🔑 Trying partition key: {pk} (type: {type(pk).__name__})")
-                    container.delete_item(item=paper_id, partition_key=pk)
-                    print(f"✅ Successfully deleted paper with partition_key={pk}")
-                    deleted = True
-                    break
-                except exceptions.CosmosResourceNotFoundError as e:
-                    print(f"   ❌ Not found with partition_key={pk}")
-                    print(f"   Error message: {str(e)}")
-                    continue
-                except Exception as e:
-                    print(f"   ❌ Error with partition_key={pk}: {e}")
-                    continue
+            try:
+                print(f"🔑 Method 3: Trying replace then delete")
+                paper_doc['_deleted'] = True
+                paper_doc['deleted_at'] = datetime.utcnow().isoformat()
+                container.upsert_item(body=paper_doc)
+                print(f"   ✓ Marked as deleted, now removing...")
+                container.delete_item(item=doc_id, partition_key=actual_user_id)
+                print(f"✅ Successfully deleted after marking")
+                deleted = True
+            except Exception as e:
+                print(f"   ❌ Method 3 failed: {type(e).__name__} - {str(e)[:200]}")
         
         if not deleted:
             print(f"❌ Failed to delete paper after trying all partition key formats")
