@@ -20,6 +20,22 @@ logging.basicConfig(level=logging.INFO)
 # Initialize EasyOCR (lazy loading)
 ocr_reader = None
 
+def convert_numpy_types(obj):
+    """Convert NumPy types to Python native types for JSON serialization"""
+    if isinstance(obj, np.integer):
+        return int(obj)
+    elif isinstance(obj, np.floating):
+        return float(obj)
+    elif isinstance(obj, np.ndarray):
+        return obj.tolist()
+    elif isinstance(obj, dict):
+        return {key: convert_numpy_types(value) for key, value in obj.items()}
+    elif isinstance(obj, list):
+        return [convert_numpy_types(item) for item in obj]
+    elif isinstance(obj, tuple):
+        return tuple(convert_numpy_types(item) for item in obj)
+    return obj
+
 def get_ocr_reader():
     """Get or initialize EasyOCR reader"""
     global ocr_reader
@@ -131,18 +147,21 @@ def extract_text():
         
         logging.info(f"✅ OCR completed: {len(extracted_text)} characters, confidence: {avg_confidence:.2f}")
         
+        # Convert NumPy types to Python native types for JSON serialization
+        details = [
+            {
+                'text': text,
+                'confidence': float(conf),
+                'bbox': convert_numpy_types(bbox)
+            }
+            for (bbox, text, conf) in results
+        ]
+        
         return jsonify({
             'success': True,
             'text': extracted_text,
             'confidence': float(avg_confidence),
-            'details': [
-                {
-                    'text': text,
-                    'confidence': float(conf),
-                    'bbox': bbox
-                }
-                for (bbox, text, conf) in results
-            ]
+            'details': details
         })
         
     except Exception as e:
