@@ -11,8 +11,6 @@ env/
 ENV/
 .venv
 
-# Environment Variables
-.env
 
 # Database Files
 *.db
