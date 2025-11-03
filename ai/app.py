@@ -9,6 +9,10 @@ import logging
 import json
 import os
 
+# Load environment variables from .env file
+from dotenv import load_dotenv
+load_dotenv()
+
 # Import AI helpers and services
 from ai_helpers import (
     generate_with_groq,
