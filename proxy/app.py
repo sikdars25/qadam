@@ -11,6 +11,10 @@ from werkzeug.security import check_password_hash, generate_password_hash
 from datetime import datetime
 from jwt_auth import generate_token, token_required, get_current_user, admin_required
 
+# Load environment variables from .env file
+from dotenv import load_dotenv
+load_dotenv()
+
 # Cosmos DB imports
 try:
     from cosmos_db import (
