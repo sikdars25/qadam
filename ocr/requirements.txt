@@ -8,9 +8,9 @@ flask-cors==4.0.0
 # EasyOCR (lightweight alternative to PaddleOCR)
 easyocr==1.7.0
 
-# Image processing
+# Image processing - CRITICAL: Use NumPy 1.x for compatibility
 Pillow>=10.0.0
-numpy>=1.26.0
+numpy<2.0.0
 opencv-python-headless==4.8.1.78
 
 # PDF Processing (for extracting images from PDFs)
