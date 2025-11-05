@@ -1,69 +1,114 @@
-name: Deploy OCR to Azure VM
+# OCR Service deployment workflow - Deploy Python files only
+# Dependencies are pre-installed on VM
+
+name: Deploy OCR Service to Azure VM - qadam-ocr
 
 on:
   push:
     branches:
       - backend-ocr
     paths:
-      - 'ocr/**'
+      - 'ocr/**/*.py'
+      - '.github/workflows/deploy-ocr-vm.yml'
   workflow_dispatch:
+
+env:
+  OCR_PATH: 'ocr'
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    
+    permissions:
+      contents: read
+
     steps:
-      - name: Checkout code
+      - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Package Python files only
+        working-directory: ${{ env.OCR_PATH }}
+        run: |
+          echo "📦 Packaging Python files..."
+          # Include only Python files and essential configs
+          zip -r ../ocr-release.zip *.py -x "__pycache__/*" -x "*.pyc"
+          
+          # Add any subdirectories with Python files if they exist
+          if [ -d "utils" ]; then
+            zip -ur ../ocr-release.zip utils/*.py
+          fi
+          
+          echo "✅ Package created"
+          ls -lh ../ocr-release.zip
+
+      - name: Upload artifact for deployment
+        uses: actions/upload-artifact@v4
         with:
-          fetch-depth: 0
+          name: python-app
+          path: ocr-release.zip
 
-      - name: Setup SSH
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.VM_SSH_KEY }}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H ${{ secrets.VM_HOST }} >> ~/.ssh/known_hosts
-          ssh ${{ secrets.VM_USERNAME }}@${{ secrets.VM_HOST }} << 'EOF'
-            echo "🔧 First time setup..."
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: python-app
+
+      - name: Deploy to Azure VM via SSH
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.OCR_VM_HOST }}
+          username: ${{ secrets.OCR_VM_USERNAME }}
+          password: ${{ secrets.OCR_VM_PASSWORD }}
+          source: "ocr-release.zip"
+          target: "/tmp/"
+      
+      - name: Extract and restart service on VM
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.OCR_VM_HOST }}
+          username: ${{ secrets.OCR_VM_USERNAME }}
+          password: ${{ secrets.OCR_VM_PASSWORD }}
+          script: |
+            echo "📦 Deploying OCR service to VM..."
+            
+            # Backup current code
             cd /opt/qadam-ocr
-            git init
-            git remote add origin https://github.com/sikdars25/qadam.git
-            git fetch origin backend-ocr
-            git checkout backend-ocr
-          EOF
-
-      - name: Deploy to VM
+            sudo cp -r ocr ocr-backup-$(date +%Y%m%d-%H%M%S)
+            
+            # Extract new code
+            sudo unzip -o /tmp/ocr-release.zip -d /opt/qadam-ocr/ocr/
+            rm /tmp/ocr-release.zip
+            
+            # Set permissions
+            sudo chown -R qadamuser:qadamuser /opt/qadam-ocr/ocr/
+            
+            # Restart service
+            sudo systemctl restart qadam-ocr
+            
+            # Wocrt for service to start
+            sleep 3
+            
+            # Check service status
+            sudo systemctl status qadam-ocr --no-pager
+            
+            echo "✅ Deployment complete!"
+      
+      - name: Verify Deployment
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.OCR_VM_HOST }}
+          username: ${{ secrets.OCR_VM_USERNAME }}
+          password: ${{ secrets.OCR_VM_PASSWORD }}
+          script: |
+            echo "🔍 Testing OCR service..."
+            curl -s http://localhost:8001/api/health || echo "❌ Health check focrled"
+      
+      - name: Deployment Summary
         run: |
-          ssh ${{ secrets.VM_USERNAME }}@${{ secrets.VM_HOST }} << 'EOF'
-            cd /opt/qadam-ocr
-            chmod +x deploy.sh
-            ./deploy.sh
-          EOF
-
-      - name: Wait for service to start
-        run: sleep 15
-
-      - name: Health check
-        run: |
-          for i in {1..5}; do
-            if curl -f http://${{ secrets.VM_HOST }}/api/health; then
-              echo "✅ OCR Service is healthy!"
-              exit 0
-            fi
-            echo "Attempt $i failed, retrying..."
-            sleep 5
-          done
-          echo "❌ Health check failed"
-          exit 1
-
-      - name: Deployment summary
-        if: success()
-        run: |
-          echo "🎉 Deployment successful!"
-          echo "📍 OCR Service URL: http://${{ secrets.VM_HOST }}"
-          echo "🔍 Health Check: http://${{ secrets.VM_HOST }}/api/health"
-          echo "📝 API Endpoints:"
-          echo "  - POST /api/extract-text"
-          echo "  - POST /api/extract-text-with-boxes"
-          echo "  - POST /api/extract-from-pdf"
+          echo "✅ OCR Service deployed successfully to VM!"
+          echo "🖥️  VM: 130.107.48.145 (Private: 172.16.0.4)"
+          echo "📂 Path: /opt/qadam-ocr/ocr/"
+          echo "🔗 Public URL: http://130.107.48.145:8000"
+          echo "🔗 Private URL: http://172.16.0.4:8000"
+          echo "📝 Deployed: Python files only (dependencies pre-installed)"
+          echo ""
+          echo "🔍 Verify deployment:"
+          echo "   curl http://130.107.48.145:8000/api/health"
