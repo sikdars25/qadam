@@ -1,7 +1,7 @@
 # Proxy Service deployment workflow - Deploy Python files only
 # Dependencies are pre-installed on VM
 
-name: Deploy Proxy Service to Azure VM - qadam-backend
+name: Deploy PROXY Service to Azure VM - qadam-backend
 
 on:
   push:
