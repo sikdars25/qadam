@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import axiosInstance from '../config/axios';
+import SampleQuestions from './SampleQuestions';
+import ChapterQuestions from './ChapterQuestions';
+import UploadPapers from './UploadPapers';
 import './AdminDashboard.css';
 
 function AdminDashboard({ user, onLogout }) {
@@ -90,6 +93,9 @@ function AdminDashboard({ user, onLogout }) {
     { id: 'dashboard', icon: '📊', label: 'Dashboard', description: 'Overview & Stats' },
     { id: 'users', icon: '👥', label: 'User Management', description: 'Manage Users' },
     { id: 'analytics', icon: '📈', label: 'Usage Analytics', description: 'Tokens & Activity' },
+    { id: 'question-paper', icon: '📚', label: 'Question Paper', description: 'Answer All Questions' },
+    { id: 'textbook', icon: '📖', label: 'Text Book', description: 'Answer Chapterwise' },
+    { id: 'upload-hub', icon: '📤', label: 'Upload Hub', description: 'Upload Papers & Textbooks' },
   ];
 
   return (
@@ -268,6 +274,27 @@ function AdminDashboard({ user, onLogout }) {
             </table>
           )}
         </div>
+        )}
+
+        {/* Question Paper Section */}
+        {activeSection === 'question-paper' && (
+          <div className="admin-feature-section">
+            <SampleQuestions />
+          </div>
+        )}
+
+        {/* Text Book Section */}
+        {activeSection === 'textbook' && (
+          <div className="admin-feature-section">
+            <ChapterQuestions />
+          </div>
+        )}
+
+        {/* Upload Hub Section */}
+        {activeSection === 'upload-hub' && (
+          <div className="admin-feature-section">
+            <UploadPapers user={user} />
+          </div>
         )}
 
         {/* Usage Analytics Section */}

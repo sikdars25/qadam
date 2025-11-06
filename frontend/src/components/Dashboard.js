@@ -1,28 +1,19 @@
 import React, { useState } from 'react';
 import Sidebar from './Sidebar';
-import SampleQuestions from './SampleQuestions';
-import UploadPapers from './UploadPapers';
-import ChapterQuestions from './ChapterQuestions';
 import QuestionBank from './QuestionBank';
 import SingleQuestionUpload from './SingleQuestionUpload';
 import './Dashboard.css';
 
 const Dashboard = ({ user, onLogout }) => {
-  const [activeMenu, setActiveMenu] = useState('sample-questions');
+  const [activeMenu, setActiveMenu] = useState('question-bank');
   const [showSingleQuestionUpload, setShowSingleQuestionUpload] = useState(false);
 
   const renderContent = () => {
     switch (activeMenu) {
-      case 'sample-questions':
-        return <SampleQuestions />;
-      case 'upload-papers':
-        return <UploadPapers user={user} />;
-      case 'chapter-questions':
-        return <ChapterQuestions />;
       case 'question-bank':
         return <QuestionBank />;
       default:
-        return <SampleQuestions />;
+        return <QuestionBank />;
     }
   };
 

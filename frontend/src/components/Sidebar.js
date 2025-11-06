@@ -3,10 +3,7 @@ import './Sidebar.css';
 
 const Sidebar = ({ activeMenu, setActiveMenu, user, onLogout, onUploadSingleQuestion }) => {
   const menuItems = [
-    { id: 'sample-questions', label: 'Question Paper', icon: '📚' },
-    { id: 'chapter-questions', label: 'Text Book', icon: '📖' },
-    { id: 'question-bank', label: 'Question Bank', icon: '💾' },
-    { id: 'upload-papers', label: 'Upload Hub', icon: '📤' }
+    { id: 'question-bank', label: 'Question Bank', icon: '💾' }
   ];
 
   return (
