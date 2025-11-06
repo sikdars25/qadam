@@ -9,7 +9,7 @@ on:
       - backend-proxy
     paths:
       - 'proxy/**/*.py'
-      - '.github/deploy-backend-proxy.yml'
+      - '.github/workflows/deploy-backend-proxy.yml'
   workflow_dispatch:
 
 env:
