@@ -1,124 +1,114 @@
-name: Deploy Backend Proxy to VM
+# Proxy Service deployment workflow - Deploy Python files only
+# Dependencies are pre-installed on VM
+
+name: Deploy Proxy Service to Azure VM - qadam-backend
 
 on:
   push:
     branches:
       - backend-proxy
     paths:
-      - 'proxy/**'
-      - '.github/workflows/deploy-backend-proxy.yml'
+      - 'proxy/**/*.py'
+      - '.github/deploy-backend-proxy.yml'
   workflow_dispatch:
+
+env:
+  PROXY_PATH: 'proxy'
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    
+    permissions:
+      contents: read
+
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
-      with:
-        ref: backend-proxy
-    
-    - name: Deploy to VM via SSH
-      uses: appleboy/ssh-action@v1.0.0
-      with:
-        host: ${{ secrets.BACKEND_VM_HOST }}
-        username: ${{ secrets.BACKEND_VM_USERNAME }}
-        key: ${{ secrets.BACKEND_VM_SSH_KEY }}
-        script: |
-          set -e
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Package Python files only
+        working-directory: ${{ env.PROXY_PATH }}
+        run: |
+          echo "📦 Packaging Python files..."
+          # Include only Python files and essential configs
+          zip -r ../proxy-release.zip *.py -x "__pycache__/*" -x "*.pyc"
           
-          echo "🚀 Deploying Qadam Backend Proxy..."
+          # Add any subdirectories with Python files if they exist
+          if [ -d "utils" ]; then
+            zip -ur ../proxy-release.zip utils/*.py
+          fi
           
-          # Create app directory
-          sudo mkdir -p /opt/qadam-backend
-          sudo chown -R $USER:$USER /opt/qadam-backend
-          
-          # Clone or pull repository
-          if [ -d "/opt/qadam-backend/.git" ]; then
+          echo "✅ Package created"
+          ls -lh ../proxy-release.zip
+
+      - name: Upload artifact for deployment
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-app
+          path: proxy-release.zip
+
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: python-app
+
+      - name: Deploy to Azure VM via SSH
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.PROXY_VM_HOST }}
+          username: ${{ secrets.PROXY_VM_USERNAME }}
+          password: ${{ secrets.PROXY_VM_PASSWORD }}
+          source: "proxy-release.zip"
+          target: "/tmp/"
+      
+      - name: Extract and restart service on VM
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.PROXY_VM_HOST }}
+          username: ${{ secrets.PROXY_VM_USERNAME }}
+          password: ${{ secrets.PROXY_VM_PASSWORD }}
+          script: |
+            echo "📦 Deploying PROXY service to VM..."
+            
+            # Backup current code
             cd /opt/qadam-backend
-            git fetch origin backend-proxy
-            git checkout backend-proxy
-            git pull origin backend-proxy
-          else
-            git clone -b backend-proxy https://github.com/sikdars25/qadam.git /opt/qadam-backend
-            cd /opt/qadam-backend
-          fi
-          
-          # Navigate to proxy folder
-          cd proxy
-          
-          # Setup Python environment
-          if [ ! -d "venv" ]; then
-            python3 -m venv venv
-          fi
-          
-          source venv/bin/activate
-          
-          # Install dependencies
-          pip install --upgrade pip setuptools wheel
-          pip install -r requirements.txt
-          pip install gunicorn
-          
-          # Create gunicorn config if not exists
-          if [ ! -f "gunicorn_config.py" ]; then
-            cat > gunicorn_config.py << 'GUNICORN_EOF'
-          bind = "127.0.0.1:5000"
-          workers = 4
-          worker_class = "sync"
-          worker_connections = 100
-          timeout = 300
-          keepalive = 5
-          max_requests = 1000
-          max_requests_jitter = 50
-          loglevel = "info"
-          accesslog = "-"
-          errorlog = "-"
-          GUNICORN_EOF
-          fi
-          
-          # Create/update systemd service
-          sudo tee /etc/systemd/system/qadam-backend.service > /dev/null << 'SERVICE_EOF'
-          [Unit]
-          Description=Qadam Backend Service
-          After=network.target
-          
-          [Service]
-          Type=simple
-          User=$USER
-          WorkingDirectory=/opt/qadam-backend/proxy
-          Environment="PATH=/opt/qadam-backend/proxy/venv/bin:/usr/local/bin:/usr/bin:/bin"
-          Environment="COSMOS_ENDPOINT=${{ secrets.COSMOS_ENDPOINT }}"
-          Environment="COSMOS_KEY=${{ secrets.COSMOS_KEY }}"
-          Environment="COSMOS_DATABASE=${{ secrets.COSMOS_DATABASE }}"
-          Environment="AZURE_STORAGE_CONNECTION_STRING=${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}"
-          Environment="OCR_SERVICE_URL=${{ secrets.OCR_SERVICE_URL }}"
-          Environment="AI_SERVICE_URL=${{ secrets.AI_SERVICE_URL }}"
-          Environment="SECRET_KEY=${{ secrets.SECRET_KEY }}"
-          ExecStart=/opt/qadam-backend/proxy/venv/bin/gunicorn -c gunicorn_config.py app:app
-          Restart=always
-          RestartSec=5
-          MemoryMax=4G
-          MemoryHigh=3G
-          StandardOutput=journal
-          StandardError=journal
-          
-          [Install]
-          WantedBy=multi-user.target
-          SERVICE_EOF
-          
-          # Reload and restart service
-          sudo systemctl daemon-reload
-          sudo systemctl enable qadam-backend
-          sudo systemctl restart qadam-backend
-          
-          # Wait for service to start
-          sleep 5
-          
-          # Check service status
-          sudo systemctl status qadam-backend --no-pager -l | head -20
-          
-          echo "✅ Deployment complete!"
-          
-          # Test health endpoint
-          curl -s http://localhost:5000/api/health || echo "⚠️  Health check failed"
+            sudo cp -r proxy proxy-backup-$(date +%Y%m%d-%H%M%S)
+            
+            # Extract new code
+            sudo unzip -o /tmp/proxy-release.zip -d /opt/qadam-backend/proxy/
+            rm /tmp/proxy-release.zip
+            
+            # Set permissions
+            sudo chown -R qadamuser:qadamuser /opt/qadam-backend/proxy/
+            
+            # Restart service
+            sudo systemctl restart qadam-backend
+            
+            # Wocrt for service to start
+            sleep 3
+            
+            # Check service status
+            sudo systemctl status qadam-backend --no-pager
+            
+            echo "✅ Deployment complete!"
+      
+      - name: Verify Deployment
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.PROXY_VM_HOST }}
+          username: ${{ secrets.PROXY_VM_USERNAME }}
+          password: ${{ secrets.PROXY_VM_PASSWORD }}
+          script: |
+            echo "🔍 Testing PROXY service..."
+            curl -s http://localhost:5000/api/health || echo "❌ Health check focrled"
+      
+      - name: Deployment Summary
+        run: |
+          echo "✅ PROXY Service deployed successfully to VM!"
+          echo "🖥️  VM: 130.107.48.166 (Private: 172.18.0.4)"
+          echo "📂 Path: /opt/qadam-backend/proxy/"
+          echo "🔗 Public URL: http://130.107.48.166:5000"
+          echo "🔗 Private URL: http://172.18.0.4:5000"
+          echo "📝 Deployed: Python files only (dependencies pre-installed)"
+          echo ""
+          echo "🔍 Verify deployment:"
+          echo "   curl http://130.107.48.166:5000/api/health"
