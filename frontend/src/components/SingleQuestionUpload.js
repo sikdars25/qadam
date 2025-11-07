@@ -280,26 +280,26 @@ const SingleQuestionUpload = ({ onClose, onQuestionParsed }) => {
                     </div>
                     <div className="latex-example-group">
                       <strong>Fractions:</strong>
-                      <code>$\frac{a}{b}$</code> → a/b
+                      <code>{'$\\frac{a}{b}$'}</code> → a/b
                     </div>
                     <div className="latex-example-group">
                       <strong>Square Roots:</strong>
-                      <code>$\sqrt{x^2 + y^2}$</code> → √(x² + y²)
+                      <code>{'$\\sqrt{x^2 + y^2}$'}</code> → √(x² + y²)
                     </div>
                     <div className="latex-example-group">
                       <strong>Integrals:</strong>
-                      <code>$$\int_0^{\pi} \sin(x) dx$$</code> → ∫₀^π sin(x) dx
+                      <code>{'$$\\int_0^{\\pi} \\sin(x) dx$$'}</code> → ∫₀^π sin(x) dx
                     </div>
                     <div className="latex-example-group">
                       <strong>Greek Letters:</strong>
-                      <code>$\alpha, \beta, \gamma, \pi$</code> → α, β, γ, π
+                      <code>{'$\\alpha, \\beta, \\gamma, \\pi$'}</code> → α, β, γ, π
                     </div>
                   </div>
                 </div>
                 <textarea
                   value={questionText}
                   onChange={(e) => setQuestionText(e.target.value)}
-                  placeholder="Type or paste your question here...&#10;&#10;Mathematical expressions:&#10;• Use $...$ for inline math: $x^2 + y^2 = z^2$&#10;• Use $$...$$ for display math: $$\int_0^{\pi} \sin(x) dx$$&#10;• Example: Find the value of $\frac{d}{dx}(x^2 + 3x + 2)$&#10;&#10;Regular question:&#10;1. What is the capital of France?&#10;(A) London&#10;(B) Paris&#10;(C) Berlin&#10;(D) Madrid"
+                  placeholder={'Type or paste your question here...\n\nMathematical expressions:\n• Use $...$ for inline math: $x^2 + y^2 = z^2$\n• Use $$...$$ for display math: $$\\int_0^{\\pi} \\sin(x) dx$$\n• Example: Find the value of $\\frac{d}{dx}(x^2 + 3x + 2)$\n\nRegular question:\n1. What is the capital of France?\n(A) London\n(B) Paris\n(C) Berlin\n(D) Madrid'}
                   rows={12}
                   className="question-textarea"
                 />
