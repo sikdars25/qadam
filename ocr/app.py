@@ -37,54 +37,6 @@ def convert_numpy_types(obj):
         return tuple(convert_numpy_types(item) for item in obj)
     return obj
 
-def correct_ocr_greek_letters(text):
-    """
-    Correct common OCR detection errors for Greek letters and mathematical symbols
-    
-    Specific corrections needed:
-    - λn → 4n
-    - λp → 2p  
-    - λn/λp → ^n Ap
-    """
-    if not text:
-        return text
-    
-    # Define correction mappings - order matters!
-    # More specific patterns must come first
-    corrections = [
-        # Combined patterns (must come first)
-        ('λn/λp', '^n Ap'),
-        
-        # Individual lambda corrections
-        ('λn', '4n'),
-        ('λp', '2p'),
-        ('λx', '4x'),
-        ('λy', '4y'),
-        ('λz', '4z'),
-        ('λa', '4a'),
-        ('λb', '4b'),
-        ('λc', '4c'),
-        
-        # Lambda in division contexts
-        ('λ/', '4/'),
-        ('/λ', '/4'),
-    ]
-    
-    corrected_text = text
-    corrections_made = []
-    
-    # Apply corrections in order
-    for incorrect, correct in corrections:
-        if incorrect in corrected_text:
-            corrected_text = corrected_text.replace(incorrect, correct)
-            corrections_made.append(f"{incorrect} → {correct}")
-    
-    # Log corrections for debugging
-    if corrections_made:
-        logging.info(f"🔧 OCR corrections applied: {', '.join(corrections_made)}")
-    
-    return corrected_text
-
 def get_ocr_reader():
     """Get or initialize EasyOCR reader"""
     global ocr_reader
@@ -160,14 +112,13 @@ def health():
         'features': [
             'greek_math_support',
             'utf8_encoding', 
-            'lambda_corrections',
-            'symbol_recognition'
+            'symbol_recognition',
+            'latin_language_support'
         ],
-        'supported_corrections': [
-            'λn → 4n',
-            'λp → 2p',
-            'λn/λp → ^n Ap',
-            'λx, λy, λz → 4x, 4y, 4z'
+        'supported_symbols': [
+            'Greek letters: α, β, γ, δ, θ, π, σ, Σ, λ, etc.',
+            'Math symbols: √, ∫, ∑, ±, ×, ÷, ≤, ≥, ≠, etc.',
+            'Variables: λn, λp, λn/λp preserved as-is'
         ]
     })
 
@@ -221,13 +172,10 @@ def extract_text():
         
         # Extract text from results
         # EasyOCR returns: [(bbox, text, confidence), ...]
-        raw_text = ' '.join([text for (bbox, text, conf) in results])
+        extracted_text = ' '.join([text for (bbox, text, conf) in results])
         avg_confidence = sum([conf for (_, _, conf) in results]) / len(results) if results else 0
         
-        # Apply Greek letter and math symbol corrections
-        corrected_text = correct_ocr_greek_letters(raw_text)
-        
-        logging.info(f"✅ OCR completed: {len(corrected_text)} characters, confidence: {avg_confidence:.2f}")
+        logging.info(f"✅ OCR completed: {len(extracted_text)} characters, confidence: {avg_confidence:.2f}")
         
         # Convert NumPy types to Python native types for JSON serialization
         details = [
@@ -241,10 +189,8 @@ def extract_text():
         
         return jsonify({
             'success': True,
-            'text': corrected_text,
-            'raw_text': raw_text,  # Include original for debugging
+            'text': extracted_text,
             'confidence': float(avg_confidence),
-            'corrections_applied': corrected_text != raw_text,
             'details': details
         })
         
