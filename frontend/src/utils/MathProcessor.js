@@ -97,7 +97,13 @@ export const containsMathExpressions = (text) => {
   const mathIndicators = [
     /\$\$[^$]+\$\$/,         // Display math
     /\$[^$]+\$/,             // Inline math
-    /\\[a-zA-Z]+/,           // LaTeX commands
+    /\\[a-zA-Z]+\{[^}]*\}/,  // LaTeX commands with braces (e.g., \frac{a}{b})
+    /\\[a-zA-Z]+(?!\w)/,     // LaTeX commands without braces (e.g., \alpha)
+    /\\boxed\{[^}]+\}/,      // Boxed expressions
+    /\\frac\{[^}]+\}\{[^}]+\}/, // Fractions
+    /\\sqrt\{[^}]+\}/,       // Square roots
+    /\\int_\{[^}]+\}\^\{[^}]+\}/, // Integrals with limits
+    /\\sum_\{[^}]+\}\^\{[^}]+\}/, // Sums with limits
     /[α-ωΑ-Ω]/,              // Greek letters
     /[∫∑∏√∂∇∞±×÷≤≥≠≈≡]/,    // Math symbols
     /[₀-₉]/,                 // Subscripts
@@ -175,28 +181,48 @@ export const processSolutionForMath = (solutionText) => {
   
   let processedText = solutionText;
   
-  // Wrap common mathematical expressions in LaTeX delimiters
+  // First, handle existing LaTeX expressions from backend
+  // Wrap standalone LaTeX commands in math delimiters
+  const latexCommandPatterns = [
+    // Handle \boxed{} expressions
+    { pattern: /\\boxed\{([^}]+)\}/g, replacement: '$$\\boxed{$1}$$' },
+    // Handle \frac{}{} expressions
+    { pattern: /\\frac\{([^}]+)\}\{([^}]+)\}/g, replacement: '$\\frac{$1}{$2}$' },
+    // Handle \sqrt{} expressions
+    { pattern: /\\sqrt\{([^}]+)\}/g, replacement: '$\\sqrt{$1}$' },
+    // Handle \sqrt[n]{} expressions
+    { pattern: /\\sqrt\[(\d+)\]\{([^}]+)\}/g, replacement: '$\\sqrt[$1]{$2}$' },
+    // Handle \int_{}^{} expressions
+    { pattern: /\\int_\{([^}]+)\}\^\{([^}]+)\}/g, replacement: '$\\int_{$1}^{$2}$' },
+    // Handle \sum_{}^{} expressions
+    { pattern: /\\sum_\{([^}]+)\}\^\{([^}]+)\}/g, replacement: '$\\sum_{$1}^{$2}$' },
+    // Handle \lim_{} expressions
+    { pattern: /\\lim_\{([^}]+)\}/g, replacement: '$\\lim_{$1}$' },
+    // Handle Greek letters
+    { pattern: /\\(alpha|beta|gamma|delta|epsilon|zeta|eta|theta|iota|kappa|lambda|mu|nu|xi|pi|rho|sigma|tau|upsilon|phi|chi|psi|omega)(?!\w)/g, replacement: '$\\$1$' },
+    // Handle uppercase Greek letters
+    { pattern: /\\(Gamma|Delta|Theta|Lambda|Xi|Pi|Sigma|Phi|Psi|Omega)(?!\w)/g, replacement: '$\\$1$' },
+    // Handle math operators
+    { pattern: /\\(leq|geq|neq|approx|equiv|infty|pm|mp|times|div|cdot|partial|nabla|forall|exists|neg|land|lor|in|notin|subset|supset|cup|cap|emptyset)(?!\w)/g, replacement: '$\\$1$' },
+    // Handle trigonometric functions
+    { pattern: /\\(sin|cos|tan|cot|sec|csc|arcsin|arccos|arctan)(?!\w)/g, replacement: '$\\$1$' },
+    // Handle logarithmic functions
+    { pattern: /\\(log|ln|exp)(?!\w)/g, replacement: '$\\$1$' },
+  ];
+
+  // Apply LaTeX command patterns first
+  latexCommandPatterns.forEach(({ pattern, replacement }) => {
+    processedText = processedText.replace(pattern, replacement);
+  });
+  
+  // Then, wrap common mathematical expressions in LaTeX delimiters
   const mathPatterns = [
-    // Fractions
+    // Fractions (simpler pattern without negative lookbehind)
     { pattern: /(\d+)\/(\d+)/g, replacement: '$\\frac{$1}{$2}$' },
-    // Powers
-    { pattern: /([a-zA-Z])\^(\d+)/g, replacement: '$$1^{$2}$$' },
-    // Square roots
+    // Powers (simpler pattern without negative lookbehind)
+    { pattern: /([a-zA-Z])\^(\d+)/g, replacement: '$$1^{$2}$' },
+    // Square roots (simpler pattern without negative lookbehind)
     { pattern: /sqrt\(([^)]+)\)/g, replacement: '$\\sqrt{$1}$' },
-    // Integrals
-    { pattern: /∫([^∫]*)/g, replacement: '$\\int$ $1' },
-    // Greek letters
-    { pattern: /alpha/g, replacement: '$\\alpha$' },
-    { pattern: /beta/g, replacement: '$\\beta$' },
-    { pattern: /gamma/g, replacement: '$\\gamma$' },
-    { pattern: /delta/g, replacement: '$\\delta$' },
-    { pattern: /theta/g, replacement: '$\\theta$' },
-    { pattern: /lambda/g, replacement: '$\\lambda$' },
-    { pattern: /mu/g, replacement: '$\\mu$' },
-    { pattern: /pi/g, replacement: '$\\pi$' },
-    { pattern: /sigma/g, replacement: '$\\sigma$' },
-    { pattern: /phi/g, replacement: '$\\phi$' },
-    { pattern: /omega/g, replacement: '$\\omega$' },
     // Mathematical operators
     { pattern: /≤/g, replacement: '$\\leq$' },
     { pattern: /≥/g, replacement: '$\\geq$' },

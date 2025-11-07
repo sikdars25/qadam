@@ -55,6 +55,37 @@ const SingleQuestionUpload = ({ onClose, onQuestionParsed }) => {
     setPastedImage(null);
   };
 
+  // Process solution text for mathematical content
+  const processSolutionText = (text) => {
+    if (!text) return text;
+    
+    // First apply the general math processing
+    let processedText = processSolutionForMath(text);
+    
+    // Special handling for "FINAL ANSWER:" section
+    // Ensure the final answer is properly formatted with math delimiters
+    processedText = processedText.replace(
+      /FINAL ANSWER:\s*\\boxed\{([^}]+)\}/gi,
+      (match, content) => {
+        return `FINAL ANSWER: $$\\boxed{${content}}$$`;
+      }
+    );
+    
+    // Handle cases where \boxed might not be properly wrapped
+    processedText = processedText.replace(
+      /FINAL ANSWER:\s*(.+?)(?=\n|$)/gi,
+      (match, answer) => {
+        // If the answer contains LaTeX but no math delimiters, wrap it
+        if (answer.includes('\\') && !answer.includes('$')) {
+          return `FINAL ANSWER: $$${answer}$$`;
+        }
+        return match;
+      }
+    );
+    
+    return processedText;
+  };
+
   const handleSubmit = async () => {
     if (!subject) {
       setError('Please select a subject');
@@ -403,8 +434,8 @@ const SingleQuestionUpload = ({ onClose, onQuestionParsed }) => {
             {solution && (
               <div className="solution-content">
                 {(() => {
-                  // Process solution for mathematical expressions
-                  const processedSolution = processSolutionForMath(solution.solution);
+                  // Process solution for mathematical expressions with enhanced processing
+                  const processedSolution = processSolutionText(solution.solution);
                   const lines = processedSolution.split('\n');
                   let inDiagram = false;
                   let diagramLines = [];
