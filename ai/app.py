@@ -49,17 +49,21 @@ def contains_math_symbols(text):
     return any(symbol in text for symbol in MATH_SYMBOLS.keys())
 
 def normalize_math_expression(text):
-    """Normalize mathematical expressions for processing"""
-    # Replace common math symbols with standard notation
-    normalized = text
-    for symbol, replacement in MATH_SYMBOLS.items():
-        if symbol in normalized:
-            logger.info(f" Found math symbol: {symbol}")
+    """Preserve mathematical expressions exactly - DO NOT modify Greek letters"""
+    # PRESERVE Greek letters and math symbols exactly as they appear
+    # DO NOT apply any corrections to λn, λp, λn/λp or other Greek expressions
     
-    # Handle Greek letters specifically
+    normalized = text
+    
+    # Only log the presence of math symbols for debugging
+    for symbol in MATH_SYMBOLS.keys():
+        if symbol in normalized:
+            logger.info(f"🔍 Found math symbol: {symbol}")
+    
+    # Handle Greek letters specifically - just log, don't modify
     greek_pattern = r'[α-ωΑ-Ω]'
     if re.search(greek_pattern, normalized):
-        logger.info(" Detected Greek letters in expression")
+        logger.info("🔍 Detected Greek letters in expression - preserving as-is")
     
     return normalized
 
@@ -153,16 +157,14 @@ def solve_question():
         math_analysis = analyze_math_content(question_text)
         logger.info(f"📊 Math analysis: {math_analysis}")
         
-        # Normalize expression if it contains math symbols
-        if math_analysis['is_math_expression']:
-            normalized_text = normalize_math_expression(question_text)
-            logger.info("🔧 Normalized math expression for processing")
-        else:
-            normalized_text = question_text
+        # Preserve original text exactly - no modifications to Greek letters
+        # normalize_math_expression only logs, doesn't change the text
+        processed_text = normalize_math_expression(question_text)
+        logger.info("🔧 Preserving Greek letters and math symbols exactly")
         
         # Generate solution
         solution = generate_solution(
-            question_text=normalized_text,
+            question_text=processed_text,
             subject=subject,
             context=context
         )
@@ -171,6 +173,9 @@ def solve_question():
             'success': True,
             'solution': solution,
             'math_analysis': math_analysis,
+            'original_question': question_text,
+            'processed_question': processed_text,
+            'greek_preserved': True,
             'utf8_encoded': True,
             'character_encoding': 'UTF-8'
         })
