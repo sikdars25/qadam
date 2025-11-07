@@ -59,6 +59,10 @@ jobs:
           password: ${{ secrets.OCR_VM_PASSWORD }}
           source: "ocr-release.zip"
           target: "/tmp/"
+          port: 22
+          timeout: 60s
+          command_timeout: 10m
+          debug: true
       
       - name: Extract and restart service on VM
         uses: appleboy/ssh-action@v1.0.3
@@ -66,6 +70,9 @@ jobs:
           host: ${{ secrets.OCR_VM_HOST }}
           username: ${{ secrets.OCR_VM_USERNAME }}
           password: ${{ secrets.OCR_VM_PASSWORD }}
+          port: 22
+          timeout: 60s
+          command_timeout: 10m
           script: |
             echo "📦 Deploying OCR service to VM..."
             
@@ -97,6 +104,9 @@ jobs:
           host: ${{ secrets.OCR_VM_HOST }}
           username: ${{ secrets.OCR_VM_USERNAME }}
           password: ${{ secrets.OCR_VM_PASSWORD }}
+          port: 22
+          timeout: 60s
+          command_timeout: 10m
           script: |
             echo "🔍 Testing OCR service..."
             curl -s http://localhost:8001/api/health || echo "❌ Health check focrled"
