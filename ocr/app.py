@@ -573,48 +573,18 @@ def correct_math_symbols(text):
             corrected_text = re.sub(pattern, replacement, corrected_text)
             corrections_made.append("Formatting cleaned up")
     
-    # Step 7: Special physics context enhancements
-    physics_enhancements = [
-        # Current density context - more specific patterns
-        (r'current\s+density\s+→j\s*=\s*([a-zA-Z]+)\s*→E', r'current density [→j = α →E]'),
-        (r'current\s+density\s+→j\s*=\s*([a-zA-Z]+)', r'current density [→j = α →E]'),
-        (r'current\s+density\s+j\s*=\s*a\s*E', r'current density [→j = α →E]'),
-        
-        # Conductivity context (alpha = ne^2/m * tau)
-        (r'α\s*=\s*([^,\n]*?)\s*m', r'α = (\1/m) τ'),
-        (r'alpha\s*=\s*([^,\n]*?)\s*m', r'α = (\1/m) τ'),
-        (r'([a-zA-Z])\s*=\s*([^,\n]*?)\s*time', r'α = (\1/m) τ'),
-        (r'where\s+Q\s*=\s*3\s*m', r'where [α = (ne²/m) τ]'),
-        (r'where\s+a\s*m\s*time,?', r'where [α = (ne²/m) τ]'),
-    ]
-    
-    for pattern, replacement in physics_enhancements:
-        if re.search(pattern, corrected_text):
-            corrected_text = re.sub(pattern, replacement, corrected_text)
-            corrections_made.append("Physics context enhanced")
-    
-    # Step 8: Final fallback for known problematic patterns
-    # Keep a few specific patterns as fallback for edge cases
-    fallback_patterns = [
-        (r'current\s+density\s+→→j\s*=\s*a\s*E\s*ne²\s*where\s+Θ\s*=\s*3\s*μ', 
-         r'current density [→j = α →E], where [α = (ne²/m) τ]'),
-        (r'current\s+density\s+}\s*=\s*a3\s*,\s*ne2\s*where\s+a\s*m\s*time,?', 
-         r'current density [→j = α →E], where [α = (ne²/m) τ]'),
-        (r'current\s+density\s+→→j\s*=\s*a\s*E\s*ne²\s*where\s+Θ\s*=\s*3\s*μ', 
-         r'current density [→j = α →E], where [α = (ne²/m) τ]'),
-    ]
-    
-    for pattern, replacement in fallback_patterns:
-        if re.search(pattern, corrected_text):
-            corrected_text = re.sub(pattern, replacement, corrected_text)
-            corrections_made.append("Applied fallback pattern correction")
-            break  # Only apply first matching fallback
-    
-    # Step 9: Final cleanup for specific edge cases
-    # Handle the case where we have double arrows and wrong Greek letters
-    if 'current density [→→j = a E ne² where Θ = 3 μ]' in corrected_text:
-        corrected_text = 'current density [→j = α →E], where [α = (ne²/m) τ]'
-        corrections_made.append("Fixed specific current density pattern")
+    # Step 7: Generic expression enhancement (no hard-coded patterns)
+    # Add brackets around mathematical expressions in physics/math context
+    if re.search(r'\b(current|density|voltage|resistance|force|energy|power|momentum|torque)\b', corrected_text, re.IGNORECASE):
+        # Find mathematical expressions and add brackets
+        math_expressions = re.finditer(r'([^=\s]+\s*=\s*[^,\n]+)', corrected_text)
+        for match in math_expressions:
+            expr = match.group(1)
+            if not expr.startswith('[') and not expr.endswith(']'):
+                if any(symbol in expr for symbol in ['→', 'α', 'β', 'γ', 'δ', '²', '³', '∫', '∑', '√']):
+                    bracketed_expr = f'[{expr}]'
+                    corrected_text = corrected_text.replace(expr, bracketed_expr, 1)
+                    corrections_made.append("Added brackets to mathematical expression")
     
     # Log corrections for debugging
     if corrections_made:
