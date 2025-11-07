@@ -28,22 +28,23 @@ def get_ocr_reader():
     if ocr_reader is None:
         try:
             import easyocr
-            logging.info("📄 Initializing EasyOCR (lightweight)...")
+            logging.info("📄 Initializing EasyOCR with math support...")
             ocr_reader = easyocr.Reader(
-                ['en'],  # English only for speed
+                ['en', 'la'],  # English + Latin for math expressions
                 gpu=False,  # CPU mode
                 model_storage_directory='./models',
                 download_enabled=True,
-                verbose=False
+                verbose=False,
+                recog_network='latin_g2'  # Latin character recognition network
             )
-            logging.info("✅ EasyOCR initialized successfully")
+            logging.info("✅ EasyOCR initialized with math support")
         except Exception as e:
             logging.error(f"❌ Failed to initialize EasyOCR: {e}")
             raise
     return ocr_reader
 
 def preprocess_image(image_data):
-    """Optimize image for OCR - resize and enhance"""
+    """Optimize image for OCR - resize and enhance for math content"""
     try:
         # Load image
         img = Image.open(io.BytesIO(image_data))
@@ -52,13 +53,19 @@ def preprocess_image(image_data):
         if img.mode != 'RGB':
             img = img.convert('RGB')
         
-        # Resize if too large (max 2000px width for speed)
-        max_width = 2000
+        # Resize if too large (max 2400px width for better math symbol recognition)
+        max_width = 2400
         if img.width > max_width:
             ratio = max_width / img.width
             new_size = (max_width, int(img.height * ratio))
             img = img.resize(new_size, Image.LANCZOS)
             logging.info(f"📐 Resized image to {new_size}")
+        elif img.width < 800:
+            # Upscale small images for better recognition
+            ratio = 800 / img.width
+            new_size = (800, int(img.height * ratio))
+            img = img.resize(new_size, Image.LANCZOS)
+            logging.info(f"📐 Upscaled image to {new_size}")
         
         # Convert to numpy array
         img_np = np.array(img)
@@ -94,9 +101,16 @@ def extract_text_with_retry(image_data, max_retries=2):
             # Get OCR reader
             reader = get_ocr_reader()
             
-            # Run OCR
-            logging.info(f"🔍 Running EasyOCR (attempt {attempt + 1}/{max_retries})")
-            result = reader.readtext(img, detail=1)
+            # Run OCR with optimized parameters for math content
+            logging.info(f"🔍 Running EasyOCR with math optimization (attempt {attempt + 1}/{max_retries})")
+            result = reader.readtext(
+                img,
+                detail=1,
+                paragraph=False,  # Detect individual text elements
+                min_size=10,      # Detect smaller text (math symbols)
+                text_threshold=0.6,  # Lower threshold for math symbols
+                low_text=0.3      # Detect faint text
+            )
             
             # Clear image from memory immediately
             del img

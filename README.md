@@ -1,57 +1,73 @@
-# OCR Function App
+# QADAM - OCR Service (Local Development)
 
-Separate Azure Function App for OCR processing using PaddleOCR.
+OCR Service for text extraction from images using EasyOCR.
 
-## 🎯 Why Separate Function App?
+**Branch**: `backend-ocr`  
+**Folder**: `ocr/`  
+**Port**: 8000
 
-1. **Avoid Dependency Conflicts** - PaddleOCR has heavy dependencies that conflict with other packages
-2. **Independent Scaling** - OCR can scale separately from main backend
-3. **Better Performance** - Dedicated resources for OCR processing
-4. **Easier Maintenance** - OCR updates don't affect main backend
+## 🚀 Quick Start
 
-## 🚀 Features
+### 1. Setup OCR Service
+```bash
+.\setup_ocr_only.bat
+```
 
-- ✅ **PaddleOCR** - Better accuracy than Tesseract
-- ✅ **80+ Languages** - Including Hindi, Tamil, Telugu, etc.
-- ✅ **Handwriting Recognition** - Works with handwritten text
-- ✅ **No System Dependencies** - Pure Python, no binaries needed
-- ✅ **PDF Support** - Extract text from PDF images
-- ✅ **Bounding Boxes** - Get text coordinates for layout analysis
+This will:
+- Checkout `backend-ocr` branch
+- Create Python virtual environment
+- Install EasyOCR and dependencies
+- Create `.env` configuration file
+
+### 2. Run OCR Service
+```bash
+.\run_ocr_only.bat
+```
+
+The service will start on: **http://localhost:8000**
+
+### 3. Test OCR Service
+```bash
+# Health check
+curl http://localhost:8000/api/health
+
+# Extract text from image
+curl -X POST -F "file=@test.png" http://localhost:8000/api/extract-text
+```
 
 ## 📋 API Endpoints
 
-### 1. Health Check
+### Health Check
 ```
 GET /api/health
 ```
 
-Response:
+**Response:**
 ```json
 {
   "status": "healthy",
-  "service": "OCR Function App",
-  "ocr_engine": "PaddleOCR"
+  "service": "OCR Service (Flask on VM)",
+  "ocr_engine": "EasyOCR",
+  "easyocr_installed": true
 }
 ```
 
-### 2. OCR Image
+### Extract Text from Image
 ```
-POST /api/ocr/image
+POST /api/extract-text
 ```
 
 **Request (File Upload):**
 ```bash
 curl -X POST \
   -F "file=@image.png" \
-  -F "language=en" \
-  https://qadam-ocr.azurewebsites.net/api/ocr/image
+  http://localhost:8000/api/extract-text
 ```
 
 **Request (Base64):**
 ```json
 {
-  "image_base64": "iVBORw0KGgoAAAANSUhEUgAA...",
-  "language": "en"
+  "image_base64": "iVBORw0KGgoAAAANSUhEUgAA..."
 }
 ```
 
@@ -61,7 +77,6 @@ curl -X POST \
   "success": true,
   "text": "Extracted text from image",
   "confidence": 0.95,
-  "lines_detected": 5,
   "details": [
     {
       "text": "Line 1",
@@ -72,17 +87,16 @@ curl -X POST \
 }
 ```
 
-### 3. OCR PDF
+### Extract Text from PDF
 ```
-POST /api/ocr/pdf
+POST /api/extract-from-pdf
 ```
 
 **Request:**
 ```bash
 curl -X POST \
   -F "file=@document.pdf" \
-  -F "language=en" \
-  https://qadam-ocr.azurewebsites.net/api/ocr/pdf
+  http://localhost:8000/api/extract-from-pdf
 ```
 
 **Response:**
@@ -90,188 +104,111 @@ curl -X POST \
 {
   "success": true,
   "text": "Full text from all pages",
-  "total_pages": 3,
-  "pages": [
-    "Page 1 text",
-    "Page 2 text",
-    "Page 3 text"
-  ]
+  "pages": 3
 }
 ```
 
-### 4. Supported Languages
-```
-GET /api/ocr/languages
-```
+## 🛠️ Manual Setup (Alternative)
 
-Response:
-```json
-{
-  "success": true,
-  "languages": {
-    "en": "English",
-    "hi": "Hindi",
-    "ta": "Tamil",
-    ...
-  }
-}
-```
-
-## 🛠️ Local Development
-
-### 1. Install Dependencies
+If you prefer manual setup:
 
 ```bash
+# 1. Checkout OCR branch
+git checkout backend-ocr
+
+# 2. Navigate to OCR folder
 cd ocr
+
+# 3. Create virtual environment
+python -m venv venv
+
+# 4. Activate virtual environment
+venv\Scripts\activate.bat
+
+# 5. Install dependencies
 pip install -r requirements.txt
-```
 
-### 2. Create .env File
+# 6. Create .env file
+echo FLASK_ENV=development > .env
+echo PORT=8000 >> .env
 
-```bash
-cp .env.example .env
-```
-
-Edit `.env`:
-```
-FRONTEND_URL=http://localhost:3000
-PORT=8000
-```
-
-### 3. Run Locally
-
-```bash
+# 7. Run the service
 python app.py
 ```
 
-Server runs on: http://localhost:8000
+## 📁 Project Structure
 
-### 4. Test OCR
-
-```bash
-# Test with image
-curl -X POST \
-  -F "file=@test.png" \
-  http://localhost:8000/api/ocr/image
-
-# Test health
-curl http://localhost:8000/api/health
 ```
-
-## ☁️ Azure Deployment
-
-### 1. Create Azure Function App
-
-```bash
-az functionapp create \
-  --name qadam-ocr \
-  --resource-group qadam-rg \
-  --consumption-plan-location centralus \
-  --runtime python \
-  --runtime-version 3.10 \
-  --functions-version 4 \
-  --os-type Linux \
-  --storage-account qadamstorage
+aqnamic/
+├── ocr/                    # OCR service (backend-ocr branch)
+│   ├── app.py             # Flask application
+│   ├── requirements.txt   # Python dependencies
+│   ├── .env              # Configuration
+│   └── venv/             # Virtual environment
+├── setup_ocr_only.bat    # Setup script
+└── run_ocr_only.bat      # Run script
 ```
-
-### 2. Get Publish Profile
-
-1. Go to Azure Portal
-2. Navigate to Function App → `qadam-ocr`
-3. Click **"Get publish profile"**
-4. Download the file
-
-### 3. Add GitHub Secret
-
-1. Go to GitHub repository → Settings → Secrets
-2. Click **"New repository secret"**
-3. Name: `AZURE_OCR_FUNCTIONAPP_PUBLISH_PROFILE`
-4. Value: Paste contents of publish profile file
-5. Click **"Add secret"**
-
-### 4. Deploy
-
-Push to main branch:
-```bash
-git add backend/ocr/
-git commit -m "Add OCR Function App"
-git push origin main
-```
-
-GitHub Actions will automatically deploy!
-
-### 5. Configure CORS
-
-In Azure Portal → Function App → CORS:
-- Add your frontend URL
-- Add `https://*.azurestaticapps.net`
 
 ## 🔧 Configuration
 
-### Environment Variables (Azure)
+Edit `ocr/.env`:
 
-Add in Function App → Configuration → Application settings:
-
-| Name | Value | Description |
-|------|-------|-------------|
-| `FRONTEND_URL` | `https://your-app.azurestaticapps.net` | Frontend URL for CORS |
-| `DEFAULT_OCR_LANGUAGE` | `en` | Default language |
-
-## 📊 Performance
-
-- **Cold Start:** ~10-15 seconds (first request)
-- **Warm Start:** ~1-2 seconds
-- **OCR Processing:** ~2-5 seconds per image
-- **PDF Processing:** ~3-6 seconds per page
-
-## 💰 Cost
-
-**Azure Function App (Consumption Plan):**
-- First 1 million executions: FREE
-- After: $0.20 per million executions
-- Memory: $0.000016/GB-s
-
-**Typical Usage:**
-- 1000 OCR requests/month = FREE
-- Well within free tier!
-
-## 🔗 Integration with Main Backend
-
-Update main backend to call OCR service:
-
-```python
-import requests
-
-def ocr_image(image_file):
-    """Call OCR Function App"""
-    ocr_url = "https://qadam-ocr.azurewebsites.net/api/ocr/image"
-    
-    files = {'file': image_file}
-    response = requests.post(ocr_url, files=files)
-    
-    if response.status_code == 200:
-        return response.json()['text']
-    else:
-        raise Exception(f"OCR failed: {response.text}")
+```env
+FLASK_ENV=development
+PORT=8000
+OCR_LANGUAGES=en
+FRONTEND_URL=http://localhost:3000
 ```
 
 ## 🐛 Troubleshooting
 
-### PaddleOCR not initializing
-- Check logs in Azure Portal → Function App → Log stream
-- Ensure Python 3.10 is used
-- Increase timeout in `host.json`
+### "Module not found" error
+```bash
+cd ocr
+venv\Scripts\activate.bat
+pip install -r requirements.txt
+```
 
-### Out of memory
-- Increase Function App plan (not needed for most cases)
-- Process images in smaller batches
+### Port already in use
+```bash
+# Change port in ocr/.env
+PORT=5001
+```
 
-### Slow performance
-- First request is always slow (cold start)
-- Keep function warm with periodic health checks
+### EasyOCR initialization fails
+```bash
+# Reinstall EasyOCR
+pip uninstall easyocr
+pip install easyocr==1.7.0
+```
 
-## 📚 Resources
+## ☁️ Deployment
 
-- [PaddleOCR Documentation](https://github.com/PaddlePaddle/PaddleOCR)
-- [Azure Functions Python Guide](https://docs.microsoft.com/en-us/azure/azure-functions/functions-reference-python)
-- [Supported Languages](https://github.com/PaddlePaddle/PaddleOCR/blob/release/2.7/doc/doc_en/multi_languages_en.md)
+The OCR service is deployed to Azure VM:
+- **Public IP**: 130.107.48.145
+- **Port**: 8000
+- **Health Check**: http://130.107.48.145:8000/api/health
+
+Deployment is automated via GitHub Actions when you push to `backend-ocr` branch.
+
+## 📚 Documentation
+
+- [OCR VM Deployment Guide](DEPLOY_OCR_VM_COMPLETE_GUIDE.md)
+- [GitHub Workflow](.github/workflows/deploy-ocr-vm.yml)
+- [EasyOCR Documentation](https://github.com/JaidedAI/EasyOCR)
+
+## 🎯 Features
+
+- ✅ **EasyOCR** - Accurate text extraction
+- ✅ **Multi-language** - English + 80+ languages
+- ✅ **PDF Support** - Extract text from PDF documents
+- ✅ **Bounding Boxes** - Get text coordinates
+- ✅ **No GPU Required** - Runs on CPU
+- ✅ **Easy Setup** - One-click installation
+
+## 💡 Tips
+
+- First OCR request takes ~10-15 seconds (model loading)
+- Subsequent requests are faster (~2-5 seconds)
+- For best results, use clear, high-contrast images
+- Supported formats: PNG, JPG, JPEG, PDF
