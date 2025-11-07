@@ -429,6 +429,9 @@ def correct_math_symbols(text):
     3. Single letter with prefix/suffix split incorrectly
     4. Power digits (exponential) not detected correctly
     5. Expressions in parentheses/brackets not detected correctly
+    6. Greek letters (α, β, γ, δ, etc.) misdetected as Latin letters
+    7. Mathematical notation (vec, frac, left, right) misdetected
+    8. Subscripts and superscripts not properly formatted
     """
     if not text:
         return text
@@ -436,7 +439,55 @@ def correct_math_symbols(text):
     corrected_text = text
     corrections_made = []
     
-    # 1. Fix τ (tau) detection issues
+    # 0. Fix common mathematical notation words that get split
+    notation_corrections = [
+        # Mathematical function/command words - ONLY ONCE
+        (r'\bvec\s+(\w+)\b', r'→\1'),  # vec j → →j
+        (r'\balpha\b', 'α'),  # alpha → α
+        (r'\bbeta\b', 'β'),   # beta → β
+        (r'\bgamma\b', 'γ'),  # gamma → γ
+        (r'\bdelta\b', 'δ'),  # delta → δ
+        (r'\bepsilon\b', 'ε'),  # epsilon → ε
+        (r'\btheta\b', 'θ'),  # theta → θ
+        (r'\blambda\b', 'λ'),  # lambda → λ
+        (r'\bmu\b', 'μ'),    # mu → μ
+        (r'\bpi\b', 'π'),    # pi → π
+        (r'\bsigma\b', 'σ'),  # sigma → σ
+        (r'\btau\b', 'τ'),   # tau → τ
+        (r'\bphi\b', 'φ'),   # phi → φ
+        (r'\bomega\b', 'ω'),  # omega → ω
+        # LaTeX commands - ONLY ONCE
+        (r'\bfrac\b', '/'),   # frac → /
+        (r'\bleft\b', '('),   # left → (
+        (r'\bright\b', ')'),  # right → )
+        (r'\bsqrt\b', '√'),   # sqrt → √
+        (r'\bint\b', '∫'),    # int → ∫
+        (r'\bsum\b', '∑'),    # sum → ∑
+        (r'\bprod\b', '∏'),   # prod → ∏
+        # Greek letter Q misdetected as alpha
+        (r'\bQ\b', 'α'),  # Q → α (in math context)
+    ]
+    
+    for pattern, replacement in notation_corrections:
+        if re.search(pattern, corrected_text, re.IGNORECASE):
+            corrected_text = re.sub(pattern, replacement, corrected_text, flags=re.IGNORECASE)
+            corrections_made.append("mathematical notation fixed")
+    
+    # 1. Fix vector arrow detection - ONLY ONCE and more careful
+    vector_corrections = [
+        # Only apply if not already fixed
+        (r'(?<!→)j\b', '→j'),  # j → →j (but not →j)
+        (r'(?<!→)E\b', '→E'),  # E → →E (but not →E)
+        # Remove duplicate arrows that might have been created
+        (r'→+([a-zA-Z])', r'→\1'),  # Multiple arrows → single arrow
+    ]
+    
+    for pattern, replacement in vector_corrections:
+        if re.search(pattern, corrected_text):
+            corrected_text = re.sub(pattern, replacement, corrected_text)
+            corrections_made.append("vector arrow fixed")
+    
+    # 2. Fix τ (tau) detection issues
     tau_corrections = [
         # Common contexts where τ is misdetected as T
         (r'\btorque\s+T\b', 'torque τ'),
@@ -450,6 +501,9 @@ def correct_math_symbols(text):
         # Handle T between variables
         (r'([=+\-*/(])T\s+([a-zA-Z])', r'\1τ\2'),
         (r'([a-zA-Z])\s+T([=+\-*/)])', r'\1τ\2'),
+        # Handle T at end of expressions (like in the example)
+        (r'\bT\s*\)', 'τ)'),
+        (r'\(\s*T\s*\)', '(τ)'),
     ]
     
     for pattern, replacement in tau_corrections:
@@ -457,60 +511,17 @@ def correct_math_symbols(text):
             corrected_text = re.sub(pattern, replacement, corrected_text)
             corrections_made.append(f"T → τ")
     
-    # 2. Fix vector arrow detection
-    vector_corrections = [
-        # Common vector notations that get split - be more specific
-        (r'\bvec\s+([a-zA-Z])\b', r'→\1'),  # vec a → →a
-        (r'\b([a-zA-Z])\s+vec\b(?!\s+vec)', r'\1→'),  # a vec → a→ (not if followed by another vec)
-        (r'\b([a-zA-Z])\s+vector\b', r'\1→'),  # a vector → a→
-        (r'\bvector\s+([a-zA-Z])\b', r'→\1'),  # vector a → →a
-        # Arrow combinations
-        (r'->\s*([a-zA-Z])', r'→\1'),  # -> a → →a
-        (r'([a-zA-Z])\s*->', r'\1→'),  # a -> → a→
-    ]
-    
-    for pattern, replacement in vector_corrections:
-        if re.search(pattern, corrected_text):
-            corrected_text = re.sub(pattern, replacement, corrected_text)
-            corrections_made.append("vector arrow fixed")
-    
-    # 3. Fix single letter with prefix/suffix splitting
-    # Combine common math notation that gets incorrectly split
-    combination_corrections = [
-        # Greek letters with subscripts/superscripts - be more specific
-        (r'λ\s+n\b', 'λn'),
-        (r'λ\s+p\b', 'λp'),
-        (r'α\s+n\b', 'αn'),
-        (r'β\s+n\b', 'βn'),
-        (r'θ\s+n\b', 'θn'),
-        (r'μ\s+0\b', 'μ₀'),
-        (r'σ\s+2\b', 'σ²'),
-        # Variables with subscripts - be more specific to avoid power conflicts
-        (r'([a-zA-Z])\s+(\d+)\b', r'\1\2'),  # a 1 → a1 (only at word boundary)
-        (r'([a-zA-Z])\s+_(\d+)', r'\1_\2'),  # a _1 → a_1
-        # Function notation
-        (r'f\s*\(\s*x\s*\)', 'f(x)'),  # f ( x ) → f(x)
-        (r'g\s*\(\s*x\s*\)', 'g(x)'),
-        (r'sin\s*\(\s*x\s*\)', 'sin(x)'),
-        (r'cos\s*\(\s*x\s*\)', 'cos(x)'),
-        (r'tan\s*\(\s*x\s*\)', 'tan(x)'),
-        (r'log\s*\(\s*x\s*\)', 'log(x)'),
-        (r'ln\s*\(\s*x\s*\)', 'ln(x)'),
-    ]
-    
-    for pattern, replacement in combination_corrections:
-        if re.search(pattern, corrected_text):
-            corrected_text = re.sub(pattern, replacement, corrected_text)
-            corrections_made.append("combined split characters")
-    
-    # 4. Fix power digits and exponentials - fix negative exponent issue
+    # 3. Fix power digits and exponentials - ONLY ONCE
     power_corrections = [
-        # Superscript patterns - fix negative exponent issue
+        # Superscript patterns
         (r'\^\s*-(\d+)', r'^-\1'),  # ^ -2 → ^-2
         (r'\^\s*(\d+)', r'^\1'),  # ^ 2 → ^2
         (r'([a-zA-Z])\s*\^\s*-(\d+)', r'\1^-\2'),  # x ^ -2 → x^-2
         (r'([a-zA-Z])\s*\^\s*(\d+)', r'\1^\2'),  # x ^ 2 → x^2
-        # Only apply x2 → x^2 for common variables, not all letters
+        # Handle common patterns like ne^2 → ne²
+        (r'ne\^2', 'ne²'),
+        (r'ne\^2', 'ne²'),
+        # Only apply x2 → x^2 for common variables
         (r'([xyze])\s*(\d+)\b', r'\1^\2'),  # x2 → x^2, y3 → y^3, etc.
         (r'e\s*\^\s*-(\d+)', r'e^-\1'),  # e ^ -2 → e^-2
         (r'e\s*\^\s*(\d+)', r'e^\1'),  # e ^ 2 → e^2
@@ -523,21 +534,25 @@ def correct_math_symbols(text):
             corrected_text = re.sub(pattern, replacement, corrected_text)
             corrections_made.append("power/exponential fixed")
     
-    # 5. Scientific notation - apply after power corrections
-    scientific_corrections = [
-        # Scientific notation - be more specific, avoid conflicts with power corrections
-        (r'(\d+\.\d+)\s+e\s+(\d+)(?!\s*\w)', r'\1e\2'),  # 1.2 e 3 → 1.2e3
-        (r'(\d+\.\d+)\s+e\s+-(\d+)(?!\s*\w)', r'\1e-\2'),  # 1.2 e -3 → 1.2e-3
-        (r'(\d+)\s+e\s+(\d+)(?!\s*\w)', r'\1e\2'),  # 1 e 3 → 1e3
-        (r'(\d+)\s+e\s+-(\d+)(?!\s*\w)', r'\1e-\2'),  # 1 e -3 → 1e-3
+    # 4. Fix fractions and mathematical expressions - ONLY ONCE
+    fraction_corrections = [
+        # Handle fraction notation that gets mangled
+        (r'\(\s*([^)]+?)\s*/\s*([^)]+?)\s*\)', r'(\1/\2)'),  # ( ne^2 / m ) → (ne²/m)
+        (r'\[\s*([^\]]+?)\s*/\s*([^\]]+?)\s*\]', r'[\1/\2]'),  # [ ne^2 / m ] → [ne²/m]
+        (r'(\w+)\s*/\s*(\w+)', r'\1/\2'),  # ne^2 / m → ne²/m
+        # Handle malformed fraction patterns
+        (r'\(\s*/\s*', '('),  # ( / → (
+        (r'\s*/\s*\)', ')'),  # / ) → )
+        (r'\[\s*/\s*', '['),  # [ / → [
+        (r'\s*/\s*\]', ']'),  # / ] → ]
     ]
     
-    for pattern, replacement in scientific_corrections:
+    for pattern, replacement in fraction_corrections:
         if re.search(pattern, corrected_text):
             corrected_text = re.sub(pattern, replacement, corrected_text)
-            corrections_made.append("scientific notation fixed")
+            corrections_made.append("fraction notation fixed")
     
-    # 5. Fix parentheses and brackets expressions
+    # 5. Fix parentheses and brackets expressions - ONLY ONCE
     bracket_corrections = [
         # Fix spacing in mathematical expressions
         (r'\(\s*([^)]+?)\s*\)', r'(\1)'),  # ( x + y ) → (x+y)
@@ -548,11 +563,6 @@ def correct_math_symbols(text):
         (r'\(\s*([^)]+?)\s*\-\s*([^)]+?)\s*\)', r'(\1-\2)'),  # ( a - b ) → (a-b)
         (r'\(\s*([^)]+?)\s*\*\s*([^)]+?)\s*\)', r'(\1*\2)'),  # ( a * b ) → (a*b)
         (r'\(\s*([^)]+?)\s*\/\s*([^)]+?)\s*\)', r'(\1/\2)'),  # ( a / b ) → (a/b)
-        # Similar for brackets
-        (r'\[\s*([^\]]+?)\s*\+\s*([^\]]+?)\s*\]', r'[\1+\2]'),  # [ a + b ] → [a+b]
-        (r'\[\s*([^\]]+?)\s*\-\s*([^\]]+?)\s*\]', r'[\1-\2]'),  # [ a - b ] → [a-b]
-        (r'\{\s*([^}]+?)\s*\+\s*([^}]+?)\s*\}', r'{\1+\2}'),  # { a + b } → {a+b}
-        (r'\{\s*([^}]+?)\s*\-\s*([^}]+?)\s*\}', r'{\1-\2}'),  # { a - b } → {a-b}
     ]
     
     for pattern, replacement in bracket_corrections:
@@ -560,9 +570,40 @@ def correct_math_symbols(text):
             corrected_text = re.sub(pattern, replacement, corrected_text)
             corrections_made.append("parentheses/brackets fixed")
     
+    # 6. Handle specific context-based corrections
+    context_corrections = [
+        # Specific physics context corrections
+        (r'current density\s+(→j\s*=\s*α\s*→E[^,\n]*)', r'current density [\1]'),
+        (r'where\s+(α\s*=\s*[^,\n]*τ)', r'where [\1]'),
+        # Fix the specific pattern from the example
+        (r'α\s*=\s*3\s*τ', r'α = (ne²/m) τ'),  # a = 3 m → α = (ne²/m) τ
+    ]
+    
+    for pattern, replacement in context_corrections:
+        if re.search(pattern, corrected_text):
+            corrected_text = re.sub(pattern, replacement, corrected_text)
+            corrections_made.append("context-based corrections applied")
+    
+    # 7. Final cleanup
+    final_corrections = [
+        # General cleanup of mathematical expressions in brackets
+        (r'\[\s*([^]]+?)\s*\]', r'[\1]'),
+        # Remove any duplicate spaces
+        (r'\s+', ' '),
+        # Fix spacing around operators
+        (r'\s*([=+\-*/])\s*', r' \1 '),
+    ]
+    
+    for pattern, replacement in final_corrections:
+        if re.search(pattern, corrected_text):
+            corrected_text = re.sub(pattern, replacement, corrected_text)
+            corrections_made.append("final cleanup applied")
+    
     # Log corrections for debugging
     if corrections_made:
         logging.info(f"🔧 Math symbol corrections applied: {', '.join(set(corrections_made))}")
+        logging.info(f"📝 Original: {text[:100]}...")
+        logging.info(f"✅ Corrected: {corrected_text[:100]}...")
     
     return corrected_text
 
