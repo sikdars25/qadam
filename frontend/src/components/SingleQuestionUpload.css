@@ -1,3 +1,175 @@
+/* LaTeX Hints and Examples */
+.latex-hints {
+  margin-bottom: 1rem;
+  padding: 1rem;
+  background-color: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-radius: 8px;
+}
+
+.latex-hint-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+  color: #0369a1;
+}
+
+.latex-toggle {
+  background: none;
+  border: 1px solid #0ea5e9;
+  color: #0ea5e9;
+  padding: 0.25rem 0.75rem;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.latex-toggle:hover {
+  background-color: #0ea5e9;
+  color: white;
+}
+
+.latex-examples {
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+  background-color: white;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+}
+
+.latex-example-group {
+  margin-bottom: 0.5rem;
+  padding: 0.5rem;
+  border-radius: 4px;
+  background-color: #f8fafc;
+}
+
+.latex-example-group:last-child {
+  margin-bottom: 0;
+}
+
+.latex-example-group strong {
+  color: #475569;
+  font-size: 0.9rem;
+  display: block;
+  margin-bottom: 0.25rem;
+}
+
+.latex-example-group code {
+  background-color: #f1f5f9;
+  padding: 0.25rem 0.5rem;
+  border-radius: 3px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.85rem;
+  color: #1e293b;
+  border: 1px solid #e2e8f0;
+}
+
+.math-detected {
+  color: #059669;
+  font-weight: 500;
+  margin-left: 0.5rem;
+}
+
+/* Enhanced textarea for math input */
+.question-textarea {
+  font-family: 'Inter', 'JetBrains Mono', monospace;
+  line-height: 1.6;
+  border: 2px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 1rem;
+  font-size: 0.95rem;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.question-textarea:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* Mathematical Expression Styles */
+.question-text-math {
+  font-size: 1.1rem;
+  line-height: 1.8;
+  color: #333;
+  margin: 0;
+  padding: 1rem;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  border-left: 4px solid #667eea;
+}
+
+.math-display {
+  font-family: 'KaTeX_Main', 'Times New Roman', serif;
+  line-height: 1.4;
+  margin: 0.5rem 0;
+}
+
+.katex-display {
+  margin: 1rem 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.katex {
+  font-size: 1.1em;
+}
+
+.katex-html {
+  white-space: normal;
+}
+
+/* Enhanced solution text with math */
+.solution-text {
+  font-size: 1rem;
+  line-height: 1.7;
+  color: #444;
+  margin: 0.5rem 0;
+}
+
+.solution-text compact {
+  font-size: 0.95rem;
+  line-height: 1.5;
+  margin: 0.25rem 0;
+}
+
+/* Math expression highlighting */
+.solution-step .katex,
+.final-answer-text .katex {
+  font-size: 1.15em;
+  color: #2563eb;
+}
+
+.final-answer-text .katex {
+  font-weight: 600;
+}
+
+/* Mathematical symbols in regular text */
+.solution-text .katex,
+.question-text-math .katex {
+  font-size: 1.05em;
+}
+
+/* Responsive math display */
+@media (max-width: 768px) {
+  .question-text-math {
+    font-size: 1rem;
+    padding: 0.75rem;
+  }
+  
+  .katex-display {
+    font-size: 0.9em;
+  }
+  
+  .katex {
+    font-size: 1em;
+  }
+}
+
 .single-question-modal {
   position: fixed;
   top: 0;

@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import axiosInstance from '../config/axios';
 import './SingleQuestionUpload.css';
 import API_URL from '../config/api';
+import { InlineMath, BlockMath } from 'react-katex';
+import { renderTextWithMath, processSolutionForMath, containsMathExpressions } from '../utils/MathProcessor';
 
 const SingleQuestionUpload = ({ onClose, onQuestionParsed }) => {
   const [inputMethod, setInputMethod] = useState('paste'); // 'paste', 'text' - Paste Image is default
@@ -257,15 +259,55 @@ const SingleQuestionUpload = ({ onClose, onQuestionParsed }) => {
             {inputMethod === 'text' && (
               <div className="text-input-section">
                 <label>Enter Question Text:</label>
+                <div className="latex-hints">
+                  <div className="latex-hint-title">
+                    <span>💡 Mathematical Expression Tips:</span>
+                    <button 
+                      type="button" 
+                      className="latex-toggle"
+                      onClick={() => {
+                        const hints = document.querySelector('.latex-examples');
+                        hints.style.display = hints.style.display === 'none' ? 'block' : 'none';
+                      }}
+                    >
+                      Show Examples
+                    </button>
+                  </div>
+                  <div className="latex-examples" style={{ display: 'none' }}>
+                    <div className="latex-example-group">
+                      <strong>Basic Math:</strong>
+                      <code>$x^2 + y^2 = z^2$</code> → x² + y² = z²
+                    </div>
+                    <div className="latex-example-group">
+                      <strong>Fractions:</strong>
+                      <code>$\\frac{a}{b}$</code> → a/b
+                    </div>
+                    <div className="latex-example-group">
+                      <strong>Square Roots:</strong>
+                      <code>$\\sqrt{x^2 + y^2}$</code> → √(x² + y²)
+                    </div>
+                    <div className="latex-example-group">
+                      <strong>Integrals:</strong>
+                      <code>$$\\int_0^{\\pi} \\sin(x) dx$$</code> → ∫₀^π sin(x) dx
+                    </div>
+                    <div className="latex-example-group">
+                      <strong>Greek Letters:</strong>
+                      <code>$\\alpha, \\beta, \\gamma, \\pi$</code> → α, β, γ, π
+                    </div>
+                  </div>
+                </div>
                 <textarea
                   value={questionText}
                   onChange={(e) => setQuestionText(e.target.value)}
-                  placeholder="Type or paste your question here...&#10;&#10;Example:&#10;1. What is the capital of France?&#10;(A) London&#10;(B) Paris&#10;(C) Berlin&#10;(D) Madrid"
+                  placeholder="Type or paste your question here...&#10;&#10;Mathematical expressions:&#10;• Use $...$ for inline math: $x^2 + y^2 = z^2$&#10;• Use $$...$$ for display math: $$\\int_0^{\\pi} \\sin(x) dx$$&#10;• Example: Find the value of $\\frac{d}{dx}(x^2 + 3x + 2)$&#10;&#10;Regular question:&#10;1. What is the capital of France?&#10;(A) London&#10;(B) Paris&#10;(C) Berlin&#10;(D) Madrid"
                   rows={12}
                   className="question-textarea"
                 />
                 <div className="char-count">
                   {questionText.length} characters
+                  {containsMathExpressions(questionText) && (
+                    <span className="math-detected"> 🧮 Math expressions detected</span>
+                  )}
                 </div>
               </div>
             )}
@@ -349,14 +391,21 @@ const SingleQuestionUpload = ({ onClose, onQuestionParsed }) => {
             {/* Question Display */}
             <div className="solution-question-box">
               <h4>📝 Question:</h4>
-              <p>{solution?.questionText}</p>
+              <div className="question-text-math">
+                {containsMathExpressions(solution?.questionText) 
+                  ? renderTextWithMath(solution?.questionText)
+                  : solution?.questionText
+                }
+              </div>
             </div>
 
             {/* Solution Display */}
             {solution && (
               <div className="solution-content">
                 {(() => {
-                  const lines = solution.solution.split('\n');
+                  // Process solution for mathematical expressions
+                  const processedSolution = processSolutionForMath(solution.solution);
+                  const lines = processedSolution.split('\n');
                   let inDiagram = false;
                   let diagramLines = [];
                   let lastWasEmpty = false;
@@ -421,12 +470,16 @@ const SingleQuestionUpload = ({ onClose, onQuestionParsed }) => {
                     
                     // Highlight final answer
                     if (line.match(/FINAL ANSWER:/i)) {
+                      const answerText = line.replace(/FINAL ANSWER:/i, '').trim();
                       elements.push(
                         <div key={idx} className="final-answer-box">
                           <div className="final-answer-icon">🎯</div>
-                          <div className="final-answer-text" dangerouslySetInnerHTML={{
-                            __html: line.replace(/FINAL ANSWER:/i, '').trim()
-                          }}></div>
+                          <div className="final-answer-text">
+                            {containsMathExpressions(answerText) 
+                              ? renderTextWithMath(answerText)
+                              : answerText
+                            }
+                          </div>
                         </div>
                       );
                       lastWasEmpty = false;
@@ -436,10 +489,16 @@ const SingleQuestionUpload = ({ onClose, onQuestionParsed }) => {
                     
                     // Highlight step numbers
                     if (line.match(/^(Step \d+:|^\d+\.)/)) {
+                      const stepText = line.replace(/^(Step \d+:|^\d+\.)/, (match) => {
+                        return match;
+                      });
                       elements.push(
-                        <div key={idx} className="solution-step" dangerouslySetInnerHTML={{
-                          __html: line
-                        }}></div>
+                        <div key={idx} className="solution-step">
+                          {containsMathExpressions(stepText) 
+                            ? renderTextWithMath(stepText)
+                            : stepText
+                          }
+                        </div>
                       );
                       lastWasEmpty = false;
                       lastWasSection = false;
@@ -464,9 +523,12 @@ const SingleQuestionUpload = ({ onClose, onQuestionParsed }) => {
                     const textClass = isCompactSection ? 'solution-text compact' : 'solution-text';
                     
                     elements.push(
-                      <p key={idx} className={textClass} dangerouslySetInnerHTML={{
-                        __html: line
-                      }}></p>
+                      <p key={idx} className={textClass}>
+                        {containsMathExpressions(line) 
+                          ? renderTextWithMath(line)
+                          : line
+                        }
+                      </p>
                     );
                     lastWasEmpty = false;
                     lastWasSection = false;
