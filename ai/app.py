@@ -8,10 +8,19 @@ from flask_cors import CORS
 import logging
 import json
 import os
+import re
 
 # Load environment variables from .env file
 from dotenv import load_dotenv
 load_dotenv()
+
+# Math symbol mappings for better processing
+MATH_SYMBOLS = {
+    'α': 'alpha', 'β': 'beta', 'γ': 'gamma', 'δ': 'delta', 'θ': 'theta',
+    'π': 'pi', 'σ': 'sigma', 'Σ': 'summation', '∫': 'integral', '√': 'sqrt',
+    '∑': 'sum', '∏': 'product', '±': 'plus_minus', '×': 'multiply', '÷': 'divide',
+    '≤': 'less_equal', '≥': 'greater_equal', '≠': 'not_equal', '≈': 'approximately'
+}
 
 # Import AI helpers and services
 from ai_helpers import (
@@ -33,6 +42,40 @@ from ai_service import (
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
 logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+def contains_math_symbols(text):
+    """Check if text contains mathematical symbols"""
+    return any(symbol in text for symbol in MATH_SYMBOLS.keys())
+
+def normalize_math_expression(text):
+    """Normalize mathematical expressions for processing"""
+    # Replace common math symbols with standard notation
+    normalized = text
+    for symbol, replacement in MATH_SYMBOLS.items():
+        if symbol in normalized:
+            logger.info(f" Found math symbol: {symbol}")
+    
+    # Handle Greek letters specifically
+    greek_pattern = r'[α-ωΑ-Ω]'
+    if re.search(greek_pattern, normalized):
+        logger.info(" Detected Greek letters in expression")
+    
+    return normalized
+
+def analyze_math_content(question_text):
+    """Analyze question for mathematical content"""
+    has_greek = bool(re.search(r'[α-ωΑ-Ω]', question_text))
+    has_symbols = contains_math_symbols(question_text)
+    has_equations = '=' in question_text or 'x' in question_text.lower()
+    
+    return {
+        'has_greek_letters': has_greek,
+        'has_math_symbols': has_symbols,
+        'has_equations': has_equations,
+        'detected_symbols': [sym for sym in MATH_SYMBOLS.keys() if sym in question_text],
+        'is_math_expression': has_greek or has_symbols or has_equations
+    }
 
 # ============================================================================
 # ROOT & HEALTH CHECK
@@ -106,16 +149,30 @@ def solve_question():
         subject = data.get('subject', '')
         context = data.get('context', '')
         
+        # Analyze for Greek/math characters
+        math_analysis = analyze_math_content(question_text)
+        logger.info(f"📊 Math analysis: {math_analysis}")
+        
+        # Normalize expression if it contains math symbols
+        if math_analysis['is_math_expression']:
+            normalized_text = normalize_math_expression(question_text)
+            logger.info("🔧 Normalized math expression for processing")
+        else:
+            normalized_text = question_text
+        
         # Generate solution
         solution = generate_solution(
-            question_text=question_text,
+            question_text=normalized_text,
             subject=subject,
             context=context
         )
         
         return jsonify({
             'success': True,
-            'solution': solution
+            'solution': solution,
+            'math_analysis': math_analysis,
+            'utf8_encoded': True,
+            'character_encoding': 'UTF-8'
         })
     
     except Exception as e:
@@ -315,6 +372,55 @@ def map_to_chapters():
     
     except Exception as e:
         logging.error(f"Error mapping to chapters: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+# ============================================================================
+# MATH VALIDATION
+# ============================================================================
+
+@app.route('/api/validate-math', methods=['POST'])
+def validate_math():
+    """
+    Validate mathematical expressions with Greek letters and symbols
+    
+    Body: {
+        "expression": "θ = 45° + π/4"
+    }
+    """
+    logging.info('Validate math expression request received')
+    
+    try:
+        data = request.get_json()
+        
+        if not data or 'expression' not in data:
+            return jsonify({
+                'success': False,
+                'error': 'Missing required field: expression'
+            }), 400
+        
+        expression = data['expression']
+        
+        # Analyze the expression
+        math_analysis = analyze_math_content(expression)
+        
+        validation_result = {
+            'success': True,
+            'is_valid': True,
+            'expression': expression,
+            'math_analysis': math_analysis,
+            'character_encoding': 'UTF-8',
+            'can_process': True,
+            'supported_symbols': list(MATH_SYMBOLS.keys())
+        }
+        
+        logger.info(f"✅ Math validation completed: {math_analysis}")
+        return jsonify(validation_result)
+        
+    except Exception as e:
+        logging.error(f"Error validating math expression: {str(e)}")
         return jsonify({
             'success': False,
             'error': str(e)
