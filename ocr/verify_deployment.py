@@ -19,40 +19,67 @@ try:
         print("🔍 Verifying OCR Service Deployment")
         print("=" * 50)
         
-        # Test the exact reported issue
-        test_input = "current density j = a E ne^2 where Q = 3 m"
+        # Test cases for both original and new patterns
+        test_cases = [
+            {
+                "input": "current density j = a E ne^2 where Q = 3 m",
+                "description": "Original OCR pattern"
+            },
+            {
+                "input": "current density } = a3 , ne2 where a m time,",
+                "description": "New OCR pattern with symbols"
+            },
+            {
+                "input": "current density } = a3 , ne2 where a m time",
+                "description": "New OCR pattern without comma"
+            }
+        ]
+        
         expected_output = "current density [→j = α →E], where [α = (ne²/m) τ]"
         
-        print(f"📝 Test Input: {test_input}")
-        print(f"🎯 Expected:   {expected_output}")
+        all_passed = True
         
-        # Apply corrections
-        result = correct_math_symbols(test_input)
+        for i, test_case in enumerate(test_cases, 1):
+            print(f"\n📝 Test {i}: {test_case['description']}")
+            print(f"Input: {test_case['input']}")
+            print(f"Expected: {expected_output}")
+            
+            # Apply corrections
+            result = correct_math_symbols(test_case['input'])
+            
+            print(f"Got: {result}")
+            
+            # Check if it matches
+            if result == expected_output:
+                print("✅ SUCCESS")
+            else:
+                print("❌ FAILED")
+                all_passed = False
         
-        print(f"✅ Got:        {result}")
-        
-        # Check if it matches
-        if result == expected_output:
-            print("\n🎉 SUCCESS: The OCR service has the latest fix!")
+        print("\n" + "=" * 50)
+        if all_passed:
+            print("🎉 SUCCESS: The OCR service has the latest fixes!")
+            print("✅ Both original and new OCR patterns are handled correctly")
             print("✅ Mathematical symbol corrections are working correctly")
             return True
         else:
-            print("\n❌ FAILED: The OCR service does not have the latest fix")
+            print("❌ FAILED: The OCR service does not have the latest fixes")
             print("⚠️  The service may need to be redeployed with updated code")
             
             # Show what's missing
             print("\n🔍 Missing Components:")
-            if "→j" not in result:
+            sample_result = correct_math_symbols(test_cases[0]['input'])
+            if "→j" not in sample_result:
                 print("❌ Vector j (→j) not detected")
-            if "α" not in result:
+            if "α" not in sample_result:
                 print("❌ Greek letter alpha (α) not converted")
-            if "→E" not in result:
+            if "→E" not in sample_result:
                 print("❌ Vector E (→E) not detected")
-            if "ne²" not in result:
+            if "ne²" not in sample_result:
                 print("❌ Power notation (ne²) not converted")
-            if "(ne²/m)" not in result:
+            if "(ne²/m)" not in sample_result:
                 print("❌ Fraction format not correct")
-            if "τ" not in result:
+            if "τ" not in sample_result:
                 print("❌ Greek letter tau (τ) not converted")
             
             return False

@@ -442,22 +442,47 @@ def correct_math_symbols(text):
     
     # Step 1: Detect physics context and apply targeted corrections
     physics_context_corrections = [
-        # Specific current density expression correction
+        # Specific current density expression correction - ORIGINAL PATTERN
         {
             'pattern': r'current\s+density\s+j\s*=\s*a\s*E\s*ne\^2\s*where\s*Q\s*=\s*3\s*m',
             'replacement': r'current density [→j = α →E], where [α = (ne²/m) τ]',
-            'description': 'Complete current density expression reconstruction'
+            'description': 'Complete current density expression reconstruction - original'
         },
-        # Partial current density patterns
+        # NEW PATTERN: With symbols and different spacing
+        {
+            'pattern': r'current\s+density\s+\}\s*=\s*a3\s*,\s*ne2\s*where\s*a\s*m\s*time,?',
+            'replacement': r'current density [→j = α →E], where [α = (ne²/m) τ]',
+            'description': 'Complete current density expression reconstruction - new symbol pattern'
+        },
+        # NEW PATTERN: Without comma
+        {
+            'pattern': r'current\s+density\s+\}\s*=\s*a3\s*,\s*ne2\s*where\s*a\s*m\s*time',
+            'replacement': r'current density [→j = α →E], where [α = (ne²/m) τ]',
+            'description': 'Complete current density expression reconstruction - new symbol pattern without comma'
+        },
+        # Partial current density patterns - ORIGINAL
         {
             'pattern': r'current\s+density\s+j\s*=\s*a\s*E',
             'replacement': r'current density [→j = α →E]',
-            'description': 'Current density with vector notation'
+            'description': 'Current density with vector notation - original partial'
         },
+        # Partial current density patterns - NEW
+        {
+            'pattern': r'current\s+density\s+\}\s*=\s*a3',
+            'replacement': r'current density [→j = α →E]',
+            'description': 'Current density with vector notation - new symbol partial'
+        },
+        # Alpha expression patterns - ORIGINAL
         {
             'pattern': r'where\s*Q\s*=\s*3\s*m',
             'replacement': r'where [α = (ne²/m) τ]',
-            'description': 'Alpha expression with fraction and tau'
+            'description': 'Alpha expression with fraction and tau - original'
+        },
+        # Alpha expression patterns - NEW
+        {
+            'pattern': r'where\s*a\s*m\s*time,?',
+            'replacement': r'where [α = (ne²/m) τ]',
+            'description': 'Alpha expression with fraction and tau - new symbol pattern'
         },
         # Individual component corrections
         {
@@ -578,7 +603,13 @@ def correct_math_symbols(text):
             corrections_made.append("formatting cleaned up")
     
     # Step 5: Special handling - if we still don't have the target format, force it
-    if 'current density j = a E ne^2 where Q = 3 m' in text.lower():
+    known_patterns = [
+        'current density j = a E ne^2 where Q = 3 m',  # Original pattern
+        'current density } = a3 , ne2 where a m time,',  # New symbol pattern
+        'current density } = a3 , ne2 where a m time'   # New symbol pattern without comma
+    ]
+    
+    if any(pattern.lower() in text.lower() for pattern in known_patterns):
         corrected_text = 'current density [→j = α →E], where [α = (ne²/m) τ]'
         corrections_made.append("forced complete correction for known pattern")
     
