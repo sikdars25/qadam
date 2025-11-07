@@ -608,21 +608,30 @@ def correct_math_symbols(text):
     return corrected_text
 
 def get_ocr_reader():
-    """Get or initialize EasyOCR reader"""
+    """Get or initialize EasyOCR reader with enhanced math symbol support"""
     global ocr_reader
     if ocr_reader is None:
         try:
-            logging.info("📄 Initializing EasyOCR with math support...")
-            # Use both English and Latin for better math symbol recognition
+            logging.info("📄 Initializing EasyOCR with enhanced math support...")
+            # Use multiple languages for better math symbol recognition
+            # English + Latin + Greek for comprehensive math symbol detection
             ocr_reader = easyocr.Reader(
-                ['en', 'la'],  # English + Latin for math expressions
+                ['en', 'la', 'fr', 'de'],  # Multiple languages for better symbol recognition
                 gpu=False,
-                recog_network='latin_g2'  # Latin character recognition network
+                recog_network='latin_g2',  # Latin character recognition network
+                download_enabled=True  # Ensure models are downloaded
             )
-            logging.info("✅ EasyOCR initialized successfully with math support")
+            logging.info("✅ EasyOCR initialized successfully with enhanced math support")
         except Exception as e:
             logging.error(f"❌ Failed to initialize EasyOCR: {e}")
-            raise
+            # Fallback to basic configuration
+            try:
+                logging.info("🔄 Trying fallback OCR configuration...")
+                ocr_reader = easyocr.Reader(['en'], gpu=False)
+                logging.info("✅ EasyOCR initialized with fallback configuration")
+            except Exception as fallback_error:
+                logging.error(f"❌ Failed to initialize EasyOCR even with fallback: {fallback_error}")
+                raise
     return ocr_reader
 
 def preprocess_image(image_data):
@@ -639,22 +648,43 @@ def preprocess_image(image_data):
         max_width = 2400
         if img.width > max_width:
             ratio = max_width / img.width
-            new_size = (max_width, int(img.height * ratio))
-            img = img.resize(new_size, Image.LANCZOS)
-            logging.info(f"📐 Resized image to {new_size}")
-        elif img.width < 800:
-            # Upscale small images for better recognition
-            ratio = 800 / img.width
-            new_size = (800, int(img.height * ratio))
-            img = img.resize(new_size, Image.LANCZOS)
-            logging.info(f"📐 Upscaled image to {new_size}")
+            new_height = int(img.height * ratio)
+            # Use LANCZOS instead of ANTIALIAS for newer Pillow versions
+            try:
+                img = img.resize((max_width, new_height), Image.Resampling.LANCZOS)
+            except AttributeError:
+                img = img.resize((max_width, new_height), Image.LANCZOS)
+            logging.info(f"📏 Image resized from {img.width}x{img.height} to {max_width}x{new_height}")
         
-        # Convert to numpy array
+        # Enhance contrast for better symbol detection
+        from PIL import ImageEnhance
+        enhancer = ImageEnhance.Contrast(img)
+        img = enhancer.enhance(1.5)  # Increase contrast by 50%
+        
+        # Enhance sharpness for better symbol edges
+        enhancer = ImageEnhance.Sharpness(img)
+        img = enhancer.enhance(1.3)  # Increase sharpness by 30%
+        
+        # Convert to numpy array for EasyOCR
         img_np = np.array(img)
         
+        # Apply additional preprocessing for math symbols
+        # Convert to grayscale for better text detection
+        if len(img_np.shape) == 3:
+            import cv2
+            gray = cv2.cvtColor(img_np, cv2.COLOR_RGB2GRAY)
+            # Apply adaptive threshold for better symbol detection
+            binary = cv2.adaptiveThreshold(
+                gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2
+            )
+            # Convert back to 3-channel for EasyOCR
+            img_np = cv2.cvtColor(binary, cv2.COLOR_GRAY2RGB)
+        
+        logging.info(f"🖼️ Image preprocessed for math OCR: {img_np.shape}")
         return img_np
+        
     except Exception as e:
-        logging.error(f"Image preprocessing failed: {e}")
+        logging.error(f"❌ Failed to preprocess image: {e}")
         return None
 
 @app.route('/api/health', methods=['GET'])
@@ -737,14 +767,21 @@ def extract_text():
         reader = get_ocr_reader()
         
         # Perform OCR with optimized parameters for math content
-        logging.info("🔍 Performing OCR with math optimization...")
+        logging.info("🔍 Performing OCR with enhanced math optimization...")
         results = reader.readtext(
             img_np,
             detail=1,
             paragraph=False,  # Detect individual text elements
-            min_size=10,      # Detect smaller text (math symbols)
-            text_threshold=0.6,  # Lower threshold for math symbols
-            low_text=0.3      # Detect faint text
+            min_size=8,       # Detect even smaller text (math symbols)
+            text_threshold=0.5,  # Lower threshold for better symbol detection
+            low_text=0.2,     # Detect even fainter text
+            contrast_ths=0.3, # Adjust contrast threshold for symbols
+            adjust_contrast=0.7, # Enhance contrast for math symbols
+            add_margin=0.1,   # Add margin for better symbol detection
+            x_ths=1.0,        # Text threshold for horizontal grouping
+            y_ths=0.5,        # Text threshold for vertical grouping
+            width_ths=0.8,    # Width threshold for text grouping
+            height_ths=0.8    # Height threshold for text grouping
         )
         
         # Extract text from results
@@ -828,7 +865,17 @@ def extract_from_pdf():
                 # Preprocess and perform OCR
                 img_np = preprocess_image(img_data)
                 if img_np is not None:
-                    results = reader.readtext(img_np)
+                    results = reader.readtext(
+                        img_np,
+                        detail=1,
+                        paragraph=False,
+                        min_size=8,
+                        text_threshold=0.5,
+                        low_text=0.2,
+                        contrast_ths=0.3,
+                        adjust_contrast=0.7,
+                        add_margin=0.1
+                    )
                     page_text = ' '.join([text for (bbox, text, conf) in results])
                     all_text.append(page_text)
             
