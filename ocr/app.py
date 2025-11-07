@@ -1,6 +1,7 @@
 """
 OCR Service - Flask Application using EasyOCR
 Direct Flask app without Azure Functions wrapper
+Last deployed: 2025-11-07 20:00:00
 """
 
 from flask import Flask, request, jsonify
