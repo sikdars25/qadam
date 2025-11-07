@@ -2561,7 +2561,7 @@ def parse_single_question():
                     # OCR for images using Azure OCR Function
                     try:
                         # Use OCR client with retry to call Azure Function
-                        ocr_result = ocr_client.ocr_image_with_retry(temp_path, language='en', max_retries=3)
+                        ocr_result = ocr_client.ocr_image_with_retry(temp_path, language='en,la', max_retries=3)
                         
                         if ocr_result.get('success'):
                             question_text = ocr_result.get('text', '')
@@ -3158,7 +3158,7 @@ def extract_text_ocr():
         try:
             # Call OCR service with retry
             print(f"📸 Processing OCR for file: {temp_filename}")
-            ocr_result = ocr_client.ocr_image_with_retry(temp_path, language=language, max_retries=3)
+            ocr_result = ocr_client.ocr_image_with_retry(temp_path, language='en,la', max_retries=3)
             
             # Clean up temp file
             if os.path.exists(temp_path):

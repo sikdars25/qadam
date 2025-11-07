@@ -71,7 +71,7 @@ def preprocess_image(image_bytes: bytes, max_dimension: int = 2048) -> bytes:
         # Return original if preprocessing fails
         return image_bytes
 
-def ocr_image_with_retry(image_file, language: str = 'en', max_retries: int = 3) -> Dict[str, Any]:
+def ocr_image_with_retry(image_file, language: str = 'en,la', max_retries: int = 3) -> Dict[str, Any]:
     """
     Extract text from image with automatic retry on failure
     
@@ -112,7 +112,7 @@ def ocr_image_with_retry(image_file, language: str = 'en', max_retries: int = 3)
     
     return {'success': False, 'error': 'Max retries exceeded', 'text': ''}
 
-def ocr_image(image_file, language: str = 'en') -> Dict[str, Any]:
+def ocr_image(image_file, language: str = 'en,la') -> Dict[str, Any]:
     """
     Extract text from image using OCR service
     
@@ -145,10 +145,11 @@ def ocr_image(image_file, language: str = 'en') -> Dict[str, Any]:
         processed_bytes = preprocess_image(image_bytes)
         print(f"📸 Processed image size: {len(processed_bytes) / 1024:.1f}KB")
         
-        # Send to OCR service
+        # Send to OCR service with UTF-8 encoding support
         files = {'file': ('image.png', io.BytesIO(processed_bytes), 'image/png')}
         data = {'language': language}
-        response = requests.post(url, files=files, data=data, timeout=120)  # 2 min timeout
+        headers = {'Accept': 'application/json; charset=utf-8'}
+        response = requests.post(url, files=files, data=data, headers=headers, timeout=120)  # 2 min timeout
         
         if response.status_code == 200:
             return response.json()
@@ -172,7 +173,7 @@ def ocr_image(image_file, language: str = 'en') -> Dict[str, Any]:
             'text': ''
         }
 
-def ocr_pdf(pdf_file, language: str = 'en') -> Dict[str, Any]:
+def ocr_pdf(pdf_file, language: str = 'en,la') -> Dict[str, Any]:
     """
     Extract text from PDF using OCR service
     
