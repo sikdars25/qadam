@@ -11,9 +11,390 @@ import os
 import base64
 import io
 import re
+import unicodedata
 from PIL import Image
 import numpy as np
 import easyocr
+
+# Mathematical expression libraries
+import math
+import xml.etree.ElementTree as ET
+from xml.dom import minidom
+import hashlib
+import json
+
+# LaTeX to MathML support
+try:
+    import latex2mathml.converter
+    LATEX2MATHML_AVAILABLE = True
+except ImportError:
+    LATEX2MATHML_AVAILABLE = False
+    logging.warning("latex2mathml not available - LaTeX to MathML conversion disabled")
+
+# OpenType MATH support (via font configuration and math rendering)
+try:
+    import matplotlib.pyplot as plt
+    import matplotlib.font_manager as fm
+    from matplotlib import rcParams
+    MATPLOTLIB_AVAILABLE = True
+except ImportError:
+    MATPLOTLIB_AVAILABLE = False
+    logging.warning("Matplotlib not available - limited OpenType MATH support")
+
+# LaTeX with AMS extensions support
+try:
+    from sympy import latex, preview
+    from sympy.parsing.latex import parse_latex
+    from sympy import symbols, integrate, diff, simplify, solve
+    SYMPY_AVAILABLE = True
+except ImportError:
+    SYMPY_AVAILABLE = False
+    logging.warning("SymPy not available - limited LaTeX processing")
+
+# MathML processing utilities
+class MathMLProcessor:
+    """Process MathML expressions for mathematical content"""
+    
+    @staticmethod
+    def mathml_to_text(mathml_content):
+        """Convert MathML to readable text representation"""
+        try:
+            # Parse MathML and extract content
+            root = ET.fromstring(mathml_content)
+            
+            # Handle different MathML elements
+            if root.tag.endswith('math'):
+                return MathMLProcessor._process_math_element(root)
+            else:
+                return MathMLProcessor._process_element(root)
+        except Exception as e:
+            logging.warning(f"MathML parsing error: {e}")
+            return mathml_content
+    
+    @staticmethod
+    def _process_math_element(element):
+        """Process <math> element"""
+        content = []
+        for child in element:
+            content.append(MathMLProcessor._process_element(child))
+        return ''.join(content)
+    
+    @staticmethod
+    def _process_element(element):
+        """Process individual MathML elements"""
+        tag = element.tag.split('}')[-1] if '}' in element.tag else element.tag
+        
+        # Handle different MathML tags
+        if tag == 'mi':  # Identifier
+            return element.text or ''
+        elif tag == 'mo':  # Operator
+            return element.text or ''
+        elif tag == 'mn':  # Number
+            return element.text or ''
+        elif tag == 'mfrac':  # Fraction
+            numerator = denominator = ''
+            if len(element) >= 2:
+                numerator = MathMLProcessor._process_element(element[0])
+                denominator = MathMLProcessor._process_element(element[1])
+            return f"({numerator}/{denominator})"
+        elif tag == 'msup':  # Superscript
+            base = power = ''
+            if len(element) >= 2:
+                base = MathMLProcessor._process_element(element[0])
+                power = MathMLProcessor._process_element(element[1])
+            return f"{base}^{power}"
+        elif tag == 'msub':  # Subscript
+            base = subscript = ''
+            if len(element) >= 2:
+                base = MathMLProcessor._process_element(element[0])
+                subscript = MathMLProcessor._process_element(element[1])
+            return f"{base}_{subscript}"
+        elif tag == 'mrow':  # Row
+            content = []
+            for child in element:
+                content.append(MathMLProcessor._process_element(child))
+            return ''.join(content)
+        elif tag == 'msqrt':  # Square root
+            if len(element) >= 1:
+                content = MathMLProcessor._process_element(element[0])
+                return f"√({content})"
+            return '√()'
+        elif tag == 'mroot':  # Nth root
+            if len(element) >= 2:
+                base = MathMLProcessor._process_element(element[0])
+                root = MathMLProcessor._process_element(element[1])
+                return f"√[{root}]({base})"
+            return '√()'
+        else:
+            # Default: return text content
+            return element.text or ''
+    
+    @staticmethod
+    def validate_mathml(mathml_content):
+        """Validate MathML content structure"""
+        try:
+            ET.fromstring(mathml_content)
+            return True
+        except ET.ParseError:
+            return False
+
+# LaTeX with AMS extensions processor
+class LaTeXProcessor:
+    """Process LaTeX expressions with AMS extensions"""
+    
+    @staticmethod
+    def latex_to_text(latex_content):
+        """Convert LaTeX to readable text"""
+        try:
+            if SYMPY_AVAILABLE:
+                # Try to parse with SymPy for mathematical expressions
+                try:
+                    expr = parse_latex(latex_content)
+                    return str(expr)
+                except:
+                    # Fallback to basic LaTeX parsing
+                    return LaTeXProcessor._basic_latex_to_text(latex_content)
+            else:
+                return LaTeXProcessor._basic_latex_to_text(latex_content)
+        except Exception as e:
+            logging.warning(f"LaTeX parsing error: {e}")
+            return latex_content
+    
+    @staticmethod
+    def _basic_latex_to_text(latex_content):
+        """Basic LaTeX to text conversion"""
+        # Common LaTeX replacements
+        replacements = {
+            r'\alpha': 'α', r'\beta': 'β', r'\gamma': 'γ', r'\delta': 'δ',
+            r'\epsilon': 'ε', r'\zeta': 'ζ', r'\eta': 'η', r'\theta': 'θ',
+            r'\iota': 'ι', r'\kappa': 'κ', r'\lambda': 'λ', r'\mu': 'μ',
+            r'\nu': 'ν', r'\xi': 'ξ', r'\pi': 'π', r'\rho': 'ρ',
+            r'\sigma': 'σ', r'\tau': 'τ', r'\upsilon': 'υ', r'\phi': 'φ',
+            r'\chi': 'χ', r'\psi': 'ψ', r'\omega': 'ω',
+            r'\Gamma': 'Γ', r'\Delta': 'Δ', r'\Theta': 'Θ', r'\Lambda': 'Λ',
+            r'\Xi': 'Ξ', r'\Pi': 'Π', r'\Sigma': 'Σ', r'\Upsilon': 'Υ',
+            r'\Phi': 'Φ', r'\Psi': 'Ψ', r'\Omega': 'Ω',
+            r'\sum': '∑', r'\prod': '∏', r'\int': '∫', r'\iint': '∬',
+            r'\iiint': '∭', r'\oint': '∮', r'\sqrt': '√',
+            r'\infty': '∞', r'\partial': '∂', r'\nabla': '∇',
+            r'\pm': '±', r'\mp': '∓', r'\times': '×', r'\div': '÷',
+            r'\leq': '≤', r'\geq': '≥', r'\neq': '≠', r'\approx': '≈',
+            r'\equiv': '≡', r'\sim': '∼', r'\simeq': '≃', r'\cong': '≅',
+            r'\propto': '∝', r'\parallel': '∥', r'\perp': '⊥',
+            r'\rightarrow': '→', r'\leftarrow': '←', r'\leftrightarrow': '↔',
+            r'\Rightarrow': '⇒', r'\Leftarrow': '⇐', r'\Leftrightarrow': '⇔',
+            r'\subset': '⊂', r'\supset': '⊃', r'\subseteq': '⊆', r'\supseteq': '⊇',
+            r'\in': '∈', r'\notin': '∉', r'\cup': '∪', r'\cap': '∩',
+            r'\emptyset': '∅', r'\forall': '∀', r'\exists': '∃',
+            r'\neg': '¬', r'\land': '∧', r'\lor': '∨', r'\oplus': '⊕',
+            r'\otimes': '⊗', r'\odot': '⊙'
+        }
+        
+        result = latex_content
+        for latex_cmd, unicode_char in replacements.items():
+            result = result.replace(latex_cmd, unicode_char)
+        
+        # Handle superscripts and subscripts
+        import re
+        result = re.sub(r'\^(\{[^}]+\}|\w)', lambda m: f'^{m.group(1).strip("{}")}', result)
+        result = re.sub(r'_(\{[^}]+\}|\w)', lambda m: f'_{m.group(1).strip("{}")}', result)
+        
+        # Handle fractions
+        result = re.sub(r'\\frac\{([^}]+)\}\{([^}]+)\}', r'(\1/\2)', result)
+        
+        # Handle square roots
+        result = re.sub(r'\\sqrt\{([^}]+)\}', r'√(\1)', result)
+        result = re.sub(r'\\sqrt\[(\d+)\]\{([^}]+)\}', r'√[\1](\2)', result)
+        
+        return result
+    
+    @staticmethod
+    def validate_latex(latex_content):
+        """Basic LaTeX validation"""
+        # Check for balanced braces
+        brace_count = latex_content.count('{') - latex_content.count('}')
+        if brace_count != 0:
+            return False
+        
+        # Check for common LaTeX commands
+        latex_patterns = [
+            r'\\[a-zA-Z]+',  # LaTeX commands
+            r'\^[^\\]',      # Superscripts
+            r'_[^\\]',       # Subscripts
+            r'\{[^}]*\}',    # Braced content
+        ]
+        
+        for pattern in latex_patterns:
+            if re.search(pattern, latex_content):
+                return True
+        
+        return True
+
+# Unicode data processor for mathematical symbols
+class UnicodeMathProcessor:
+    """Process Unicode mathematical characters and symbols"""
+    
+    @staticmethod
+    def normalize_math_unicode(text):
+        """Normalize Unicode mathematical characters"""
+        if not text:
+            return text
+        
+        # Normalize to NFC form for consistent representation
+        normalized = unicodedata.normalize('NFC', text)
+        
+        # Convert superscripts and subscripts to regular characters
+        superscripts = {
+            '⁰': '0', '¹': '1', '²': '2', '³': '3', '⁴': '4',
+            '⁵': '5', '⁶': '6', '⁷': '7', '⁸': '8', '⁹': '9',
+            '⁺': '+', '⁻': '-', '⁼': '=', '⁽': '(', '⁾': ')',
+            'ⁱ': 'i', 'ʲ': 'j', 'ᵏ': 'k', 'ˡ': 'l', 'ᵐ': 'm',
+            'ⁿ': 'n', 'ᵒ': 'o', 'ᵖ': 'p', 'ʳ': 'r', 'ˢ': 's',
+            'ᵗ': 't', 'ᵘ': 'u', 'ᵛ': 'v', 'ʷ': 'w', 'ˣ': 'x',
+            'ʸ': 'y', 'ᶻ': 'z'
+        }
+        
+        subscripts = {
+            '₀': '0', '₁': '1', '₂': '2', '₃': '3', '₄': '4',
+            '₅': '5', '₆': '6', '₇': '7', '₈': '8', '₉': '9',
+            '₊': '+', '₋': '-', '₌': '=', '₍': '(', '₎': ')',
+            'ₐ': 'a', 'ₑ': 'e', 'ᵢ': 'i', 'ⱼ': 'j', 'ₖ': 'k',
+            'ₗ': 'l', 'ₘ': 'm', 'ₙ': 'n', 'ₒ': 'o', 'ₚ': 'p',
+            'ᵣ': 'r', 'ₛ': 's', 'ₜ': 't', 'ᵤ': 'u', 'ᵥ': 'v',
+            'ₓ': 'x', 'ᵧ': 'y', '𝓏': 'z'
+        }
+        
+        # Apply superscript/subscript conversion
+        for sup_char, replacement in superscripts.items():
+            normalized = normalized.replace(sup_char, replacement)
+        
+        for sub_char, replacement in subscripts.items():
+            normalized = normalized.replace(sub_char, replacement)
+        
+        return normalized
+    
+    @staticmethod
+    def get_math_symbol_info(char):
+        """Get information about mathematical Unicode characters"""
+        try:
+            char_name = unicodedata.name(char)
+            char_category = unicodedata.category(char)
+            
+            # Mathematical symbol categories
+            math_categories = {
+                'Sm': 'Math Symbol',
+                'Sc': 'Currency Symbol',
+                'Sk': 'Modifier Symbol',
+                'So': 'Other Symbol'
+            }
+            
+            return {
+                'character': char,
+                'name': char_name,
+                'category': char_category,
+                'math_category': math_categories.get(char_category, 'Unknown'),
+                'unicode_point': f'U+{ord(char):04X}'
+            }
+        except ValueError:
+            return None
+    
+    @staticmethod
+    def extract_math_symbols(text):
+        """Extract all mathematical Unicode symbols from text"""
+        math_symbols = []
+        for char in text:
+            if char.startswith(('λ', 'μ', 'π', 'σ', 'τ', 'α', 'β', 'γ', 'δ', 'θ', 'ω')) or \
+               unicodedata.category(char) in ['Sm', 'Sc', 'Sk', 'So']:
+                info = UnicodeMathProcessor.get_math_symbol_info(char)
+                if info:
+                    math_symbols.append(info)
+        return math_symbols
+
+# OpenType MATH processor for advanced mathematical rendering
+class OpenTypeMathProcessor:
+    """Process OpenType MATH features for mathematical typography"""
+    
+    @staticmethod
+    def setup_math_fonts():
+        """Setup mathematical fonts for OpenType MATH support"""
+        if not MATPLOTLIB_AVAILABLE:
+            return False
+        
+        try:
+            # Configure matplotlib for mathematical fonts
+            rcParams['font.family'] = 'serif'
+            rcParams['mathtext.fontset'] = 'stix'  # Stix fonts for math
+            
+            # Try to find and use mathematical fonts
+            available_fonts = [f.name for f in fm.fontManager.ttflist]
+            math_fonts = ['STIX Two Math', 'Latin Modern Math', 'XITS Math', 'Asana Math']
+            
+            for font in math_fonts:
+                if font in available_fonts:
+                    rcParams['mathtext.fontset'] = 'stix'
+                    logging.info(f"Using mathematical font: {font}")
+                    return True
+            
+            logging.warning("No specialized math fonts found, using default")
+            return True
+        except Exception as e:
+            logging.warning(f"Math font setup failed: {e}")
+            return False
+    
+    @staticmethod
+    def render_math_expression(expression, output_format='png'):
+        """Render mathematical expression using OpenType MATH features"""
+        if not MATPLOTLIB_AVAILABLE:
+            return None
+        
+        try:
+            # Setup math fonts
+            OpenTypeMathProcessor.setup_math_fonts()
+            
+            # Create figure for mathematical expression
+            fig, ax = plt.subplots(figsize=(10, 2))
+            ax.text(0.5, 0.5, f'${expression}$', fontsize=16, 
+                   ha='center', va='center', transform=ax.transAxes)
+            ax.set_xlim(0, 1)
+            ax.set_ylim(0, 1)
+            ax.axis('off')
+            
+            # Save to buffer
+            buffer = io.BytesIO()
+            plt.savefig(buffer, format=output_format, bbox_inches='tight', 
+                       dpi=300, transparent=True)
+            buffer.seek(0)
+            plt.close()
+            
+            return buffer
+        except Exception as e:
+            logging.warning(f"Math rendering failed: {e}")
+            return None
+    
+    @staticmethod
+    def validate_math_expression(expression):
+        """Validate mathematical expression for rendering"""
+        try:
+            # Basic validation - check for balanced braces and common math symbols
+            brace_count = expression.count('{') - expression.count('}')
+            if brace_count != 0:
+                return False
+            
+            # Check for mathematical symbols
+            math_symbols = ['^', '_', '\\', '∑', '∫', '∏', '√', '∞', '±', '∓', '×', '÷']
+            return any(symbol in expression for symbol in math_symbols)
+        except Exception:
+            return False
+
+# Initialize mathematical processors
+mathml_processor = MathMLProcessor()
+latex_processor = LaTeXProcessor()
+unicode_processor = UnicodeMathProcessor()
+opentype_processor = OpenTypeMathProcessor()
+
+# Setup math fonts if available
+if MATPLOTLIB_AVAILABLE:
+    opentype_processor.setup_math_fonts()
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
@@ -444,6 +825,284 @@ def get_languages():
         'languages': ['en', 'la'],
         'features': ['math_symbols', 'greek_letters', 'latin_characters'],
         'note': 'Optimized for mathematical expressions and educational content'
+    })
+
+# ============================================================================
+# MATHEMATICAL EXPRESSION PROCESSING ENDPOINTS
+# ============================================================================
+
+@app.route('/api/math/unicode/normalize', methods=['POST'])
+def normalize_math_unicode():
+    """Normalize Unicode mathematical characters"""
+    try:
+        data = request.get_json()
+        if not data or 'text' not in data:
+            return jsonify({
+                'success': False,
+                'error': 'Missing text parameter'
+            }), 400
+        
+        text = data['text']
+        normalized_text = unicode_processor.normalize_math_unicode(text)
+        math_symbols = unicode_processor.extract_math_symbols(text)
+        
+        return jsonify({
+            'success': True,
+            'original_text': text,
+            'normalized_text': normalized_text,
+            'math_symbols_found': len(math_symbols),
+            'math_symbols': math_symbols,
+            'unicode_form': 'NFC'
+        })
+        
+    except Exception as e:
+        logging.error(f"Unicode normalization error: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/math/latex/convert', methods=['POST'])
+def convert_latex_to_text():
+    """Convert LaTeX expressions to readable text"""
+    try:
+        data = request.get_json()
+        if not data or 'latex' not in data:
+            return jsonify({
+                'success': False,
+                'error': 'Missing latex parameter'
+            }), 400
+        
+        latex_content = data['latex']
+        is_valid = latex_processor.validate_latex(latex_content)
+        
+        if not is_valid:
+            return jsonify({
+                'success': False,
+                'error': 'Invalid LaTeX syntax'
+            }), 400
+        
+        converted_text = latex_processor.latex_to_text(latex_content)
+        
+        # Try to convert to MathML if requested
+        mathml_output = None
+        if data.get('include_mathml', False) and LATEX2MATHML_AVAILABLE:
+            try:
+                mathml_output = latex2mathml.converter.convert(latex_content)
+            except Exception as e:
+                logging.warning(f"LaTeX to MathML conversion failed: {e}")
+        elif data.get('include_mathml', False) and not LATEX2MATHML_AVAILABLE:
+            logging.warning("LaTeX to MathML conversion requested but latex2mathml not available")
+        
+        return jsonify({
+            'success': True,
+            'original_latex': latex_content,
+            'converted_text': converted_text,
+            'mathml': mathml_output,
+            'sympy_available': SYMPY_AVAILABLE,
+            'latex2mathml_available': LATEX2MATHML_AVAILABLE
+        })
+        
+    except Exception as e:
+        logging.error(f"LaTeX conversion error: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/math/mathml/convert', methods=['POST'])
+def convert_mathml_to_text():
+    """Convert MathML expressions to readable text"""
+    try:
+        data = request.get_json()
+        if not data or 'mathml' not in data:
+            return jsonify({
+                'success': False,
+                'error': 'Missing mathml parameter'
+            }), 400
+        
+        mathml_content = data['mathml']
+        is_valid = mathml_processor.validate_mathml(mathml_content)
+        
+        if not is_valid:
+            return jsonify({
+                'success': False,
+                'error': 'Invalid MathML structure'
+            }), 400
+        
+        converted_text = mathml_processor.mathml_to_text(mathml_content)
+        
+        return jsonify({
+            'success': True,
+            'original_mathml': mathml_content,
+            'converted_text': converted_text
+        })
+        
+    except Exception as e:
+        logging.error(f"MathML conversion error: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/math/render', methods=['POST'])
+def render_math_expression():
+    """Render mathematical expression using OpenType MATH features"""
+    try:
+        data = request.get_json()
+        if not data or 'expression' not in data:
+            return jsonify({
+                'success': False,
+                'error': 'Missing expression parameter'
+            }), 400
+        
+        expression = data['expression']
+        output_format = data.get('format', 'png')
+        
+        is_valid = opentype_processor.validate_math_expression(expression)
+        
+        if not is_valid:
+            return jsonify({
+                'success': False,
+                'error': 'Invalid mathematical expression'
+            }), 400
+        
+        rendered_buffer = opentype_processor.render_math_expression(expression, output_format)
+        
+        if rendered_buffer is None:
+            return jsonify({
+                'success': False,
+                'error': 'Math rendering failed - matplotlib not available or expression invalid'
+            }), 500
+        
+        # Convert buffer to base64 for JSON response
+        rendered_buffer.seek(0)
+        rendered_data = base64.b64encode(rendered_buffer.read()).decode('utf-8')
+        
+        return jsonify({
+            'success': True,
+            'original_expression': expression,
+            'format': output_format,
+            'rendered_image': f"data:image/{output_format};base64,{rendered_data}",
+            'matplotlib_available': MATPLOTLIB_AVAILABLE
+        })
+        
+    except Exception as e:
+        logging.error(f"Math rendering error: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/math/analyze', methods=['POST'])
+def analyze_math_expression():
+    """Comprehensive analysis of mathematical expression"""
+    try:
+        data = request.get_json()
+        if not data or 'expression' not in data:
+            return jsonify({
+                'success': False,
+                'error': 'Missing expression parameter'
+            }), 400
+        
+        expression = data['expression']
+        
+        # Unicode analysis
+        normalized_expression = unicode_processor.normalize_math_unicode(expression)
+        math_symbols = unicode_processor.extract_math_symbols(expression)
+        
+        # LaTeX analysis (if expression contains LaTeX commands)
+        latex_analysis = None
+        if '\\' in expression or '^' in expression or '_' in expression:
+            latex_analysis = {
+                'is_latex': latex_processor.validate_latex(expression),
+                'converted_text': latex_processor.latex_to_text(expression)
+            }
+        
+        # MathML analysis (if expression looks like MathML)
+        mathml_analysis = None
+        if '<math' in expression or '<m:' in expression:
+            mathml_analysis = {
+                'is_mathml': mathml_processor.validate_mathml(expression),
+                'converted_text': mathml_processor.mathml_to_text(expression)
+            }
+        
+        # OpenType MATH analysis
+        render_analysis = {
+            'can_render': opentype_processor.validate_math_expression(expression),
+            'matplotlib_available': MATPLOTLIB_AVAILABLE
+        }
+        
+        return jsonify({
+            'success': True,
+            'original_expression': expression,
+            'normalized_expression': normalized_expression,
+            'unicode_analysis': {
+                'math_symbols_count': len(math_symbols),
+                'math_symbols': math_symbols
+            },
+            'latex_analysis': latex_analysis,
+            'mathml_analysis': mathml_analysis,
+            'render_analysis': render_analysis,
+            'libraries_available': {
+                'unicodedata': True,
+                'latex2mathml': LATEX2MATHML_AVAILABLE,
+                'sympy': SYMPY_AVAILABLE,
+                'matplotlib': MATPLOTLIB_AVAILABLE
+            }
+        })
+        
+    except Exception as e:
+        logging.error(f"Math analysis error: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/math/libraries/status', methods=['GET'])
+def get_math_libraries_status():
+    """Get status of all mathematical expression libraries"""
+    return jsonify({
+        'success': True,
+        'libraries': {
+            'unicodedata': {
+                'available': True,
+                'version': 'built-in',
+                'features': ['unicode_normalization', 'math_symbol_extraction', 'character_info']
+            },
+            'latex2mathml': {
+                'available': LATEX2MATHML_AVAILABLE,
+                'version': 'latex2mathml',
+                'features': ['latex_to_mathml', 'latex_parsing'] if LATEX2MATHML_AVAILABLE else ['not_available'],
+                'note': 'Install with: pip install latex2mathml' if not LATEX2MATHML_AVAILABLE else 'Fully functional'
+            },
+            'sympy': {
+                'available': SYMPY_AVAILABLE,
+                'features': ['latex_parsing', 'mathematical_computation', 'symbolic_math'] if SYMPY_AVAILABLE else ['not_available'],
+                'note': 'Install with: pip install sympy' if not SYMPY_AVAILABLE else 'Fully functional'
+            },
+            'matplotlib': {
+                'available': MATPLOTLIB_AVAILABLE,
+                'features': ['math_rendering', 'opentype_math_fonts', 'expression_visualization'] if MATPLOTLIB_AVAILABLE else ['not_available'],
+                'note': 'Install with: pip install matplotlib' if not MATPLOTLIB_AVAILABLE else 'Fully functional'
+            },
+            'mathml': {
+                'available': True,
+                'features': ['mathml_parsing', 'mathml_to_text', 'structure_validation']
+            },
+            'opentype_math': {
+                'available': MATPLOTLIB_AVAILABLE,
+                'features': ['math_font_support', 'advanced_typography', 'symbol_rendering'] if MATPLOTLIB_AVAILABLE else ['not_available'],
+                'supported_fonts': ['STIX Two Math', 'Latin Modern Math', 'XITS Math', 'Asana Math'] if MATPLOTLIB_AVAILABLE else []
+            }
+        },
+        'endpoints': {
+            'unicode_normalize': '/api/math/unicode/normalize',
+            'latex_convert': '/api/math/latex/convert',
+            'mathml_convert': '/api/math/mathml/convert',
+            'render_expression': '/api/math/render',
+            'analyze_expression': '/api/math/analyze'
+        }
     })
 
 if __name__ == '__main__':

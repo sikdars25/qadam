@@ -1,0 +1,28 @@
+# Mathematical Expression Processing Dependencies
+# Core OCR dependencies (existing)
+flask
+flask-cors
+pillow
+numpy
+easyocr
+opencv-python
+PyMuPDF
+
+# Mathematical expression libraries
+latex2mathml>=0.2.0
+sympy>=1.12
+matplotlib>=3.7.0
+
+# Additional math processing
+lxml>=4.9.0
+beautifulsoup4>=4.12.0
+
+# Unicode and text processing
+unicodedata2>=15.0.0
+
+# Optional: Advanced mathematical fonts (if needed)
+# stixfonts>=2.0.0
+
+# Development and testing
+pytest>=7.0.0
+requests>=2.31.0
