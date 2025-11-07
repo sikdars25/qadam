@@ -23,64 +23,14 @@ GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
 GROQ_MODEL = "llama-3.3-70b-versatile"
 GROQ_VISION_MODEL = "llama-3.2-90b-vision-preview"
 
-def fix_greek_symbol_misrecognition(text):
-    """
-    Fix common Greek symbol misrecognitions from PDF extraction.
-    PDFs sometimes have incorrect character encoding where Greek symbols
-    are mapped to wrong characters (e.g., λ → 4, μ → µ, etc.)
-    """
-    if not text:
-        return ""
-    
-    # Common patterns where Greek symbols are misrecognized
-    # These are context-based replacements
-    
-    # Pattern: "charge density 4" or "linear charge density 4" → should be λ (lambda)
-    text = re.sub(r'\b(charge\s+density|linear\s+charge\s+density)\s+4\b', r'\1 λ', text, flags=re.IGNORECASE)
-    text = re.sub(r'\b(charge\s+density|linear\s+charge\s+density)\s+A\b', r'\1 λ', text, flags=re.IGNORECASE)
-    
-    # Pattern: "wavelength 4" or "wavelength A" → should be λ (lambda)
-    text = re.sub(r'\b(wavelength|wave\s+length)\s+[4A]\b', r'\1 λ', text, flags=re.IGNORECASE)
-    
-    # Pattern: "coefficient µ" (micro sign) → μ (Greek mu)
-    text = text.replace('µ', 'μ')
-    
-    # Pattern: "angle 0" or "angle O" at start of sentence → should be θ (theta)
-    text = re.sub(r'\b(angle|at\s+angle)\s+[0O]\b', r'\1 θ', text, flags=re.IGNORECASE)
-    
-    # Pattern: "pi" as word → π (but be careful not to replace "pi" in "spin", "eping", etc.)
-    text = re.sub(r'\b(value\s+of\s+)pi\b', r'\1π', text, flags=re.IGNORECASE)
-    text = re.sub(r'\b(equals\s+)pi\b', r'\1π', text, flags=re.IGNORECASE)
-    
-    # Pattern: "delta" as word → Δ
-    text = re.sub(r'\b(change|difference)\s+delta\b', r'\1 Δ', text, flags=re.IGNORECASE)
-    
-    # Pattern: "sigma" as word → σ
-    text = re.sub(r'\b(surface\s+charge\s+density|conductivity)\s+sigma\b', r'\1 σ', text, flags=re.IGNORECASE)
-    
-    # Pattern: "omega" as word → ω
-    text = re.sub(r'\b(angular\s+frequency|angular\s+velocity)\s+omega\b', r'\1 ω', text, flags=re.IGNORECASE)
-    
-    # Pattern: "alpha" as word → α
-    text = re.sub(r'\b(coefficient|constant)\s+alpha\b', r'\1 α', text, flags=re.IGNORECASE)
-    
-    # Pattern: "beta" as word → β
-    text = re.sub(r'\b(coefficient|constant)\s+beta\b', r'\1 β', text, flags=re.IGNORECASE)
-    
-    # Pattern: "gamma" as word → γ
-    text = re.sub(r'\b(photon|ray)\s+gamma\b', r'\1 γ', text, flags=re.IGNORECASE)
-    
-    return text
-
 def normalize_math_symbols(text):
     """Preserve ALL academic symbols uniformly - DO NOT replace with regular text"""
     if not text:
         return ""
     
-    # First, fix common Greek symbol misrecognitions
-    text = fix_greek_symbol_misrecognition(text)
+    # PRESERVE Greek letters and math symbols exactly as they appear
+    # DO NOT apply any corrections to λn, λp, λn/λp or other Greek expressions
     
-    # PRESERVE these symbols - do NOT convert to text
     # Only normalize superscripts and subscripts for consistency
     
     # Superscripts to ^notation
