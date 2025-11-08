@@ -14,7 +14,7 @@ import re
 # Try to import LaTeX-OCR
 try:
     from pix2tex.cli import LatexOCR
-    from pix2tex.model import HuggingFaceModel
+    # Note: HuggingFaceModel import removed as it doesn't exist in current pix2tex version
     LATEX_OCR_AVAILABLE = True
 except ImportError as e:
     logging.warning(f"LaTeX-OCR not available: {e}")
