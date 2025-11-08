@@ -10,6 +10,49 @@ import numpy as np
 from PIL import Image
 import cv2
 import re
+import time
+import threading
+
+# Cross-platform timeout handling
+class TimeoutError(Exception):
+    """Custom timeout exception"""
+    pass
+
+def run_with_timeout(func, args=(), kwargs={}, timeout_seconds=30):
+    """
+    Run a function with timeout using threading (cross-platform)
+    """
+    result_container = []
+    exception_container = []
+    
+    def target():
+        try:
+            result = func(*args, **kwargs)
+            result_container.append(result)
+        except Exception as e:
+            exception_container.append(e)
+    
+    # Create and start thread
+    thread = threading.Thread(target=target)
+    thread.daemon = True
+    thread.start()
+    
+    # Wait for completion or timeout
+    thread.join(timeout_seconds)
+    
+    if thread.is_alive():
+        logging.error(f"❌ Function timed out after {timeout_seconds}s")
+        raise TimeoutError(f"Operation timed out after {timeout_seconds} seconds")
+    
+    # Check for exceptions
+    if exception_container:
+        raise exception_container[0]
+    
+    # Return result
+    if result_container:
+        return result_container[0]
+    else:
+        return None
 
 # Try to import LaTeX-OCR
 try:
@@ -146,28 +189,87 @@ class LatexOCRIntegration:
     
     def extract_text_with_latex_ocr(self, image_path):
         """
-        Extract text using LaTeX-OCR (primary engine)
+        Extract text using LaTeX-OCR (primary engine) with timeout handling
         """
         if not self.latex_ocr:
             return None
         
         try:
-            # Preprocess image
-            processed_image = self.preprocess_image_for_latex_ocr(image_path)
+            # Preprocess image for speed
+            processed_image = self.fast_preprocess_image_for_latex_ocr(image_path)
             if processed_image is None:
                 return None
             
-            # Extract LaTeX using LaTeX-OCR
-            latex_result = self.latex_ocr(processed_image)
+            # Use cross-platform timeout to prevent hanging
+            timeout_seconds = 30  # 30 second timeout
+            logging.info(f"🧮 Attempting LaTeX-OCR with {timeout_seconds}s timeout...")
             
-            if latex_result and latex_result.strip():
-                logging.info(f"LaTeX-OCR result: {latex_result}")
-                return latex_result
+            start_time = time.time()
             
-            return None
+            try:
+                # Run LaTeX-OCR with timeout
+                latex_result = run_with_timeout(
+                    self.latex_ocr, 
+                    args=(processed_image,), 
+                    timeout_seconds=timeout_seconds
+                )
+                
+                end_time = time.time()
+                duration = end_time - start_time
+                
+                if latex_result and latex_result.strip():
+                    logging.info(f"✅ LaTeX-OCR succeeded in {duration:.2f}s: {latex_result[:50]}...")
+                    return latex_result
+                else:
+                    logging.warning(f"⚠️ LaTeX-OCR returned empty result in {duration:.2f}s")
+                    return None
+                    
+            except TimeoutError as e:
+                end_time = time.time()
+                duration = end_time - start_time
+                logging.error(f"❌ LaTeX-OCR timed out after {duration:.2f}s: {e}")
+                return None
             
         except Exception as e:
             logging.error(f"Error with LaTeX-OCR: {e}")
+            return None
+    
+    def fast_preprocess_image_for_latex_ocr(self, image_path):
+        """
+        Fast image preprocessing for LaTeX-OCR to improve performance
+        """
+        try:
+            # Read image
+            if isinstance(image_path, str):
+                image = cv2.imread(image_path)
+            else:
+                image = image_path
+            
+            if image is None:
+                raise ValueError("Could not read image")
+            
+            # Convert to RGB
+            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            
+            # Fast resize for better performance (max 1024px)
+            height, width = image.shape[:2]
+            if max(height, width) > 1024:
+                scale = 1024 / max(height, width)
+                new_width = int(width * scale)
+                new_height = int(height * scale)
+                image = cv2.resize(image, (new_width, new_height), interpolation=cv2.INTER_AREA)
+                logging.info(f"📏 Image resized from {width}x{height} to {new_width}x{new_height}")
+            
+            # Basic contrast enhancement (faster than CLAHE)
+            image = cv2.convertScaleAbs(image, alpha=1.2, beta=10)
+            
+            # Convert back to PIL
+            pil_image = Image.fromarray(image)
+            
+            return pil_image
+            
+        except Exception as e:
+            logging.error(f"Error in fast preprocessing for LaTeX-OCR: {e}")
             return None
     
     def extract_text_with_easyocr(self, image_path):
@@ -203,7 +305,9 @@ class LatexOCRIntegration:
     def extract_text(self, image_path):
         """
         Extract text using LaTeX-OCR first, then EasyOCR as fallback
+        Includes timeout handling and performance monitoring
         """
+        start_time = time.time()
         logging.info("🔍 Starting text extraction with LaTeX-OCR priority")
         
         # Step 1: Detect if content is mathematical
@@ -216,15 +320,18 @@ class LatexOCRIntegration:
             latex_result = self.extract_text_with_latex_ocr(image_path)
             
             if latex_result and len(latex_result.strip()) > 0:
-                logging.info("✅ LaTeX-OCR succeeded")
+                end_time = time.time()
+                duration = end_time - start_time
+                logging.info(f"✅ LaTeX-OCR succeeded in {duration:.2f}s total")
                 return {
                     'text': latex_result,
                     'engine': 'latex-ocr',
                     'confidence': 'high',
-                    'is_mathematical': True
+                    'is_mathematical': True,
+                    'processing_time': duration
                 }
             else:
-                logging.info("⚠️ LaTeX-OCR failed or returned empty")
+                logging.info("⚠️ LaTeX-OCR failed or returned empty - falling back to EasyOCR")
         
         # Step 3: Fallback to EasyOCR
         if self.easyocr_reader:
@@ -232,23 +339,30 @@ class LatexOCRIntegration:
             easyocr_result = self.extract_text_with_easyocr(image_path)
             
             if easyocr_result and len(easyocr_result.strip()) > 0:
-                logging.info("✅ EasyOCR succeeded as fallback")
+                end_time = time.time()
+                duration = end_time - start_time
+                logging.info(f"✅ EasyOCR succeeded as fallback in {duration:.2f}s total")
                 return {
                     'text': easyocr_result,
                     'engine': 'easyocr',
                     'confidence': 'medium',
-                    'is_mathematical': is_math
+                    'is_mathematical': is_math,
+                    'processing_time': duration
                 }
             else:
                 logging.info("⚠️ EasyOCR also failed")
         
         # Step 4: Complete failure
-        logging.error("❌ Both OCR engines failed")
+        end_time = time.time()
+        duration = end_time - start_time
+        logging.error(f"❌ Both OCR engines failed after {duration:.2f}s")
         return {
             'text': '',
             'engine': 'none',
             'confidence': 'none',
-            'is_mathematical': False
+            'is_mathematical': False,
+            'processing_time': duration,
+            'error': 'Both OCR engines failed or timed out'
         }
     
     def get_engine_status(self):
@@ -286,12 +400,24 @@ def get_latex_ocr_integration():
         latex_ocr_integration = LatexOCRIntegration()
     return latex_ocr_integration
 
+def post_process_latex_ocr_result(latex_result):
+    """
+    Post-process LaTeX-OCR result
+    """
+    # TO DO: implement LaTeX post-processing logic here
+    return latex_result
+
 def extract_text_with_latex_priority(image_path):
     """
     Convenience function to extract text with LaTeX-OCR priority
     """
     integration = get_latex_ocr_integration()
-    return integration.extract_text(image_path)
+    result = integration.extract_text(image_path)
+    
+    if result['engine'] == 'latex-ocr' and result['text']:
+        result['text'] = post_process_latex_ocr_result(result['text'])
+    
+    return result
 
 if __name__ == "__main__":
     # Test the LaTeX-OCR integration
