@@ -1,14 +1,29 @@
 # OCR Service - Flask App on Azure VM
-# Using EasyOCR instead of PaddleOCR
+# Using LaTeX-OCR (Primary) + EasyOCR (Fallback) for mathematical expressions
 
 # Flask
 Flask==3.0.0
 flask-cors==4.0.0
 
-# EasyOCR (lightweight alternative to PaddleOCR)
+# LaTeX-OCR (Primary engine for mathematical expressions)
+pix2tex>=0.1.4
+latex-ocr>=0.1.3
+
+# Additional dependencies for LaTeX-OCR
+transformers>=4.21.0
+torchvision>=0.13.0
+timm>=0.6.7
+
+# EasyOCR (Fallback engine for non-mathematical content)
 easyocr==1.7.0
 
-# Image processing - CRITICAL: Use NumPy 1.x and Pillow 9.x for EasyOCR compatibility
+# Mathematical processing
+sympy>=1.10.0
+
+# LaTeX parsing (optional but recommended)
+latex2mathml>=3.75.0
+
+# Image processing - CRITICAL: Use NumPy 1.x and Pillow 9.x for compatibility
 Pillow==9.5.0
 numpy<2.0.0
 opencv-python-headless==4.8.1.78
@@ -19,9 +34,14 @@ PyMuPDF>=1.23.0
 # Production server
 gunicorn==21.2.0
 
-# Note: EasyOCR advantages:
-# - Simpler installation than PaddleOCR
-# - Better maintained
-# - Good accuracy for printed text
-# - 80+ languages support
-# - No GPU required (CPU mode works well)
+# Installation Notes:
+# 1. LaTeX-OCR will be installed as the PRIMARY OCR engine
+# 2. EasyOCR will remain as FALLBACK for non-mathematical content
+# 3. The system automatically detects mathematical content and chooses the best engine
+# 4. Run 'bash install_latex_ocr.sh' for guided installation
+# 5. LaTeX-OCR significantly improves detection of mathematical expressions, equations, and symbols
+
+# Engine Priority:
+# - Mathematical content detected -> LaTeX-OCR first, then EasyOCR fallback
+# - Non-mathematical content -> EasyOCR directly
+# - If LaTeX-OCR fails -> EasyOCR automatically used as fallback

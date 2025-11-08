@@ -1,7 +1,7 @@
 """
-OCR Service - Flask Application using EasyOCR
+OCR Service - Flask Application using LaTeX-OCR (Primary) + EasyOCR (Fallback)
 Direct Flask app without Azure Functions wrapper
-Last deployed: 2025-11-07 20:00:00
+Last deployed: 2025-11-08 11:00:00
 """
 
 from flask import Flask, request, jsonify
@@ -15,6 +15,9 @@ import unicodedata
 from PIL import Image
 import numpy as np
 import easyocr
+
+# LaTeX-OCR integration (primary engine)
+from latex_ocr_integration import get_latex_ocr_integration, extract_text_with_latex_priority
 
 # Mathematical expression libraries
 import math
@@ -719,7 +722,7 @@ def health():
 @app.route('/api/extract-text', methods=['POST'])
 def extract_text():
     """
-    Extract text from an image using EasyOCR
+    Extract text from an image using LaTeX-OCR (Primary) + EasyOCR (Fallback)
     
     Request:
         - file: Image file (multipart/form-data)
@@ -730,7 +733,9 @@ def extract_text():
         {
             "success": true,
             "text": "extracted text",
-            "confidence": 0.95
+            "engine": "latex-ocr" | "easyocr",
+            "confidence": 0.95,
+            "is_mathematical": true
         }
     """
     try:
@@ -738,72 +743,103 @@ def extract_text():
         if 'file' in request.files:
             file = request.files['file']
             image_data = file.read()
+            # Save temporary file for LaTeX-OCR
+            temp_path = "/tmp/ocr_image.png"
+            with open(temp_path, "wb") as f:
+                f.write(image_data)
+            image_path = temp_path
         elif request.is_json:
             data = request.get_json()
             image_base64 = data.get('image_base64', '')
             image_data = base64.b64decode(image_base64)
+            # Save temporary file for LaTeX-OCR
+            temp_path = "/tmp/ocr_image.png"
+            with open(temp_path, "wb") as f:
+                f.write(image_data)
+            image_path = temp_path
         else:
             return jsonify({'success': False, 'error': 'No image provided'}), 400
         
-        # Preprocess image
-        img_np = preprocess_image(image_data)
-        if img_np is None:
-            return jsonify({'success': False, 'error': 'Failed to process image'}), 500
+        logging.info("🔍 Starting text extraction with LaTeX-OCR priority...")
         
-        # Get OCR reader
-        reader = get_ocr_reader()
+        # Use LaTeX-OCR integration (primary engine)
+        ocr_result = extract_text_with_latex_priority(image_path)
         
-        # Perform OCR with optimized parameters for math content
-        logging.info("🔍 Performing OCR with enhanced math optimization...")
-        results = reader.readtext(
-            img_np,
-            detail=1,
-            paragraph=False,  # Detect individual text elements
-            min_size=8,       # Detect even smaller text (math symbols)
-            text_threshold=0.5,  # Lower threshold for better symbol detection
-            low_text=0.2,     # Detect even fainter text
-            contrast_ths=0.3, # Adjust contrast threshold for symbols
-            adjust_contrast=0.7, # Enhance contrast for math symbols
-            add_margin=0.1,   # Add margin for better symbol detection
-            x_ths=1.0,        # Text threshold for horizontal grouping
-            y_ths=0.5,        # Text threshold for vertical grouping
-            width_ths=0.8,    # Width threshold for text grouping
-            height_ths=0.8    # Height threshold for text grouping
-        )
-        
-        # Extract text from results
-        # EasyOCR returns: [(bbox, text, confidence), ...]
-        raw_text = ' '.join([text for (bbox, text, conf) in results])
-        avg_confidence = sum([conf for (_, _, conf) in results]) / len(results) if results else 0
-        
-        # Apply mathematical symbol and expression corrections
-        corrected_text = correct_math_symbols(raw_text)
-        
-        logging.info(f"✅ OCR completed: {len(corrected_text)} characters, confidence: {avg_confidence:.2f}")
-        
-        # Convert NumPy types to Python native types for JSON serialization
-        details = [
-            {
-                'text': text,
-                'confidence': float(conf),
-                'bbox': convert_numpy_types(bbox)
-            }
-            for (bbox, text, conf) in results
-        ]
-        
-        return jsonify({
-            'success': True,
-            'text': corrected_text,
-            'raw_text': raw_text,  # Include original for debugging
-            'confidence': float(avg_confidence),
-            'corrections_applied': corrected_text != raw_text,
-            'details': details
-        })
+        if ocr_result['text'] and len(ocr_result['text'].strip()) > 0:
+            # Apply mathematical symbol corrections to the result
+            corrected_text = correct_math_symbols(ocr_result['text'])
+            
+            logging.info(f"✅ OCR completed with {ocr_result['engine']}: {len(corrected_text)} characters")
+            logging.info(f"📊 Engine used: {ocr_result['engine']}")
+            logging.info(f"🧮 Mathematical content: {ocr_result['is_mathematical']}")
+            
+            # Clean up temporary file
+            if os.path.exists(image_path):
+                os.remove(image_path)
+            
+            return jsonify({
+                'success': True,
+                'text': corrected_text,
+                'raw_text': ocr_result['text'],  # Original OCR result
+                'engine': ocr_result['engine'],
+                'confidence': ocr_result['confidence'],
+                'is_mathematical': ocr_result['is_mathematical'],
+                'corrections_applied': corrected_text != ocr_result['text']
+            })
+        else:
+            # Clean up temporary file
+            if os.path.exists(image_path):
+                os.remove(image_path)
+            
+            return jsonify({
+                'success': False,
+                'error': 'No text could be extracted from the image'
+            }), 400
         
     except Exception as e:
         logging.error(f"❌ OCR error: {e}")
         import traceback
         traceback.print_exc()
+        
+        # Clean up temporary file on error
+        try:
+            if 'image_path' in locals() and os.path.exists(image_path):
+                os.remove(image_path)
+        except:
+            pass
+        
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/ocr-engines-status', methods=['GET'])
+def ocr_engines_status():
+    """
+    Get status of OCR engines (LaTeX-OCR and EasyOCR)
+    
+    Response:
+        {
+            "success": true,
+            "engines": {
+                "latex_ocr_available": true,
+                "easyocr_available": true,
+                "primary_engine": "latex-ocr",
+                "fallback_engine": "easyocr"
+            }
+        }
+    """
+    try:
+        integration = get_latex_ocr_integration()
+        status = integration.get_engine_status()
+        
+        return jsonify({
+            'success': True,
+            'engines': status
+        })
+        
+    except Exception as e:
+        logging.error(f"❌ Error getting OCR engine status: {e}")
         return jsonify({
             'success': False,
             'error': str(e)
