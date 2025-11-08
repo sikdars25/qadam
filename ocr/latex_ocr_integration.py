@@ -71,6 +71,14 @@ except ImportError as e:
     logging.warning(f"EasyOCR not available: {e}")
     EASYOCR_AVAILABLE = False
 
+# Large symbol processing
+try:
+    from large_symbol_processor import LargeSymbolProcessor
+    LARGE_SYMBOL_PROCESSOR_AVAILABLE = True
+except ImportError as e:
+    logging.warning(f"Large symbol processor not available: {e}")
+    LARGE_SYMBOL_PROCESSOR_AVAILABLE = False
+
 class LatexOCRIntegration:
     """
     LaTeX-OCR integration with EasyOCR fallback
@@ -80,6 +88,7 @@ class LatexOCRIntegration:
     def __init__(self):
         self.latex_ocr = None
         self.easyocr_reader = None
+        self.large_symbol_processor = None
         self.initialize_engines()
     
     def initialize_engines(self):
@@ -109,6 +118,18 @@ class LatexOCRIntegration:
                 self.easyocr_reader = None
         else:
             logging.warning("⚠️ EasyOCR not available at import time")
+        
+        # Initialize large symbol processor
+        if LARGE_SYMBOL_PROCESSOR_AVAILABLE:
+            try:
+                logging.info("🔍 Initializing large symbol processor...")
+                self.large_symbol_processor = LargeSymbolProcessor()
+                logging.info("✅ Large symbol processor initialized successfully")
+            except Exception as e:
+                logging.error(f"❌ Failed to initialize large symbol processor: {e}")
+                self.large_symbol_processor = None
+        else:
+            logging.warning("⚠️ Large symbol processor not available at import time")
     
     def preprocess_image_for_latex_ocr(self, image_path):
         """
@@ -195,8 +216,14 @@ class LatexOCRIntegration:
             return None
         
         try:
-            # Preprocess image for speed
-            processed_image = self.fast_preprocess_image_for_latex_ocr(image_path)
+            # Check if image contains large symbols and use specialized preprocessing
+            if self.large_symbol_processor and self.large_symbol_processor.detect_large_symbols(image_path):
+                logging.info("🔍 Large symbols detected - using specialized preprocessing")
+                processed_image = self.large_symbol_processor.preprocess_for_large_symbols(image_path)
+            else:
+                # Use standard fast preprocessing
+                processed_image = self.fast_preprocess_image_for_latex_ocr(image_path)
+            
             if processed_image is None:
                 return None
             
@@ -398,14 +425,17 @@ def get_latex_ocr_integration():
     global latex_ocr_integration
     if latex_ocr_integration is None:
         latex_ocr_integration = LatexOCRIntegration()
+    # LaTeX post-processing
+    from latex_postprocessor import post_process_latex_ocr_result
+    # Large symbol processing
+    from large_symbol_processor import LargeSymbolProcessor
+    def post_process_latex_ocr_result(latex_result):
+        """
+        Post-process LaTeX-OCR result
+        """
+        # TO DO: implement LaTeX post-processing logic here
+        return LargeSymbolProcessor(latex_result)
     return latex_ocr_integration
-
-def post_process_latex_ocr_result(latex_result):
-    """
-    Post-process LaTeX-OCR result
-    """
-    # TO DO: implement LaTeX post-processing logic here
-    return latex_result
 
 def extract_text_with_latex_priority(image_path):
     """
