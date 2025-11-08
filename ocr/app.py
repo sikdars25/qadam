@@ -19,6 +19,9 @@ import easyocr
 # LaTeX-OCR integration (primary engine)
 from latex_ocr_integration import get_latex_ocr_integration, extract_text_with_latex_priority
 
+# LaTeX post-processing
+from latex_postprocessor import post_process_latex_ocr_result
+
 # Mathematical expression libraries
 import math
 import xml.etree.ElementTree as ET
@@ -766,8 +769,17 @@ def extract_text():
         ocr_result = extract_text_with_latex_priority(image_path)
         
         if ocr_result['text'] and len(ocr_result['text'].strip()) > 0:
-            # Apply mathematical symbol corrections to the result
-            corrected_text = correct_math_symbols(ocr_result['text'])
+            # Apply LaTeX post-processing if LaTeX-OCR was used
+            if ocr_result['engine'] == 'latex-ocr':
+                logging.info("🔧 Applying LaTeX post-processing...")
+                processed_result = post_process_latex_ocr_result(ocr_result['text'])
+                processed_text = processed_result['corrected_text']
+                logging.info(f"✅ LaTeX post-processing completed")
+            else:
+                processed_text = ocr_result['text']
+            
+            # Apply generic mathematical symbol corrections
+            corrected_text = correct_math_symbols(processed_text)
             
             logging.info(f"✅ OCR completed with {ocr_result['engine']}: {len(corrected_text)} characters")
             logging.info(f"📊 Engine used: {ocr_result['engine']}")
@@ -781,10 +793,12 @@ def extract_text():
                 'success': True,
                 'text': corrected_text,
                 'raw_text': ocr_result['text'],  # Original OCR result
+                'processed_text': processed_text if ocr_result['engine'] == 'latex-ocr' else None,
                 'engine': ocr_result['engine'],
                 'confidence': ocr_result['confidence'],
                 'is_mathematical': ocr_result['is_mathematical'],
-                'corrections_applied': corrected_text != ocr_result['text']
+                'corrections_applied': corrected_text != ocr_result['text'],
+                'latex_processed': ocr_result['engine'] == 'latex-ocr'
             })
         else:
             # Clean up temporary file
