@@ -45,20 +45,27 @@ class LatexOCRIntegration:
         # Initialize LaTeX-OCR (primary)
         if LATEX_OCR_AVAILABLE:
             try:
+                logging.info("🔍 Attempting to initialize LaTeX-OCR...")
                 self.latex_ocr = LatexOCR()
                 logging.info("✅ LaTeX-OCR initialized successfully")
             except Exception as e:
                 logging.error(f"❌ Failed to initialize LaTeX-OCR: {e}")
+                logging.error(f"LaTeX-OCR will be unavailable, using EasyOCR fallback")
                 self.latex_ocr = None
+        else:
+            logging.warning("⚠️ LaTeX-OCR not available at import time")
         
         # Initialize EasyOCR (fallback)
         if EASYOCR_AVAILABLE:
             try:
+                logging.info("🔍 Attempting to initialize EasyOCR...")
                 self.easyocr_reader = easyocr.Reader(['en', 'la', 'fr', 'de'])
                 logging.info("✅ EasyOCR initialized successfully as fallback")
             except Exception as e:
                 logging.error(f"❌ Failed to initialize EasyOCR: {e}")
                 self.easyocr_reader = None
+        else:
+            logging.warning("⚠️ EasyOCR not available at import time")
     
     def preprocess_image_for_latex_ocr(self, image_path):
         """
@@ -246,11 +253,27 @@ class LatexOCRIntegration:
     
     def get_engine_status(self):
         """Get status of both OCR engines"""
+        latex_available = LATEX_OCR_AVAILABLE and self.latex_ocr is not None
+        easy_available = EASYOCR_AVAILABLE and self.easyocr_reader is not None
+        
+        # Add debug logging
+        logging.info(f"🔍 Engine Status Debug:")
+        logging.info(f"  LATEX_OCR_AVAILABLE: {LATEX_OCR_AVAILABLE}")
+        logging.info(f"  self.latex_ocr is not None: {self.latex_ocr is not None}")
+        logging.info(f"  EASYOCR_AVAILABLE: {EASYOCR_AVAILABLE}")
+        logging.info(f"  self.easyocr_reader is not None: {self.easyocr_reader is not None}")
+        
         return {
-            'latex_ocr_available': LATEX_OCR_AVAILABLE and self.latex_ocr is not None,
-            'easyocr_available': EASYOCR_AVAILABLE and self.easyocr_reader is not None,
-            'primary_engine': 'latex-ocr' if self.latex_ocr else 'easyocr',
-            'fallback_engine': 'easyocr' if self.easyocr_reader else 'none'
+            'latex_ocr_available': latex_available,
+            'easyocr_available': easy_available,
+            'primary_engine': 'latex-ocr' if latex_available else 'easyocr',
+            'fallback_engine': 'easyocr' if easy_available else 'none',
+            'debug': {
+                'latex_import_available': LATEX_OCR_AVAILABLE,
+                'latex_initialized': self.latex_ocr is not None,
+                'easyocr_import_available': EASYOCR_AVAILABLE,
+                'easyocr_initialized': self.easyocr_reader is not None
+            }
         }
 
 # Global instance
