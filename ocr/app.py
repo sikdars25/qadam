@@ -16,6 +16,10 @@ from PIL import Image
 import numpy as np
 import easyocr
 
+# Load environment variables from .env file
+from dotenv import load_dotenv
+load_dotenv()
+
 # LaTeX-OCR integration (primary engine)
 from latex_ocr_integration import get_latex_ocr_integration, extract_text_with_latex_priority
 
