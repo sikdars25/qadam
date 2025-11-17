@@ -1234,6 +1234,87 @@ def get_math_libraries_status():
         }
     })
 
+@app.route('/api/latex-ocr-solve', methods=['POST'])
+def solve_latex_ocr_question():
+    """
+    Solve OCR text question using LaTeX OCR integration with NEW APPROACH:
+    - Break into expressions, solve with Wolfram Alpha, format with Groq
+    - Groq NO LONGER receives original OCR text
+    """
+    try:
+        # Import the API integration (only available in backend-ocr branch)
+        from latex_ocr_api_integration import LatexOCRIntegration
+        
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No JSON data provided'}), 400
+        
+        ocr_text = data.get('ocr_text', '').strip()
+        subject = data.get('subject', '')
+        
+        if not ocr_text:
+            return jsonify({'error': 'OCR text is required'}), 400
+        
+        # Validate input length
+        if len(ocr_text) > 10000:
+            return jsonify({'error': 'OCR text too long (max 10000 characters)'}), 400
+        
+        logger.info(f"🔍 Processing LaTeX OCR question with NEW approach")
+        logger.info(f"📝 OCR text: {ocr_text[:100]}...")
+        
+        # Initialize the integration with NEW approach
+        integration = LatexOCRIntegration()
+        
+        # Process the OCR text with timeout protection
+        import signal
+        from contextlib import contextmanager
+        
+        @contextmanager
+        def time_limit(seconds):
+            def signal_handler(signum, frame):
+                raise TimeoutError("Processing timed out")
+            signal.signal(signal.SIGALRM, signal_handler)
+            signal.alarm(seconds)
+            try:
+                yield
+            finally:
+                signal.alarm(0)
+        
+        try:
+            with time_limit(300):  # 5 minute timeout
+                result = integration.process_single_question(ocr_text, subject)
+        except TimeoutError:
+            return jsonify({'error': 'Processing timed out - question may be too complex'}), 408
+        
+        if result['success']:
+            # Prepare response with NEW approach structure
+            response_data = {
+                'success': True,
+                'original_text': result['original_text'],
+                'subject': result['subject'],
+                'detected_expressions': result['detected_expressions'],
+                'solved_expressions': result['solved_expressions'],  # NEW: Detailed solved results
+                'final_answer': result['final_answer'],
+                'processing_time_seconds': result.get('processing_time_seconds', 0),
+                'approach': result.get('approach', 'wolfram_alpha_primary_grok_formatting')  # NEW: Approach indicator
+            }
+            
+            return jsonify(response_data)
+        else:
+            return jsonify({
+                'error': 'Failed to process OCR text', 
+                'details': result.get('error', 'Unknown error'),
+                'processing_time_seconds': result.get('processing_time_seconds', 0)
+            }), 500
+            
+    except ImportError as e:
+        return jsonify({'error': f'LaTeX OCR API integration not available: {e}'}), 503
+    except Exception as e:
+        import traceback
+        logger.error(f"❌ LaTeX OCR processing error: {e}")
+        traceback.print_exc()
+        return jsonify({'error': 'Internal server error during OCR processing'}), 500
+
 if __name__ == '__main__':
     # For development only
     app.run(host='0.0.0.0', port=8000, debug=False)
