@@ -283,6 +283,55 @@ def get_supported_languages() -> Dict[str, str]:
     except:
         return {}
 
+def solve_latex_ocr_question(ocr_text: str, subject: str = '') -> Optional[Dict[str, Any]]:
+    """
+    Solve OCR text question using NEW APPROACH:
+    - Calls OCR service with /api/latex-ocr-solve endpoint
+    - Uses Wolfram Alpha for solving, Groq for formatting only
+    - Groq NO LONGER receives original OCR text
+    
+    Args:
+        ocr_text: Text extracted from OCR
+        subject: Subject area (mathematics, physics, etc.)
+        
+    Returns:
+        Solution result with solved expressions and formatted answer
+    """
+    try:
+        url = f"{OCR_SERVICE_URL}/api/latex-ocr-solve"
+        payload = {
+            'ocr_text': ocr_text,
+            'subject': subject
+        }
+        
+        print(f"🔍 Sending OCR text to NEW API endpoint: {url}")
+        print(f"📝 OCR text: {ocr_text[:100]}...")
+        print(f"📚 Subject: {subject}")
+        
+        response = requests.post(url, json=payload, timeout=300)  # 5 minute timeout
+        
+        if response.status_code == 200:
+            result = response.json()
+            
+            if result.get('success'):
+                print("✅ NEW APPROACH processing successful!")
+                print(f"📊 Expressions detected: {len(result.get('detected_expressions', []))}")
+                print(f"🔧 Expressions solved: {len(result.get('solved_expressions', []))}")
+                print(f"⏱️  Processing time: {result.get('processing_time_seconds', 0)}s")
+                print(f"🎯 Approach: {result.get('approach', 'unknown')}")
+                
+                return result
+            else:
+                print(f"❌ NEW APPROACH processing failed: {result.get('error', 'Unknown error')}")
+                return None
+        else:
+            print(f"❌ OCR service error: {response.status_code}")
+            return None
+            
+    except Exception as e:
+        print(f"❌ Error calling NEW OCR API: {e}")
+        return None
+
 # Check OCR service on import
 OCR_AVAILABLE = check_ocr_service()
 

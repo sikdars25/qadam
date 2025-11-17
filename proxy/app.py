@@ -3194,6 +3194,125 @@ def extract_text_ocr():
             'error': str(e)
         }), 500
 
+@app.route('/api/latex-ocr-solve', methods=['POST'])
+@token_required
+def solve_latex_ocr_question():
+    """
+    Solve OCR text question using NEW APPROACH:
+    - Break OCR text into individual mathematical expressions
+    - Solve each expression with Wolfram Alpha (primary API)
+    - Use SymPy as fallback when Wolfram fails
+    - Only pass SOLVED EXPRESSIONS to Groq for formatting
+    - Groq NO LONGER receives original OCR text
+    
+    This replaces the old approach of passing full OCR text to Groq
+    """
+    try:
+        import ocr_client
+        from werkzeug.utils import secure_filename
+        import os
+        from datetime import datetime
+        
+        # Get current user for logging
+        current_user = get_current_user()
+        
+        # Check if file is uploaded
+        if 'file' not in request.files:
+            return jsonify({
+                'success': False,
+                'error': 'No file uploaded'
+            }), 400
+        
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({
+                'success': False,
+                'error': 'No file selected'
+            }), 400
+        
+        # Get parameters
+        language = request.form.get('language', 'en')
+        subject = request.form.get('subject', 'mathematics')
+        
+        # Save file temporarily
+        temp_filename = secure_filename(f"latex_ocr_temp_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png")
+        temp_path = os.path.join(app.config['UPLOAD_FOLDER'], temp_filename)
+        file.save(temp_path)
+        
+        try:
+            # Step 1: Extract text using OCR service
+            print(f"📸 Extracting text from image: {temp_filename}")
+            ocr_result = ocr_client.ocr_image_with_retry(temp_path, language='en,la', max_retries=3)
+            
+            # Clean up temp file
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
+            
+            if not ocr_result.get('success'):
+                return jsonify({
+                    'success': False,
+                    'error': f'OCR extraction failed: {ocr_result.get("error", "Unknown error")}'
+                }), 500
+            
+            # Step 2: Solve using NEW APPROACH via OCR service
+            ocr_text = ocr_result.get('text', '').strip()
+            if not ocr_text:
+                return jsonify({
+                    'success': False,
+                    'error': 'No text extracted from image'
+                }), 400
+            
+            print(f"🔍 Using NEW APPROACH to solve OCR text for user {current_user['id']}")
+            print(f"📝 Extracted text: {ocr_text[:100]}...")
+            
+            # Call the NEW API endpoint
+            solve_result = ocr_client.solve_latex_ocr_question(ocr_text, subject)
+            
+            if solve_result and solve_result.get('success'):
+                # Log user activity
+                log_user_activity(
+                    user_id=current_user['id'],
+                    activity_type='latex_ocr_solve_new_approach',
+                    details={
+                        'subject': subject,
+                        'expressions_detected': len(solve_result.get('detected_expressions', [])),
+                        'expressions_solved': len(solve_result.get('solved_expressions', [])),
+                        'processing_time': solve_result.get('processing_time_seconds', 0),
+                        'approach': solve_result.get('approach', 'wolfram_alpha_primary_grok_formatting')
+                    }
+                )
+                
+                return jsonify({
+                    'success': True,
+                    'original_text': ocr_text,
+                    'subject': subject,
+                    'detected_expressions': solve_result.get('detected_expressions', []),
+                    'solved_expressions': solve_result.get('solved_expressions', []),
+                    'final_answer': solve_result.get('final_answer', {}),
+                    'processing_time_seconds': solve_result.get('processing_time_seconds', 0),
+                    'approach': solve_result.get('approach', 'wolfram_alpha_primary_grok_formatting'),
+                    'message': 'Question solved using NEW approach (Wolfram Alpha + Groq formatting)'
+                })
+            else:
+                return jsonify({
+                    'success': False,
+                    'error': solve_result.get('error', 'Failed to solve question with NEW approach') if solve_result else 'OCR service unavailable'
+                }), 500
+                
+        except Exception as processing_error:
+            # Clean up temp file on error
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
+            raise processing_error
+            
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': f'Internal server error: {str(e)}'
+        }), 500
+
 # ============================================
 # ADMIN USER MANAGEMENT ENDPOINTS
 # ============================================
