@@ -31,6 +31,3 @@ mysql-connector-python==8.0.33
 # AI client for calling VM service (no heavy dependencies needed)
 # Removed: groq, scikit-learn, numpy, scipy, nltk
 # These are now in the AI VM service (backend-ai/ai/)
-
-# LaTeX OCR Integration Dependencies
-sympy>=1.12.0
