@@ -86,6 +86,20 @@ except Exception as e:
     traceback.print_exc()
     AI_ENABLED = False
 
+# Import LaTeX OCR Integration
+try:
+    import sys
+    sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'ocr'))
+    from latex_ocr_integration import LatexOCRIntegration
+    LATEX_OCR_ENABLED = True
+    print("✅ LaTeX OCR integration enabled")
+except ImportError as e:
+    print(f"LaTeX OCR integration disabled: {e}")
+    LATEX_OCR_ENABLED = False
+except Exception as e:
+    print(f"LaTeX OCR integration disabled due to error: {e}")
+    LATEX_OCR_ENABLED = False
+
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY', 'your-secret-key-here-change-in-production')
 # Updated: Nov 1, 2025 1:35 AM - Consolidated AI service deployment
@@ -3426,6 +3440,102 @@ def get_usage_analytics():
         traceback.print_exc()
         conn.close()
         return jsonify({'error': str(e)}), 500
+
+@app.route('/api/latex-ocr-solve', methods=['POST'])
+@token_required
+def solve_latex_ocr_question():
+    """Solve OCR text question using LaTeX OCR integration with free math/science APIs and Groq explanations"""
+    if not LATEX_OCR_ENABLED:
+        return jsonify({'error': 'LaTeX OCR integration not available'}), 503
+    
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No JSON data provided'}), 400
+        
+        ocr_text = data.get('ocr_text', '').strip()
+        subject = data.get('subject', '')
+        
+        if not ocr_text:
+            return jsonify({'error': 'OCR text is required'}), 400
+        
+        # Validate input length
+        if len(ocr_text) > 10000:  # 10k character limit
+            return jsonify({'error': 'OCR text too long (max 10000 characters)'}), 400
+        
+        print(f"🔍 Processing LaTeX OCR question for user {get_current_user()['id']}")
+        print(f"📝 OCR text: {ocr_text[:100]}...")
+        
+        # Initialize the integration
+        integration = LatexOCRIntegration()
+        
+        # Process the OCR text with timeout protection
+        import signal
+        from contextlib import contextmanager
+        
+        @contextmanager
+        def time_limit(seconds):
+            def signal_handler(signum, frame):
+                raise TimeoutError("Processing timed out")
+            signal.signal(signal.SIGALRM, signal_handler)
+            signal.alarm(seconds)
+            try:
+                yield
+            finally:
+                signal.alarm(0)
+        
+        try:
+            with time_limit(300):  # 5 minute timeout
+                result = integration.process_single_question(ocr_text, subject)
+        except TimeoutError:
+            return jsonify({'error': 'Processing timed out - question may be too complex'}), 408
+        
+        if result['success']:
+            # Log the activity
+            if COSMOS_DB_ENABLED:
+                try:
+                    log_user_activity(
+                        user_id=get_current_user()['id'],
+                        activity_type='latex_ocr_solve',
+                        details={
+                            'ocr_text': ocr_text[:500],  # Truncate for storage
+                            'subject': subject,
+                            'expressions_detected': len(result['detected_expressions']),
+                            'final_answer_generated': result['final_answer']['success'],
+                            'processing_time_seconds': result.get('processing_time_seconds', 0)
+                        }
+                    )
+                except Exception as log_error:
+                    print(f"⚠️ Failed to log activity: {log_error}")
+            
+            # Prepare response (exclude sensitive data)
+            response_data = {
+                'success': True,
+                'original_text': result['original_text'],
+                'subject': result['subject'],
+                'detected_expressions': result['detected_expressions'],
+                'final_answer': result['final_answer'],
+                'processing_time_seconds': result.get('processing_time_seconds', 0)
+            }
+            
+            # Include API results only if admin (for debugging)
+            current_user = get_current_user()
+            if current_user.get('is_admin', False):
+                response_data['api_results'] = result['api_results']
+            
+            return jsonify(response_data)
+        else:
+            return jsonify({
+                'error': 'Failed to process OCR text', 
+                'details': result.get('error', 'Unknown error'),
+                'processing_time_seconds': result.get('processing_time_seconds', 0)
+            }), 500
+            
+    except Exception as e:
+        import traceback
+        print(f"❌ LaTeX OCR processing error: {e}")
+        traceback.print_exc()
+        return jsonify({'error': 'Internal server error during OCR processing'}), 500
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
