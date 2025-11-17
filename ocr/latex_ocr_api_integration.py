@@ -455,15 +455,15 @@ class GroqAnswerGenerator:
     """Generate final answers and explanations using Groq"""
     
     @staticmethod
-    def generate_final_answer(question: str, api_results: List[Dict[str, Any]], 
+    def generate_final_answer(solved_expressions: List[Dict[str, Any]], 
                             context: str = '') -> Dict[str, Any]:
         """
         Generate final answer with steps and explanations using Groq
+        Only receives solved expressions from Wolfram Alpha, not original OCR text
         
         Args:
-            question: Original OCR question
-            api_results: Results from math APIs
-            context: Additional context
+            solved_expressions: List of expressions solved by Wolfram Alpha API
+            context: Additional context (subject area)
             
         Returns:
             Final answer with steps and explanations
@@ -472,28 +472,25 @@ class GroqAnswerGenerator:
             return {'success': False, 'error': 'Groq API key not configured'}
         
         try:
-            # Prepare the prompt
+            # Prepare the prompt with only solved results, no original OCR text
             prompt = f"""
-You are a mathematics and science expert. Based on the following OCR question and API results, provide a comprehensive step-by-step solution with clear explanations.
+You are a mathematics and science expert. Based on the following solved mathematical expressions, provide a comprehensive step-by-step solution with clear explanations.
 
-Original Question:
-{question}
+Solved Expressions from Wolfram Alpha:
+{json.dumps(solved_expressions, indent=2)}
 
-API Results:
-{json.dumps(api_results, indent=2)}
-
-Additional Context:
+Subject Context:
 {context}
 
 Please provide:
-1. A clear step-by-step solution
-2. Detailed explanations for each step
+1. A clear step-by-step solution based on the solved expressions
+2. Detailed explanations for each mathematical step
 3. The final answer
 4. Any important mathematical concepts or formulas used
 
 Format your response as:
 **Step-by-Step Solution:**
-[Steps here]
+[Steps here based on the solved expressions]
 
 **Detailed Explanations:**
 [Explanations here]
@@ -510,7 +507,7 @@ Format your response as:
             payload = {
                 'model': GROQ_MODEL,
                 'messages': [
-                    {'role': 'system', 'content': 'You are a mathematics and science expert providing detailed solutions.'},
+                    {'role': 'system', 'content': 'You are a mathematics and science expert providing detailed solutions based on solved mathematical expressions.'},
                     {'role': 'user', 'content': prompt}
                 ],
                 'max_tokens': 2000,
@@ -546,6 +543,7 @@ class LatexOCRIntegration:
     def process_ocr_text(self, ocr_text: str, subject: str = '') -> Dict[str, Any]:
         """
         Process OCR text and generate comprehensive solution
+        NEW APPROACH: Break into expressions, solve with Wolfram Alpha, format with Groq
         
         Args:
             ocr_text: Text extracted from OCR
@@ -563,69 +561,59 @@ class LatexOCRIntegration:
             expressions = self.detector.detect_expressions(ocr_text)
             logger.info(f"Detected {len(expressions)} expressions")
             
-            # Step 2: Convert expressions and solve with APIs
-            api_results = []
+            # Step 2: Solve each expression with Wolfram Alpha (primary API)
+            solved_expressions = []
             
             for i, expr in enumerate(expressions, 1):
                 logger.debug(f"Processing expression {i}/{len(expressions)}: {expr['text'][:50]}...")
                 
-                # Convert to SymPy
-                sympy_expr = None
-                try:
-                    sympy_expr = self.converter.to_sympy(expr['text'])
-                    if sympy_expr:
-                        logger.debug(f"Successfully converted to SymPy: {str(sympy_expr)[:50]}...")
-                except Exception as e:
-                    logger.warning(f"SymPy conversion failed for expression {i}: {e}")
+                # Convert to Wolfram Alpha query format
+                wa_query = self.converter.to_wolfram_alpha(expr['text'])
                 
-                # Try different APIs
-                results = {}
+                # Solve with Wolfram Alpha
+                wa_result = self.math_apis.solve_with_wolfram_alpha(wa_query)
                 
-                # Wolfram Alpha
-                if WOLFRAM_APP_ID:
+                if wa_result.get('success'):
+                    logger.debug(f"Wolfram Alpha successful for expression {i}")
+                    solved_expressions.append({
+                        'expression_index': i,
+                        'original_text': expr['text'],
+                        'wolfram_query': wa_query,
+                        'solution': wa_result.get('result', ''),
+                        'steps': wa_result.get('steps', []),
+                        'expression_type': expr['type']
+                    })
+                else:
+                    logger.warning(f"Wolfram Alpha failed for expression {i}: {wa_result.get('error', 'Unknown error')}")
+                    # Try fallback with SymPy if Wolfram fails
                     try:
-                        wa_query = self.converter.to_wolfram_alpha(expr['text'])
-                        wa_result = self.math_apis.solve_with_wolfram_alpha(wa_query)
-                        results['wolfram_alpha'] = wa_result
-                        if wa_result.get('success'):
-                            logger.debug(f"Wolfram Alpha successful for expression {i}")
+                        sympy_expr = self.converter.to_sympy(expr['text'])
+                        if sympy_expr is not None:
+                            sympy_result = self.math_apis.solve_with_sympy(sympy_expr)
+                            if sympy_result.get('success'):
+                                solved_expressions.append({
+                                    'expression_index': i,
+                                    'original_text': expr['text'],
+                                    'wolfram_query': wa_query,
+                                    'solution': sympy_result.get('result', ''),
+                                    'steps': sympy_result.get('steps', []),
+                                    'expression_type': expr['type'],
+                                    'note': 'Solved with SymPy fallback'
+                                })
                     except Exception as e:
-                        logger.error(f"Wolfram Alpha failed for expression {i}: {e}")
-                        results['wolfram_alpha'] = {'success': False, 'error': str(e)}
-                
-                # Symbolab
-                if SYMBOLAB_ENABLED:
-                    try:
-                        symbolab_result = self.math_apis.solve_with_symbolab(expr['text'])
-                        results['symbolab'] = symbolab_result
-                        if symbolab_result.get('success'):
-                            logger.debug(f"Symbolab successful for expression {i}")
-                    except Exception as e:
-                        logger.error(f"Symbolab failed for expression {i}: {e}")
-                        results['symbolab'] = {'success': False, 'error': str(e)}
-                
-                # SymPy (local) - check if expression is not None
-                if sympy_expr is not None:
-                    try:
-                        sympy_result = self.math_apis.solve_with_sympy(sympy_expr)
-                        results['sympy'] = sympy_result
-                        if sympy_result.get('success'):
-                            logger.debug(f"SymPy successful for expression {i}")
-                    except Exception as e:
-                        logger.error(f"SymPy failed for expression {i}: {e}")
-                        results['sympy'] = {'success': False, 'error': str(e)}
-                
-                api_results.append({
-                    'expression': expr,
-                    'sympy_expression': str(sympy_expr) if sympy_expr is not None else None,
-                    'api_results': results
-                })
+                        logger.error(f"SymPy fallback also failed for expression {i}: {e}")
             
-            # Step 3: Generate final answer with Groq
-            logger.info("Generating final answer with Groq...")
-            final_answer = self.groq_generator.generate_final_answer(
-                ocr_text, api_results, subject
-            )
+            # Step 3: Generate final answer with Groq (only gets solved expressions, not original OCR)
+            if solved_expressions:
+                logger.info("Generating final answer with Groq from solved expressions...")
+                final_answer = self.groq_generator.generate_final_answer(
+                    solved_expressions, subject
+                )
+            else:
+                final_answer = {
+                    'success': False,
+                    'error': 'No expressions could be solved'
+                }
             
             # Step 4: Compile complete result
             processing_time = time.time() - start_time
@@ -634,12 +622,14 @@ class LatexOCRIntegration:
                 'original_text': ocr_text,
                 'subject': subject,
                 'detected_expressions': expressions,
-                'api_results': api_results,
+                'solved_expressions': solved_expressions,
                 'final_answer': final_answer,
-                'processing_time_seconds': round(processing_time, 2)
+                'processing_time_seconds': round(processing_time, 2),
+                'approach': 'wolfram_alpha_primary_grok_formatting'
             }
             
             logger.info(f"OCR processing completed successfully in {processing_time:.2f}s")
+            logger.info(f"Solved {len(solved_expressions)}/{len(expressions)} expressions")
             return result
             
         except Exception as e:
@@ -668,7 +658,7 @@ class LatexOCRIntegration:
 
 # Example usage and testing
 if __name__ == "__main__":
-    # Test the integration
+    # Test the integration with NEW APPROACH
     integration = LatexOCRIntegration()
     
     # Sample OCR texts
@@ -688,8 +678,9 @@ if __name__ == "__main__":
     ]
     
     for i, test_case in enumerate(test_cases, 1):
-        print(f"\n🧪 Test Case {i}:")
+        print(f"\n🧪 Test Case {i} (NEW APPROACH):")
         print(f"Question: {test_case['text']}")
+        print(f"Approach: Wolfram Alpha for solving, Groq for formatting")
         
         result = integration.process_single_question(
             test_case['text'], 
@@ -698,11 +689,16 @@ if __name__ == "__main__":
         
         if result['success']:
             print("✅ Success!")
+            print(f"📊 Expressions detected: {len(result['detected_expressions'])}")
+            print(f"🔧 Expressions solved: {len(result['solved_expressions'])}")
+            print(f"⏱️  Processing time: {result['processing_time_seconds']}s")
+            
             if result['final_answer']['success']:
-                print("Final Answer Generated")
+                print("✅ Final answer formatted by Groq")
+                print(f"📝 Answer preview: {result['final_answer']['answer'][:200]}...")
             else:
-                print(f"⚠️ Final answer generation failed: {result['final_answer']['error']}")
+                print(f"⚠️ Final answer formatting failed: {result['final_answer']['error']}")
         else:
             print(f"❌ Failed: {result.get('error', 'Unknown error')}")
         
-        print("-" * 50)
+        print("-" * 60)
