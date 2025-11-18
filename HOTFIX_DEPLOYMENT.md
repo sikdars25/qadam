@@ -28,11 +28,18 @@
 - Import logging in exception handlers
 - Graceful fallback on errors
 
-### **Commit #3:** `073a8ba` - Remove LaTeX formatting (LATEST)
+### **Commit #3:** `073a8ba` - Remove LaTeX formatting
 - Remove `\[`, `\]`, `\(`, `\)` display mode markers
 - Convert `\left(` to `(` and `\right)` to `)`
 - Remove all `\left` and `\right` commands
 - Clean output: `P = (n-1)(2RR2)` instead of `\[ P = (n-1)\left(2RR2\right) \]`
+
+### **Commit #4:** `af2c73c` - Improve OCR engine selection (LATEST)
+- Enhanced mathematical content detection
+- LaTeX-OCR only for pure math formulas (< 100 chars, < 10 words, > 20% math symbols)
+- EasyOCR for text questions (better text recognition)
+- Fixes garbled text for physics/text questions
+- Example: Physics questions now readable instead of gibberish
 
 ---
 
