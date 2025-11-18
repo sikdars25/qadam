@@ -3198,17 +3198,19 @@ def extract_text_ocr():
 @token_required
 def solve_latex_ocr_question():
     """
-    Solve OCR text question using NEW APPROACH:
+    Solve OCR text question using NEW APPROACH - PROCESSED DIRECTLY IN PROXY:
     - Break OCR text into individual mathematical expressions
     - Solve each expression with Wolfram Alpha (primary API)
     - Use SymPy as fallback when Wolfram fails
     - Only pass SOLVED EXPRESSIONS to Groq for formatting
     - Groq NO LONGER receives original OCR text
+    - NO FURTHER OCR SCANNING NEEDED - decomposition processed in proxy
     
     This replaces the old approach of passing full OCR text to Groq
     """
     try:
         import ocr_client
+        from latex_ocr_api_integration import LatexOCRIntegration  # LOCAL IMPORT
         from werkzeug.utils import secure_filename
         import os
         from datetime import datetime
@@ -3240,7 +3242,7 @@ def solve_latex_ocr_question():
         file.save(temp_path)
         
         try:
-            # Step 1: Extract text using OCR service
+            # Step 1: Extract text using OCR service (only for initial text extraction)
             print(f"📸 Extracting text from image: {temp_filename}")
             ocr_result = ocr_client.ocr_image_with_retry(temp_path, language='en,la', max_retries=3)
             
@@ -3254,7 +3256,7 @@ def solve_latex_ocr_question():
                     'error': f'OCR extraction failed: {ocr_result.get("error", "Unknown error")}'
                 }), 500
             
-            # Step 2: Solve using NEW APPROACH via OCR service
+            # Step 2: Solve using NEW APPROACH - PROCESSED DIRECTLY IN PROXY
             ocr_text = ocr_result.get('text', '').strip()
             if not ocr_text:
                 return jsonify({
@@ -3264,21 +3266,24 @@ def solve_latex_ocr_question():
             
             print(f"🔍 Using NEW APPROACH to solve OCR text for user {current_user['id']}")
             print(f"📝 Extracted text: {ocr_text[:100]}...")
+            print(f"🏭 Processing decomposition directly in proxy (no further OCR scanning)")
             
-            # Call the NEW API endpoint
-            solve_result = ocr_client.solve_latex_ocr_question(ocr_text, subject)
+            # Initialize LOCAL integration and process directly in proxy
+            integration = LatexOCRIntegration()
+            solve_result = integration.process_single_question(ocr_text, subject)
             
             if solve_result and solve_result.get('success'):
                 # Log user activity
                 log_user_activity(
                     user_id=current_user['id'],
-                    activity_type='latex_ocr_solve_new_approach',
+                    activity_type='latex_ocr_solve_proxy_direct',
                     details={
                         'subject': subject,
                         'expressions_detected': len(solve_result.get('detected_expressions', [])),
                         'expressions_solved': len(solve_result.get('solved_expressions', [])),
                         'processing_time': solve_result.get('processing_time_seconds', 0),
-                        'approach': solve_result.get('approach', 'wolfram_alpha_primary_grok_formatting')
+                        'approach': solve_result.get('approach', 'wolfram_alpha_primary_grok_formatting'),
+                        'processing_location': 'proxy_direct'
                     }
                 )
                 
@@ -3291,12 +3296,13 @@ def solve_latex_ocr_question():
                     'final_answer': solve_result.get('final_answer', {}),
                     'processing_time_seconds': solve_result.get('processing_time_seconds', 0),
                     'approach': solve_result.get('approach', 'wolfram_alpha_primary_grok_formatting'),
-                    'message': 'Question solved using NEW approach (Wolfram Alpha + Groq formatting)'
+                    'processing_location': 'proxy_direct',
+                    'message': 'Question solved using NEW approach (Wolfram Alpha + Groq formatting) processed directly in proxy'
                 })
             else:
                 return jsonify({
                     'success': False,
-                    'error': solve_result.get('error', 'Failed to solve question with NEW approach') if solve_result else 'OCR service unavailable'
+                    'error': solve_result.get('error', 'Failed to solve question with NEW approach') if solve_result else 'Local processing failed'
                 }), 500
                 
         except Exception as processing_error:

@@ -11,10 +11,13 @@ Pillow==10.2.0
 # OCR - Moved to separate Function App (./ocr/)
 # pytesseract==0.3.10  # No longer needed - using PaddleOCR in separate service
 
+# Mathematical Processing (MOVED FROM OCR PROJECT)
+sympy==1.12
+requests==2.31.0
+
 # Utilities
 python-dotenv==1.0.0
 python-dateutil==2.8.2
-requests==2.31.0
 PyJWT==2.8.0
 
 # Azure Services
@@ -31,3 +34,4 @@ mysql-connector-python==8.0.33
 # AI client for calling VM service (no heavy dependencies needed)
 # Removed: groq, scikit-learn, numpy, scipy, nltk
 # These are now in the AI VM service (backend-ai/ai/)
+# Note: Groq API calls are now made directly from proxy for formatting only
