@@ -425,17 +425,22 @@ def get_latex_ocr_integration():
     global latex_ocr_integration
     if latex_ocr_integration is None:
         latex_ocr_integration = LatexOCRIntegration()
-    # LaTeX post-processing
-    from latex_postprocessor import post_process_latex_ocr_result
-    # Large symbol processing
-    from large_symbol_processor import LargeSymbolProcessor
-    def post_process_latex_ocr_result(latex_result):
-        """
-        Post-process LaTeX-OCR result
-        """
-        # TO DO: implement LaTeX post-processing logic here
-        return LargeSymbolProcessor(latex_result)
     return latex_ocr_integration
+
+def post_process_latex_ocr_result(latex_result):
+    """
+    Post-process LaTeX-OCR result
+    Applies large symbol processing to improve OCR accuracy
+    """
+    try:
+        from large_symbol_processor import LargeSymbolProcessor
+        return LargeSymbolProcessor(latex_result)
+    except ImportError:
+        logger.warning("LargeSymbolProcessor not available, returning raw result")
+        return latex_result
+    except Exception as e:
+        logger.error(f"Error in post-processing: {e}")
+        return latex_result
 
 def extract_text_with_latex_priority(image_path):
     """
