@@ -66,12 +66,19 @@
 - Example: `(A) 2P` → separate line, `(B) P` → separate line
 - Automatic formatting for all MCQ questions
 
-### **Commit #8:** `3070e08` - Handle stuck MCQ options (LATEST)
+### **Commit #8:** `3070e08` - Handle stuck MCQ options
 - **Fixes stuck options**: `(A)IV(B)II(C)II(D)III` now properly separated
 - **Enhanced pattern detection** for options without spaces
 - **Handles all formats**: spaced, stuck together, mixed
 - Example: `region(A)IV(B)II` → `region\n(A) IV\n(B) II`
 - Robust MCQ formatting for all question types
+
+### **Commit #9:** `f9d13d8` - Smart MCQ formatting (LATEST)
+- **Context-aware formatting**: Only formats MCQ options at question end
+- **Prevents excessive newlines** in solution steps
+- **Detects 3-4 consecutive options** before formatting
+- **Preserves solution text**: No random newlines in middle of text
+- Clean output: MCQ options formatted, solutions unchanged
 
 ---
 
