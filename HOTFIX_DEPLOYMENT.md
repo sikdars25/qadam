@@ -59,12 +59,19 @@
 - Clean readable format: `E_x = E_0 sin(kz - ω t)` instead of `E_x = E_0 \sin (kz - \omega t)`
 - Subscripts and superscripts properly displayed
 
-### **Commit #7:** `97025bd` - Format MCQ options on separate lines (LATEST)
+### **Commit #7:** `97025bd` - Format MCQ options on separate lines
 - **Detects MCQ patterns**: (A), (B), (C), (D) or A), B), C), D)
 - **Supports multiple formats**: uppercase, lowercase, numbered
 - **Each option on new line** for better readability
 - Example: `(A) 2P` → separate line, `(B) P` → separate line
 - Automatic formatting for all MCQ questions
+
+### **Commit #8:** `3070e08` - Handle stuck MCQ options (LATEST)
+- **Fixes stuck options**: `(A)IV(B)II(C)II(D)III` now properly separated
+- **Enhanced pattern detection** for options without spaces
+- **Handles all formats**: spaced, stuck together, mixed
+- Example: `region(A)IV(B)II` → `region\n(A) IV\n(B) II`
+- Robust MCQ formatting for all question types
 
 ---
 
