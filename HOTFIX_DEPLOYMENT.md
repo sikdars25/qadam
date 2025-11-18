@@ -22,11 +22,17 @@
 - Moved `post_process_latex_ocr_result()` to module level
 - Fixed function scope issue
 
-### **Commit #2:** `0fcd7a4` - Correct implementation (LATEST)
+### **Commit #2:** `0fcd7a4` - Correct implementation
 - Use `latex_postprocessor.post_process_latex_ocr_result()` properly
 - Handle dict return value correctly
 - Import logging in exception handlers
 - Graceful fallback on errors
+
+### **Commit #3:** `073a8ba` - Remove LaTeX formatting (LATEST)
+- Remove `\[`, `\]`, `\(`, `\)` display mode markers
+- Convert `\left(` to `(` and `\right)` to `)`
+- Remove all `\left` and `\right` commands
+- Clean output: `P = (n-1)(2RR2)` instead of `\[ P = (n-1)\left(2RR2\right) \]`
 
 ---
 
