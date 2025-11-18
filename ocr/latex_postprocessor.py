@@ -7,6 +7,49 @@ Cleans up LaTeX-OCR output and fixes common OCR errors
 import re
 import logging
 
+def remove_latex_display_markers(latex_text):
+    """
+    Remove LaTeX display mode markers and formatting commands
+    Converts: \[ P = (n-1)\left(2RR2\right) \] 
+    To: P = (n-1)(2RR2)
+    
+    Args:
+        latex_text (str): LaTeX text with display markers
+        
+    Returns:
+        str: Cleaned text without display markers
+    """
+    if not latex_text:
+        return latex_text
+    
+    text = latex_text
+    
+    # Remove display math mode markers
+    text = re.sub(r'\\\[', '', text)  # Remove \[
+    text = re.sub(r'\\\]', '', text)  # Remove \]
+    text = re.sub(r'\\\(', '', text)  # Remove \(
+    text = re.sub(r'\\\)', '', text)  # Remove \)
+    
+    # Remove \left and \right commands but keep the delimiters
+    text = re.sub(r'\\left\(', '(', text)   # \left( -> (
+    text = re.sub(r'\\right\)', ')', text)  # \right) -> )
+    text = re.sub(r'\\left\[', '[', text)   # \left[ -> [
+    text = re.sub(r'\\right\]', ']', text)  # \right] -> ]
+    text = re.sub(r'\\left\{', '{', text)   # \left{ -> {
+    text = re.sub(r'\\right\}', '}', text)  # \right} -> }
+    text = re.sub(r'\\left\|', '|', text)   # \left| -> |
+    text = re.sub(r'\\right\|', '|', text)  # \right| -> |
+    
+    # Remove any remaining \left or \right commands
+    text = re.sub(r'\\left', '', text)
+    text = re.sub(r'\\right', '', text)
+    
+    # Clean up extra spaces
+    text = re.sub(r'\s+', ' ', text)
+    text = text.strip()
+    
+    return text
+
 def clean_latex_output(latex_text):
     """
     Clean up LaTeX-OCR output by fixing common OCR errors
@@ -106,6 +149,9 @@ def clean_latex_output(latex_text):
         if re.search(pattern, cleaned, re.IGNORECASE):
             cleaned = re.sub(pattern, replacement, cleaned, flags=re.IGNORECASE)
     
+    # Step 5: Remove LaTeX display markers and \left/\right commands
+    cleaned = remove_latex_display_markers(cleaned)
+    
     logging.info(f"✅ LaTeX cleaning completed")
     logging.info(f"📝 Original: {latex_text[:100]}...")
     logging.info(f"✅ Cleaned: {cleaned[:100]}...")
@@ -125,8 +171,8 @@ def extract_text_from_latex(latex_text):
     if not latex_text:
         return latex_text
     
-    # Remove LaTeX commands but preserve content
-    text = latex_text
+    # First remove display markers and \left/\right commands
+    text = remove_latex_display_markers(latex_text)
     
     # Replace LaTeX commands with their content in order
     replacements = [
