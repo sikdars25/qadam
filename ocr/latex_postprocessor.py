@@ -10,14 +10,14 @@ import logging
 def remove_latex_display_markers(latex_text):
     """
     Remove LaTeX display mode markers and formatting commands
-    Converts: \[ P = (n-1)\left(2RR2\right) \] 
-    To: P = (n-1)(2RR2)
+    Converts: E_x = E_0 \sin (kz - \omega t)
+    To: E_x = E_0 sin(kz - ω t)
     
     Args:
         latex_text (str): LaTeX text with display markers
         
     Returns:
-        str: Cleaned text without display markers
+        str: Cleaned text without display markers and backslashes
     """
     if not latex_text:
         return latex_text
@@ -43,6 +43,62 @@ def remove_latex_display_markers(latex_text):
     # Remove any remaining \left or \right commands
     text = re.sub(r'\\left', '', text)
     text = re.sub(r'\\right', '', text)
+    
+    # Convert common LaTeX math functions (remove backslash)
+    math_functions = {
+        r'\\sin': 'sin',
+        r'\\cos': 'cos',
+        r'\\tan': 'tan',
+        r'\\log': 'log',
+        r'\\ln': 'ln',
+        r'\\exp': 'exp',
+        r'\\lim': 'lim',
+        r'\\max': 'max',
+        r'\\min': 'min',
+        r'\\sum': '∑',
+        r'\\int': '∫',
+        r'\\prod': '∏',
+        r'\\sqrt': '√',
+    }
+    
+    for latex_func, plain_func in math_functions.items():
+        text = re.sub(latex_func + r'\s+', plain_func + ' ', text)
+        text = re.sub(latex_func + r'(?=\()', plain_func, text)  # Before parenthesis
+        text = re.sub(latex_func + r'(?=[^a-zA-Z])', plain_func, text)  # Before non-letter
+        text = re.sub(latex_func + r'$', plain_func, text)  # At end of string
+    
+    # Convert Greek letters to Unicode symbols
+    greek_letters = {
+        r'\\alpha': 'α',
+        r'\\beta': 'β',
+        r'\\gamma': 'γ',
+        r'\\delta': 'δ',
+        r'\\epsilon': 'ε',
+        r'\\theta': 'θ',
+        r'\\lambda': 'λ',
+        r'\\mu': 'μ',
+        r'\\pi': 'π',
+        r'\\sigma': 'σ',
+        r'\\tau': 'τ',
+        r'\\phi': 'φ',
+        r'\\omega': 'ω',
+        r'\\Omega': 'Ω',
+        r'\\Delta': 'Δ',
+        r'\\Gamma': 'Γ',
+        r'\\Theta': 'Θ',
+        r'\\Lambda': 'Λ',
+        r'\\Sigma': 'Σ',
+        r'\\Phi': 'Φ',
+    }
+    
+    for latex_greek, unicode_greek in greek_letters.items():
+        text = re.sub(latex_greek + r'\b', unicode_greek, text)
+    
+    # Remove remaining backslashes before common commands
+    text = re.sub(r'\\[a-zA-Z]+', '', text)  # Remove \command
+    
+    # Remove all remaining backslashes
+    text = re.sub(r'\\', '', text)
     
     # Clean up extra spaces
     text = re.sub(r'\s+', ' ', text)
