@@ -430,16 +430,22 @@ def get_latex_ocr_integration():
 def post_process_latex_ocr_result(latex_result):
     """
     Post-process LaTeX-OCR result
-    Applies large symbol processing to improve OCR accuracy
+    Uses latex_postprocessor to clean and correct LaTeX output
     """
     try:
-        from large_symbol_processor import LargeSymbolProcessor
-        return LargeSymbolProcessor(latex_result)
+        from latex_postprocessor import post_process_latex_ocr_result as process_latex
+        processed = process_latex(latex_result)
+        # Return the corrected text if available, otherwise cleaned latex
+        return processed.get('corrected_text') or processed.get('cleaned_latex') or latex_result
     except ImportError:
-        logger.warning("LargeSymbolProcessor not available, returning raw result")
+        # If latex_postprocessor not available, return raw result
+        import logging
+        logging.warning("latex_postprocessor not available, returning raw result")
         return latex_result
     except Exception as e:
-        logger.error(f"Error in post-processing: {e}")
+        # On any error, return the original result
+        import logging
+        logging.error(f"Error in post-processing: {e}")
         return latex_result
 
 def extract_text_with_latex_priority(image_path):
