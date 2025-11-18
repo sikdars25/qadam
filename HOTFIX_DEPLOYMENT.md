@@ -51,13 +51,20 @@
 - Optimized for: ∫ (integration), ∑ (summation), large brackets, fractions, ∂ (differentials)
 - Significantly better detection of large mathematical symbols
 
-### **Commit #6:** `94f3d20` - Remove backslashes and convert LaTeX (LATEST)
+### **Commit #6:** `94f3d20` - Remove backslashes and convert LaTeX
 - **Convert math functions**: `\sin` → `sin`, `\cos` → `cos`, `\tan` → `tan`
 - **Convert symbols**: `\sum` → `∑`, `\int` → `∫`, `\sqrt` → `√`
 - **Convert Greek letters**: `\omega` → `ω`, `\alpha` → `α`, `\theta` → `θ`, etc.
 - **Remove all backslashes** from output
 - Clean readable format: `E_x = E_0 sin(kz - ω t)` instead of `E_x = E_0 \sin (kz - \omega t)`
 - Subscripts and superscripts properly displayed
+
+### **Commit #7:** `97025bd` - Format MCQ options on separate lines (LATEST)
+- **Detects MCQ patterns**: (A), (B), (C), (D) or A), B), C), D)
+- **Supports multiple formats**: uppercase, lowercase, numbered
+- **Each option on new line** for better readability
+- Example: `(A) 2P` → separate line, `(B) P` → separate line
+- Automatic formatting for all MCQ questions
 
 ---
 
