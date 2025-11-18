@@ -281,40 +281,59 @@ class LatexOCRIntegration:
     
     def fast_preprocess_image_for_latex_ocr(self, image_path):
         """
-        Fast image preprocessing for LaTeX-OCR to improve performance
+        Enhanced preprocessing for LaTeX-OCR with Otsu thresholding
+        Optimized for mathematical symbols including large symbols
         """
         try:
-            # Read image
+            # Read image in grayscale
             if isinstance(image_path, str):
-                image = cv2.imread(image_path)
+                image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
             else:
-                image = image_path
+                # Convert to grayscale if already loaded
+                if len(image_path.shape) == 3:
+                    image = cv2.cvtColor(image_path, cv2.COLOR_BGR2GRAY)
+                else:
+                    image = image_path
             
             if image is None:
                 raise ValueError("Could not read image")
             
-            # Convert to RGB
-            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-            
-            # Fast resize for better performance (max 1024px)
             height, width = image.shape[:2]
-            if max(height, width) > 1024:
-                scale = 1024 / max(height, width)
-                new_width = int(width * scale)
-                new_height = int(height * scale)
-                image = cv2.resize(image, (new_width, new_height), interpolation=cv2.INTER_AREA)
-                logging.info(f"📏 Image resized from {width}x{height} to {new_width}x{new_height}")
+            logging.info(f"📏 Image size: {width}x{height}")
             
-            # Basic contrast enhancement (faster than CLAHE)
-            image = cv2.convertScaleAbs(image, alpha=1.2, beta=10)
+            # Step 1: Otsu's thresholding for optimal binarization
+            _, binary = cv2.threshold(image, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
             
-            # Convert back to PIL
-            pil_image = Image.fromarray(image)
+            # Step 2: Median blur to reduce noise while preserving edges
+            denoised = cv2.medianBlur(binary, 3)
+            
+            # Step 3: Add white border padding (helps with edge symbols)
+            padded = cv2.copyMakeBorder(
+                denoised, 
+                10, 10, 10, 10,
+                cv2.BORDER_CONSTANT, 
+                value=255
+            )
+            
+            # Step 4: Resize if needed (max 1536px for better quality)
+            new_height, new_width = padded.shape[:2]
+            if max(new_height, new_width) > 1536:
+                scale = 1536 / max(new_height, new_width)
+                new_width = int(new_width * scale)
+                new_height = int(new_height * scale)
+                padded = cv2.resize(padded, (new_width, new_height), interpolation=cv2.INTER_CUBIC)
+                logging.info(f"📏 Resized to {new_width}x{new_height}")
+            
+            # Convert grayscale to RGB for PIL
+            rgb_image = cv2.cvtColor(padded, cv2.COLOR_GRAY2RGB)
+            
+            # Convert to PIL
+            pil_image = Image.fromarray(rgb_image)
             
             return pil_image
             
         except Exception as e:
-            logging.error(f"Error in fast preprocessing for LaTeX-OCR: {e}")
+            logging.error(f"Error in preprocessing for LaTeX-OCR: {e}")
             return None
     
     def extract_text_with_easyocr(self, image_path):

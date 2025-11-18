@@ -28,73 +28,84 @@ class LargeSymbolProcessor:
     
     def preprocess_for_large_symbols(self, image_path):
         """
-        Specialized preprocessing for images with large mathematical symbols
+        Enhanced preprocessing for large mathematical symbols
+        Uses Otsu thresholding, median blur, and border padding for better OCR
+        Optimized for: integration, summation, large brackets, fractions, differentials
         """
         try:
-            # Read image
+            # Read image in grayscale for better mathematical symbol detection
             if isinstance(image_path, str):
-                image = cv2.imread(image_path)
+                image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
             else:
-                image = image_path
+                # Convert to grayscale if already loaded
+                if len(image_path.shape) == 3:
+                    image = cv2.cvtColor(image_path, cv2.COLOR_BGR2GRAY)
+                else:
+                    image = image_path
             
             if image is None:
                 raise ValueError("Could not read image")
             
             original_height, original_width = image.shape[:2]
             logging.info(f"📏 Original image size: {original_width}x{original_height}")
+            logging.info(f"🔧 Applying enhanced preprocessing for large math symbols")
             
-            # Convert to RGB
-            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            # Step 1: Otsu's thresholding for optimal binarization
+            # This automatically finds the best threshold value
+            _, binary = cv2.threshold(image, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+            logging.info(f"✅ Applied Otsu thresholding for optimal binarization")
             
-            # Step 1: Enhance contrast for better symbol detection
-            # Use CLAHE for better local contrast
-            lab = cv2.cvtColor(image, cv2.COLOR_RGB2LAB)
-            clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8,8))
-            lab[:,:,0] = clahe.apply(lab[:,:,0])
-            image = cv2.cvtColor(lab, cv2.COLOR_LAB2RGB)
+            # Step 2: Median blur to reduce noise while preserving edges
+            # Critical for large symbols like ∫, ∑, and tall brackets
+            denoised = cv2.medianBlur(binary, 3)
+            logging.info(f"✅ Applied median blur (kernel=3) for noise reduction")
             
-            # Step 2: Adaptive thresholding for symbol isolation
-            gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
-            adaptive_thresh = cv2.adaptiveThreshold(
-                gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, 
-                cv2.THRESH_BINARY, 11, 2
+            # Step 3: Add white border padding
+            # Helps OCR engines detect symbols at image edges
+            padded = cv2.copyMakeBorder(
+                denoised, 
+                10, 10, 10, 10,  # top, bottom, left, right padding
+                cv2.BORDER_CONSTANT, 
+                value=255  # White border
             )
+            logging.info(f"✅ Added 10px white border padding")
             
-            # Step 3: Morphological operations to connect symbol parts
-            kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (2, 8))
-            morph = cv2.morphologyEx(adaptive_thresh, cv2.MORPH_CLOSE, kernel)
+            # Step 4: Morphological operations to connect broken symbol parts
+            # Especially useful for large brackets and integration symbols
+            kernel_vertical = cv2.getStructuringElement(cv2.MORPH_RECT, (1, 3))
+            connected = cv2.morphologyEx(padded, cv2.MORPH_CLOSE, kernel_vertical)
+            logging.info(f"✅ Applied morphological closing for symbol connectivity")
             
-            # Step 4: Edge detection for symbol boundaries
-            edges = cv2.Canny(morph, 50, 150)
+            # Step 5: Enhance contrast with CLAHE (optional, for low-contrast images)
+            clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
+            enhanced = clahe.apply(connected)
+            logging.info(f"✅ Applied CLAHE for contrast enhancement")
             
-            # Step 5: Dilate edges to make symbols more prominent
-            kernel_dilate = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
-            edges_dilated = cv2.dilate(edges, kernel_dilate, iterations=1)
-            
-            # Step 6: Combine processed image with original
-            edges_colored = cv2.cvtColor(edges_dilated, cv2.COLOR_GRAY2RGB)
-            enhanced = cv2.addWeighted(image, 0.7, edges_colored, 0.3, 0)
-            
-            # Step 7: Resize if too large (but preserve aspect ratio for tall symbols)
-            max_dimension = 1536  # Increased for large symbols
+            # Step 6: Resize if too large (preserve aspect ratio for tall symbols)
+            max_dimension = 2048  # Larger for complex mathematical expressions
             if max(original_height, original_width) > max_dimension:
-                if original_height > original_width:  # Tall image
+                if original_height > original_width:  # Tall image (common for integrals)
                     scale = max_dimension / original_height
                 else:  # Wide image
                     scale = max_dimension / original_width
                 
                 new_width = int(original_width * scale)
                 new_height = int(original_height * scale)
-                enhanced = cv2.resize(enhanced, (new_width, new_height), interpolation=cv2.INTER_AREA)
+                enhanced = cv2.resize(enhanced, (new_width, new_height), interpolation=cv2.INTER_CUBIC)
                 logging.info(f"📏 Resized for large symbols: {new_width}x{new_height}")
             
-            # Step 8: Final sharpening
+            # Step 7: Final sharpening to enhance symbol edges
             kernel_sharpen = np.array([[-1,-1,-1], [-1,9,-1], [-1,-1,-1]])
             sharpened = cv2.filter2D(enhanced, -1, kernel_sharpen)
+            logging.info(f"✅ Applied sharpening filter")
+            
+            # Convert grayscale to RGB for PIL compatibility
+            rgb_image = cv2.cvtColor(sharpened, cv2.COLOR_GRAY2RGB)
             
             # Convert to PIL
-            pil_image = Image.fromarray(sharpened)
+            pil_image = Image.fromarray(rgb_image)
             
+            logging.info(f"✅ Preprocessing complete - optimized for large math symbols")
             return pil_image
             
         except Exception as e:
