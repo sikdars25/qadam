@@ -106,6 +106,52 @@ def remove_latex_display_markers(latex_text):
     
     return text
 
+def format_mcq_options(text):
+    """
+    Format MCQ options to appear on separate lines
+    Detects patterns like (A), (B), (C), (D) or A), B), C), D)
+    
+    Args:
+        text (str): Text with MCQ options
+        
+    Returns:
+        str: Text with options on separate lines
+    """
+    if not text:
+        return text
+    
+    # Pattern 1: (A), (B), (C), (D) - options in parentheses
+    # Add newline before each option marker
+    text = re.sub(r'(?<!\n)\s*\(([A-D])\)\s*', r'\n(\1) ', text)
+    
+    # Pattern 2: A), B), C), D) - options without opening parenthesis
+    text = re.sub(r'(?<!\n)\s*([A-D])\)\s*', r'\n\1) ', text)
+    
+    # Pattern 3: (a), (b), (c), (d) - lowercase options
+    text = re.sub(r'(?<!\n)\s*\(([a-d])\)\s*', r'\n(\1) ', text)
+    
+    # Pattern 4: a), b), c), d) - lowercase without opening parenthesis
+    text = re.sub(r'(?<!\n)\s*([a-d])\)\s*', r'\n\1) ', text)
+    
+    # Pattern 5: (1), (2), (3), (4) - numbered options
+    text = re.sub(r'(?<!\n)\s*\(([1-4])\)\s*', r'\n(\1) ', text)
+    
+    # Pattern 6: 1), 2), 3), 4) - numbered without opening parenthesis
+    text = re.sub(r'(?<!\n)\s*([1-4])\)\s*', r'\n\1) ', text)
+    
+    # Clean up: remove leading newline if text starts with an option
+    text = text.lstrip('\n')
+    
+    # Clean up: ensure single newline between options (no double newlines)
+    text = re.sub(r'\n\n+', '\n', text)
+    
+    # Clean up: remove trailing spaces on each line
+    lines = text.split('\n')
+    lines = [line.rstrip() for line in lines]
+    text = '\n'.join(lines)
+    
+    return text
+
 def clean_latex_output(latex_text):
     """
     Clean up LaTeX-OCR output by fixing common OCR errors
@@ -208,6 +254,9 @@ def clean_latex_output(latex_text):
     # Step 5: Remove LaTeX display markers and \left/\right commands
     cleaned = remove_latex_display_markers(cleaned)
     
+    # Step 6: Format MCQ options on separate lines
+    cleaned = format_mcq_options(cleaned)
+    
     logging.info(f"✅ LaTeX cleaning completed")
     logging.info(f"📝 Original: {latex_text[:100]}...")
     logging.info(f"✅ Cleaned: {cleaned[:100]}...")
@@ -275,6 +324,9 @@ def extract_text_from_latex(latex_text):
     text = re.sub(r'\s*([;,.])\s*', r'\1 ', text)
     text = re.sub(r'\s+', ' ', text)  # Clean up again
     text = text.strip()
+    
+    # Format MCQ options on separate lines
+    text = format_mcq_options(text)
     
     return text
 
