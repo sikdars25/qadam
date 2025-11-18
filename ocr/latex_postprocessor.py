@@ -110,6 +110,7 @@ def format_mcq_options(text):
     """
     Format MCQ options to appear on separate lines
     Detects patterns like (A), (B), (C), (D) or A), B), C), D)
+    Also handles patterns without spaces like (A)IV(B)II(C)II(D)III
     
     Args:
         text (str): Text with MCQ options
@@ -120,23 +121,26 @@ def format_mcq_options(text):
     if not text:
         return text
     
-    # Pattern 1: (A), (B), (C), (D) - options in parentheses
-    # Add newline before each option marker
+    # Pattern 1: (A)text(B)text - options stuck together without spaces
+    # This handles: (A)IV(B)II(C)II(D)III
+    text = re.sub(r'\(([A-D])\)([^\(]+?)(?=\([A-D]\)|$)', r'\n(\1) \2', text)
+    
+    # Pattern 2: (A), (B), (C), (D) - options in parentheses with possible spaces
     text = re.sub(r'(?<!\n)\s*\(([A-D])\)\s*', r'\n(\1) ', text)
     
-    # Pattern 2: A), B), C), D) - options without opening parenthesis
+    # Pattern 3: A), B), C), D) - options without opening parenthesis
     text = re.sub(r'(?<!\n)\s*([A-D])\)\s*', r'\n\1) ', text)
     
-    # Pattern 3: (a), (b), (c), (d) - lowercase options
+    # Pattern 4: (a), (b), (c), (d) - lowercase options
     text = re.sub(r'(?<!\n)\s*\(([a-d])\)\s*', r'\n(\1) ', text)
     
-    # Pattern 4: a), b), c), d) - lowercase without opening parenthesis
+    # Pattern 5: a), b), c), d) - lowercase without opening parenthesis
     text = re.sub(r'(?<!\n)\s*([a-d])\)\s*', r'\n\1) ', text)
     
-    # Pattern 5: (1), (2), (3), (4) - numbered options
+    # Pattern 6: (1), (2), (3), (4) - numbered options
     text = re.sub(r'(?<!\n)\s*\(([1-4])\)\s*', r'\n(\1) ', text)
     
-    # Pattern 6: 1), 2), 3), 4) - numbered without opening parenthesis
+    # Pattern 7: 1), 2), 3), 4) - numbered without opening parenthesis
     text = re.sub(r'(?<!\n)\s*([1-4])\)\s*', r'\n\1) ', text)
     
     # Clean up: remove leading newline if text starts with an option
@@ -149,6 +153,18 @@ def format_mcq_options(text):
     lines = text.split('\n')
     lines = [line.rstrip() for line in lines]
     text = '\n'.join(lines)
+    
+    # Add extra newline before first option if it comes after question text
+    # Look for patterns like "region(A)" and add newline before (A)
+    if '\n(' in text:
+        # Find the first option and ensure there's proper spacing
+        first_option_match = re.search(r'([a-z])\s*\n\(([A-D])\)', text)
+        if first_option_match:
+            # Already has newline, good
+            pass
+        else:
+            # Check if option comes right after text without newline
+            text = re.sub(r'([a-z])\(([A-D])\)', r'\1\n(\2)', text)
     
     return text
 
