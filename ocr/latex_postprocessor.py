@@ -108,65 +108,66 @@ def remove_latex_display_markers(latex_text):
 
 def format_mcq_options(text):
     """
-    Format MCQ options to appear on separate lines
-    Detects patterns like (A), (B), (C), (D) or A), B), C), D)
-    Also handles patterns without spaces like (A)IV(B)II(C)II(D)III
+    Format MCQ options to appear on separate lines ONLY at end of question
+    Detects patterns like (A), (B), (C), (D) when they appear as answer choices
+    Only formats if we detect 3-4 consecutive options (typical MCQ pattern)
     
     Args:
         text (str): Text with MCQ options
         
     Returns:
-        str: Text with options on separate lines
+        str: Text with MCQ answer options on separate lines
     """
     if not text:
         return text
     
-    # Pattern 1: (A)text(B)text - options stuck together without spaces
-    # This handles: (A)IV(B)II(C)II(D)III
-    text = re.sub(r'\(([A-D])\)([^\(]+?)(?=\([A-D]\)|$)', r'\n(\1) \2', text)
+    # First, detect if this text contains MCQ answer choices
+    # Look for pattern of 3-4 consecutive options: (A)...(B)...(C)...(D) or similar
+    mcq_pattern = r'\(([A-D])\)[^\(]*\(([A-D])\)[^\(]*\(([A-D])\)'
+    has_mcq = re.search(mcq_pattern, text)
     
-    # Pattern 2: (A), (B), (C), (D) - options in parentheses with possible spaces
-    text = re.sub(r'(?<!\n)\s*\(([A-D])\)\s*', r'\n(\1) ', text)
+    if not has_mcq:
+        # No MCQ pattern detected, return as-is (don't add newlines)
+        return text
     
-    # Pattern 3: A), B), C), D) - options without opening parenthesis
-    text = re.sub(r'(?<!\n)\s*([A-D])\)\s*', r'\n\1) ', text)
+    # Find where the MCQ options start (usually after last sentence/question mark)
+    # Look for the first occurrence of consecutive options
+    mcq_start_match = re.search(r'(.*?)(\([A-D]\)[^\(]*\([A-D]\)[^\(]*\([A-D]\).*)', text, re.DOTALL)
     
-    # Pattern 4: (a), (b), (c), (d) - lowercase options
-    text = re.sub(r'(?<!\n)\s*\(([a-d])\)\s*', r'\n(\1) ', text)
+    if not mcq_start_match:
+        return text
     
-    # Pattern 5: a), b), c), d) - lowercase without opening parenthesis
-    text = re.sub(r'(?<!\n)\s*([a-d])\)\s*', r'\n\1) ', text)
+    # Split into question part and MCQ options part
+    question_part = mcq_start_match.group(1)
+    mcq_part = mcq_start_match.group(2)
     
-    # Pattern 6: (1), (2), (3), (4) - numbered options
-    text = re.sub(r'(?<!\n)\s*\(([1-4])\)\s*', r'\n(\1) ', text)
+    # Format ONLY the MCQ options part
+    # Pattern 1: (A)text(B)text - options stuck together
+    mcq_part = re.sub(r'\(([A-D])\)([^\(]+?)(?=\([A-D]\)|$)', r'\n(\1) \2', mcq_part)
     
-    # Pattern 7: 1), 2), 3), 4) - numbered without opening parenthesis
-    text = re.sub(r'(?<!\n)\s*([1-4])\)\s*', r'\n\1) ', text)
+    # Pattern 2: Handle lowercase options if present
+    mcq_part = re.sub(r'\(([a-d])\)([^\(]+?)(?=\([a-d]\)|$)', r'\n(\1) \2', mcq_part)
     
-    # Clean up: remove leading newline if text starts with an option
-    text = text.lstrip('\n')
+    # Pattern 3: Handle numbered options if present
+    mcq_part = re.sub(r'\(([1-4])\)([^\(]+?)(?=\([1-4]\)|$)', r'\n(\1) \2', mcq_part)
     
-    # Clean up: ensure single newline between options (no double newlines)
-    text = re.sub(r'\n\n+', '\n', text)
+    # Clean up the MCQ part
+    mcq_part = mcq_part.lstrip('\n')
+    mcq_part = re.sub(r'\n\n+', '\n', mcq_part)
     
-    # Clean up: remove trailing spaces on each line
-    lines = text.split('\n')
+    # Clean up trailing spaces on each line
+    lines = mcq_part.split('\n')
     lines = [line.rstrip() for line in lines]
-    text = '\n'.join(lines)
+    mcq_part = '\n'.join(lines)
     
-    # Add extra newline before first option if it comes after question text
-    # Look for patterns like "region(A)" and add newline before (A)
-    if '\n(' in text:
-        # Find the first option and ensure there's proper spacing
-        first_option_match = re.search(r'([a-z])\s*\n\(([A-D])\)', text)
-        if first_option_match:
-            # Already has newline, good
-            pass
-        else:
-            # Check if option comes right after text without newline
-            text = re.sub(r'([a-z])\(([A-D])\)', r'\1\n(\2)', text)
+    # Combine question and formatted MCQ options
+    # Add newline before first option if not already present
+    if not question_part.endswith('\n'):
+        result = question_part.rstrip() + '\n' + mcq_part
+    else:
+        result = question_part + mcq_part
     
-    return text
+    return result
 
 def clean_latex_output(latex_text):
     """
