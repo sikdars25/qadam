@@ -34,12 +34,22 @@
 - Remove all `\left` and `\right` commands
 - Clean output: `P = (n-1)(2RR2)` instead of `\[ P = (n-1)\left(2RR2\right) \]`
 
-### **Commit #4:** `af2c73c` - Improve OCR engine selection (LATEST)
+### **Commit #4:** `af2c73c` - Improve OCR engine selection
 - Enhanced mathematical content detection
 - LaTeX-OCR only for pure math formulas (< 100 chars, < 10 words, > 20% math symbols)
 - EasyOCR for text questions (better text recognition)
 - Fixes garbled text for physics/text questions
 - Example: Physics questions now readable instead of gibberish
+
+### **Commit #5:** `ab69059` - Enhanced preprocessing for large symbols (LATEST)
+- **Otsu thresholding** for optimal binarization
+- **Median blur (kernel=3)** to reduce noise while preserving edges
+- **White border padding (10px)** to help detect edge symbols
+- **Morphological closing** to connect broken symbol parts
+- **CLAHE** for contrast enhancement
+- **Sharpening filter** for clearer symbol edges
+- Optimized for: ∫ (integration), ∑ (summation), large brackets, fractions, ∂ (differentials)
+- Significantly better detection of large mathematical symbols
 
 ---
 
