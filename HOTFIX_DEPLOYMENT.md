@@ -41,7 +41,7 @@
 - Fixes garbled text for physics/text questions
 - Example: Physics questions now readable instead of gibberish
 
-### **Commit #5:** `ab69059` - Enhanced preprocessing for large symbols (LATEST)
+### **Commit #5:** `ab69059` - Enhanced preprocessing for large symbols
 - **Otsu thresholding** for optimal binarization
 - **Median blur (kernel=3)** to reduce noise while preserving edges
 - **White border padding (10px)** to help detect edge symbols
@@ -50,6 +50,14 @@
 - **Sharpening filter** for clearer symbol edges
 - Optimized for: ∫ (integration), ∑ (summation), large brackets, fractions, ∂ (differentials)
 - Significantly better detection of large mathematical symbols
+
+### **Commit #6:** `94f3d20` - Remove backslashes and convert LaTeX (LATEST)
+- **Convert math functions**: `\sin` → `sin`, `\cos` → `cos`, `\tan` → `tan`
+- **Convert symbols**: `\sum` → `∑`, `\int` → `∫`, `\sqrt` → `√`
+- **Convert Greek letters**: `\omega` → `ω`, `\alpha` → `α`, `\theta` → `θ`, etc.
+- **Remove all backslashes** from output
+- Clean readable format: `E_x = E_0 sin(kz - ω t)` instead of `E_x = E_0 \sin (kz - \omega t)`
+- Subscripts and superscripts properly displayed
 
 ---
 
