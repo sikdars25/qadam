@@ -175,38 +175,56 @@ class LatexOCRIntegration:
     
     def detect_mathematical_content(self, image_path):
         """
-        Detect if image contains mathematical content
+        Detect if image contains primarily mathematical content (formulas/equations)
+        Returns True only for pure math formulas, False for text with some math
         """
         try:
-            # Use EasyOCR for quick content detection
+            # Quick check using EasyOCR if available
             if self.easyocr_reader:
-                if isinstance(image_path, str):
-                    image = cv2.imread(image_path)
-                else:
-                    image = image_path
+                results = self.easyocr_reader.readtext(image_path, detail=1)
                 
-                if image is not None:
-                    # Quick OCR to detect math indicators
-                    result = self.easyocr_reader.readtext(image, detail=0)
-                    text = ' '.join(result)
+                if results:
+                    # Extract text
+                    text = ' '.join([result[1] for result in results])
+                    total_chars = len(text)
                     
-                    # Check for mathematical indicators
-                    math_indicators = [
-                        r'[=+\-*/]', r'\^', r'_', r'\{', r'\}', r'\[', r'\]',
-                        r'\\frac', r'\\sqrt', r'\\int', r'\\sum', r'\\prod',
-                        r'alpha|beta|gamma|delta|epsilon|theta|lambda|mu|pi|sigma|tau|phi|omega',
-                        r'sin|cos|tan|log|ln|exp|integral|derivative'
+                    # If text is too long (>100 chars), it's likely a question, not pure math
+                    if total_chars > 100:
+                        logging.info(f"📝 Text length {total_chars} chars - likely a question, not pure math")
+                        return False
+                    
+                    # Count words - if more than 10 words, it's likely text
+                    word_count = len(text.split())
+                    if word_count > 10:
+                        logging.info(f"📝 Word count {word_count} - likely text with math, not pure math")
+                        return False
+                    
+                    # Count mathematical symbols (strong indicators of pure math)
+                    pure_math_indicators = [
+                        r'[∫∑∏√∂∇±×÷≠≤≥∞]',  # Math symbols
+                        r'\\frac|\\sqrt|\\int|\\sum|\\lim',  # LaTeX math commands
+                        r'\^\{[^}]+\}',  # Complex superscripts
+                        r'_\{[^}]+\}',  # Complex subscripts
                     ]
                     
-                    for indicator in math_indicators:
-                        if re.search(indicator, text, re.IGNORECASE):
-                            return True
+                    math_symbol_count = 0
+                    for indicator in pure_math_indicators:
+                        math_symbol_count += len(re.findall(indicator, text, re.IGNORECASE))
+                    
+                    # If math symbols are more than 20% of content, it's pure math
+                    if total_chars > 0 and (math_symbol_count / total_chars) > 0.2:
+                        logging.info(f"🧮 High math symbol density - pure mathematical content")
+                        return True
+                    
+                    logging.info(f"📝 Low math density - text question with some math")
+                    return False
             
-            return False  # Assume non-mathematical if detection fails
+            # If EasyOCR not available, default to False (use EasyOCR for extraction)
+            return False
             
         except Exception as e:
             logging.error(f"Error detecting mathematical content: {e}")
-            return True  # Default to trying LaTeX-OCR
+            return False  # Default to EasyOCR for better text recognition
     
     def extract_text_with_latex_ocr(self, image_path):
         """
@@ -341,9 +359,9 @@ class LatexOCRIntegration:
         is_math = self.detect_mathematical_content(image_path)
         logging.info(f"📊 Mathematical content detected: {is_math}")
         
-        # Step 2: Try LaTeX-OCR first (especially for mathematical content)
-        if is_math or self.latex_ocr:
-            logging.info("🧮 Trying LaTeX-OCR (primary engine)")
+        # Step 2: Try LaTeX-OCR ONLY if content is pure mathematical
+        if is_math and self.latex_ocr:
+            logging.info("🧮 Pure math detected - trying LaTeX-OCR (primary engine)")
             latex_result = self.extract_text_with_latex_ocr(image_path)
             
             if latex_result and len(latex_result.strip()) > 0:
@@ -359,6 +377,8 @@ class LatexOCRIntegration:
                 }
             else:
                 logging.info("⚠️ LaTeX-OCR failed or returned empty - falling back to EasyOCR")
+        else:
+            logging.info("📝 Text content detected - skipping LaTeX-OCR, using EasyOCR directly")
         
         # Step 3: Fallback to EasyOCR
         if self.easyocr_reader:
