@@ -124,6 +124,16 @@ CORS(app,
              "origins": ALLOWED_ORIGINS,
              "supports_credentials": True,
              "allow_credentials": True
+         },
+         r"/ocr/*": {
+             "origins": ALLOWED_ORIGINS,
+             "supports_credentials": True,
+             "allow_credentials": True
+         },
+         r"/solve-question": {
+             "origins": ALLOWED_ORIGINS,
+             "supports_credentials": True,
+             "allow_credentials": True
          }
      },
      supports_credentials=True,
