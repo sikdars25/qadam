@@ -203,6 +203,7 @@ class WolframAlphaSolver:
             query = expression
             if context:
                 logger.debug(f"Applying context substitutions for {expr_id}")
+                logger.debug(f"Context available: {list(context.keys())}")
                 # Context contains results from dependent expressions
                 # This allows chaining of results
             
@@ -215,11 +216,33 @@ class WolframAlphaSolver:
                 'podstate': 'Result__Step-by-step solution'
             }
             
-            logger.info(f"Solving expression {expr_id} with Wolfram Alpha: {expression[:50]}...")
+            # COMPREHENSIVE LOGGING FOR WOLFRAM ALPHA CALL
+            logger.info("=" * 80)
+            logger.info(f"WOLFRAM ALPHA API CALL - Expression ID: {expr_id}")
+            logger.info("-" * 80)
+            logger.info(f"Original Expression: {expression}")
+            logger.info(f"Query to Wolfram: {query}")
+            logger.info(f"API Endpoint: {url}")
+            logger.info(f"Parameters:")
+            logger.info(f"  - input: {query}")
+            logger.info(f"  - output: JSON")
+            logger.info(f"  - format: plaintext")
+            logger.info(f"  - podstate: Result__Step-by-step solution")
+            if context:
+                logger.info(f"Context from dependencies: {context}")
+            logger.info("-" * 80)
+            
             response = requests.get(url, params=params, timeout=30)
+            
+            # LOG RESPONSE STATUS
+            logger.info(f"Response Status Code: {response.status_code}")
             
             if response.status_code == 200:
                 data = response.json()
+                
+                # LOG RESPONSE SUCCESS
+                query_success = data.get('queryresult', {}).get('success', False)
+                logger.info(f"Wolfram Query Success: {query_success}")
                 
                 # Extract result and steps from Wolfram Alpha response
                 result_text = None
@@ -227,12 +250,17 @@ class WolframAlphaSolver:
                 
                 if 'queryresult' in data and data['queryresult'].get('success'):
                     pods = data['queryresult'].get('pods', [])
+                    logger.info(f"Number of result pods: {len(pods)}")
                     
                     for pod in pods:
+                        pod_title = pod.get('title', '')
+                        logger.debug(f"Processing pod: {pod_title}")
+                        
                         if pod.get('title') in ['Result', 'Solution', 'Solutions']:
                             subpods = pod.get('subpods', [])
                             if subpods:
                                 result_text = subpods[0].get('plaintext', '')
+                                logger.info(f"Found result: {result_text[:100]}...")
                         
                         if 'step' in pod.get('title', '').lower():
                             subpods = pod.get('subpods', [])
@@ -240,6 +268,15 @@ class WolframAlphaSolver:
                                 step_text = subpod.get('plaintext', '')
                                 if step_text:
                                     steps.append(step_text)
+                                    logger.debug(f"Found step: {step_text[:50]}...")
+                    
+                    logger.info(f"Extracted {len(steps)} solution steps")
+                else:
+                    logger.warning(f"Wolfram Alpha query failed or returned no success flag")
+                
+                # LOG FINAL RESULT
+                logger.info(f"Final Result: {result_text or 'Solution found (see steps)'}")
+                logger.info("=" * 80)
                 
                 return {
                     'success': True,
@@ -250,20 +287,59 @@ class WolframAlphaSolver:
                     'raw_response': data
                 }
             else:
+                error_msg = f'Wolfram Alpha API error: {response.status_code}'
+                logger.error(error_msg)
+                logger.error(f"Response content: {response.text[:200]}")
+                logger.info("=" * 80)
                 return {
                     'success': False,
                     'expr_id': expr_id,
                     'expression': expression,
-                    'error': f'Wolfram Alpha API error: {response.status_code}'
+                    'error': error_msg
                 }
                 
-        except Exception as e:
-            logger.error(f"Error solving expression {expr_id}: {e}")
+        except requests.exceptions.Timeout:
+            error_msg = f"Wolfram Alpha API timeout for expression {expr_id}"
+            logger.error("=" * 80)
+            logger.error(f"WOLFRAM ALPHA TIMEOUT - Expression ID: {expr_id}")
+            logger.error(f"Expression: {expression}")
+            logger.error(f"Query: {query}")
+            logger.error("Request timed out after 30 seconds")
+            logger.error("=" * 80)
             return {
                 'success': False,
                 'expr_id': expr_id,
                 'expression': expression,
-                'error': str(e)
+                'error': error_msg
+            }
+        except requests.exceptions.RequestException as e:
+            error_msg = f"Wolfram Alpha API request error: {str(e)}"
+            logger.error("=" * 80)
+            logger.error(f"WOLFRAM ALPHA REQUEST ERROR - Expression ID: {expr_id}")
+            logger.error(f"Expression: {expression}")
+            logger.error(f"Query: {query}")
+            logger.error(f"Error: {str(e)}")
+            logger.error("=" * 80)
+            return {
+                'success': False,
+                'expr_id': expr_id,
+                'expression': expression,
+                'error': error_msg
+            }
+        except Exception as e:
+            error_msg = f"Unexpected error solving expression {expr_id}: {str(e)}"
+            logger.error("=" * 80)
+            logger.error(f"WOLFRAM ALPHA UNEXPECTED ERROR - Expression ID: {expr_id}")
+            logger.error(f"Expression: {expression}")
+            logger.error(f"Query: {query if 'query' in locals() else 'N/A'}")
+            logger.error(f"Error Type: {type(e).__name__}")
+            logger.error(f"Error: {str(e)}")
+            logger.error("=" * 80)
+            return {
+                'success': False,
+                'expr_id': expr_id,
+                'expression': expression,
+                'error': error_msg
             }
 
 
