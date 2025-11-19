@@ -117,33 +117,35 @@ ALLOWED_ORIGINS = [
     'http://127.0.0.1:5000',  # Alternative localhost
 ]
 
+# CORS is now handled by Nginx reverse proxy to avoid duplicate headers
+# Nginx adds CORS headers for all requests, so Flask-CORS is disabled
 # Configure CORS with specific settings for Azure
-CORS(app, 
-     resources={
-         r"/api/*": {
-             "origins": ALLOWED_ORIGINS,
-             "supports_credentials": True,
-             "allow_credentials": True
-         },
-         r"/ocr/*": {
-             "origins": ALLOWED_ORIGINS,
-             "supports_credentials": True,
-             "allow_credentials": True
-         },
-         r"/solve-question": {
-             "origins": ALLOWED_ORIGINS,
-             "supports_credentials": True,
-             "allow_credentials": True
-         }
-     },
-     supports_credentials=True,
-     allow_headers=['Content-Type', 'Authorization', 'X-Requested-With', 'Cookie'],
-     methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-     expose_headers=['Content-Type', 'Authorization', 'Set-Cookie'])
+# CORS(app, 
+#      resources={
+#          r"/api/*": {
+#              "origins": ALLOWED_ORIGINS,
+#              "supports_credentials": True,
+#              "allow_credentials": True
+#          },
+#          r"/ocr/*": {
+#              "origins": ALLOWED_ORIGINS,
+#              "supports_credentials": True,
+#              "allow_credentials": True
+#          },
+#          r"/solve-question": {
+#              "origins": ALLOWED_ORIGINS,
+#              "supports_credentials": True,
+#              "allow_credentials": True
+#          }
+#      },
+#      supports_credentials=True,
+#      allow_headers=['Content-Type', 'Authorization', 'X-Requested-With', 'Cookie'],
+#      methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+#      expose_headers=['Content-Type', 'Authorization', 'Set-Cookie'])
 
 # Debug: Print CORS configuration on startup
 print("=" * 50)
-print("CORS Configuration:")
+print("CORS Configuration: Handled by Nginx")
 print(f"Allowed Origins: {ALLOWED_ORIGINS}")
 print(f"Supports Credentials: True")
 print("=" * 50)
@@ -158,21 +160,22 @@ def log_request():
     if request.args:
         print(f"   Query params: {dict(request.args)}")
 
-# Add after_request handler to ensure CORS headers are always set
-@app.after_request
-def after_request(response):
-    """Ensure CORS headers are set on all responses"""
-    origin = request.headers.get('Origin')
-    
-    # Check if origin is allowed
-    if origin in ALLOWED_ORIGINS:
-        response.headers['Access-Control-Allow-Origin'] = origin
-        response.headers['Access-Control-Allow-Credentials'] = 'true'
-        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
-        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Requested-With, Cookie'
-        response.headers['Access-Control-Expose-Headers'] = 'Content-Type, Authorization, Set-Cookie'
-    
-    return response
+# CORS headers are now handled by Nginx reverse proxy
+# Commenting out to avoid duplicate Access-Control-Allow-Origin headers
+# @app.after_request
+# def after_request(response):
+#     """Ensure CORS headers are set on all responses"""
+#     origin = request.headers.get('Origin')
+#     
+#     # Check if origin is allowed
+#     if origin in ALLOWED_ORIGINS:
+#         response.headers['Access-Control-Allow-Origin'] = origin
+#         response.headers['Access-Control-Allow-Credentials'] = 'true'
+#         response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
+#         response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Requested-With, Cookie'
+#         response.headers['Access-Control-Expose-Headers'] = 'Content-Type, Authorization, Set-Cookie'
+#     
+#     return response
 
 # Configuration
 UPLOAD_FOLDER = 'uploads'
