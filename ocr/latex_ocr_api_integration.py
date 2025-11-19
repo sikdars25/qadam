@@ -1,6 +1,13 @@
 """
-LaTeX OCR Integration - Convert OCR text to deterministic expressions and solve with free APIs
-Version: 1.0 - Production Ready
+LaTeX OCR Integration - DEPRECATED
+Version: 1.0 - MOVED TO PROXY SERVICE
+
+⚠️ DEPRECATION NOTICE ⚠️
+This file has been moved to the Proxy service (proxy/latex_ocr_api_integration.py)
+The OCR service now only handles text extraction (LaTeX-OCR + EasyOCR)
+All solving and answer generation functionality is handled by the Proxy service
+
+This file is kept for reference only and should NOT be used in production.
 """
 
 import os
@@ -10,31 +17,17 @@ import requests
 import sympy as sp
 import logging
 from typing import Dict, List, Any, Optional, Tuple
-from dotenv import load_dotenv
 import time
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Load environment variables
-load_dotenv()
+# DEPRECATED: API keys moved to Proxy service
+# OCR service no longer requires these keys
+# GROQ_API_KEY and WOLFRAM_APP_ID are now configured in Proxy service only
 
-# Groq API Configuration
-GROQ_API_KEY = os.getenv('GROQ_API_KEY', '')
-if not GROQ_API_KEY:
-    logger.warning("GROQ_API_KEY not configured - final answer generation will be disabled")
-
-GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
-GROQ_MODEL = "llama-3.3-70b-versatile"
-
-# Free Math/Science APIs
-WOLFRAM_APP_ID = os.getenv('WOLFRAM_APP_ID', '')
-if not WOLFRAM_APP_ID:
-    logger.info("WOLFRAM_APP_ID not configured - Wolfram Alpha will be disabled")
-
-SYMBOLAB_ENABLED = True  # Web scraping approach
-MATHPIX_ENABLED = False  # Requires API key
+logger.warning("⚠️ latex_ocr_api_integration.py is DEPRECATED - functionality moved to Proxy service")
 
 class MathExpressionDetector:
     """Detect and classify mathematical expressions in OCR text"""
