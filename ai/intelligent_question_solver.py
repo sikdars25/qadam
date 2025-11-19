@@ -17,9 +17,24 @@ from typing import Dict, List, Any, Optional, Tuple
 from dotenv import load_dotenv
 import time
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
+# Configure logging for systemd compatibility
+import sys
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(sys.stdout)  # Output to stdout for systemd
+    ],
+    force=True  # Force reconfiguration
+)
 logger = logging.getLogger(__name__)
+
+# Ensure logger level is set and propagate
+logger.setLevel(logging.INFO)
+logger.propagate = True
+
+# Force unbuffered output for systemd
+sys.stdout.reconfigure(line_buffering=True) if hasattr(sys.stdout, 'reconfigure') else None
 
 # Load environment variables
 load_dotenv()
@@ -231,6 +246,7 @@ class WolframAlphaSolver:
             if context:
                 logger.info(f"Context from dependencies: {context}")
             logger.info("-" * 80)
+            sys.stdout.flush()  # Force immediate output to systemd
             
             response = requests.get(url, params=params, timeout=30)
             
@@ -277,6 +293,7 @@ class WolframAlphaSolver:
                 # LOG FINAL RESULT
                 logger.info(f"Final Result: {result_text or 'Solution found (see steps)'}")
                 logger.info("=" * 80)
+                sys.stdout.flush()  # Force immediate output to systemd
                 
                 return {
                     'success': True,
@@ -291,6 +308,7 @@ class WolframAlphaSolver:
                 logger.error(error_msg)
                 logger.error(f"Response content: {response.text[:200]}")
                 logger.info("=" * 80)
+                sys.stdout.flush()  # Force immediate output to systemd
                 return {
                     'success': False,
                     'expr_id': expr_id,
@@ -306,6 +324,7 @@ class WolframAlphaSolver:
             logger.error(f"Query: {query}")
             logger.error("Request timed out after 30 seconds")
             logger.error("=" * 80)
+            sys.stdout.flush()  # Force immediate output to systemd
             return {
                 'success': False,
                 'expr_id': expr_id,
@@ -320,6 +339,7 @@ class WolframAlphaSolver:
             logger.error(f"Query: {query}")
             logger.error(f"Error: {str(e)}")
             logger.error("=" * 80)
+            sys.stdout.flush()  # Force immediate output to systemd
             return {
                 'success': False,
                 'expr_id': expr_id,
@@ -335,6 +355,7 @@ class WolframAlphaSolver:
             logger.error(f"Error Type: {type(e).__name__}")
             logger.error(f"Error: {str(e)}")
             logger.error("=" * 80)
+            sys.stdout.flush()  # Force immediate output to systemd
             return {
                 'success': False,
                 'expr_id': expr_id,
