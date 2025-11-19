@@ -13,6 +13,8 @@ def clean_math_expression(text):
     - π π 1 2 1 2 → πr²
     - 1 3 1 3 → r³
     - d C d r dr dC → dC/dr
+    - \left( \right) → ( )
+    - \frac{a}{b} → a/b
     - Duplicate symbols and spacing issues
     """
     if not text:
@@ -20,6 +22,16 @@ def clean_math_expression(text):
     
     # Store original text for comparison
     original = text
+    
+    # Remove LaTeX delimiters first
+    text = re.sub(r'\\?\\\(', '', text)  # Remove \(
+    text = re.sub(r'\\?\\\)', '', text)  # Remove \)
+    text = re.sub(r'\\?\\\[', '', text)  # Remove \[
+    text = re.sub(r'\\?\\\]', '', text)  # Remove \]
+    
+    # Remove \left and \right
+    text = re.sub(r'\\left\s*', '', text)
+    text = re.sub(r'\\right\s*', '', text)
     
     # Fix common LaTeX rendering issues
     
@@ -43,14 +55,20 @@ def clean_math_expression(text):
     text = re.sub(r'(\d+)\s+r\s+r\s+\1\s*​?\s*', r'\1/r', text)
     text = re.sub(r'(\d+)\s+1\s+1\s+\1\s*​?\s*', r'\1/r', text)
     
-    # Fix cube root: \sqrt[3]{ → ∛
+    # Fix cube root: \sqrt[3]{ → ∛ (handle nested braces)
     text = re.sub(r'\\sqrt\[3\]\{([^}]+)\}', r'∛(\1)', text)
+    text = re.sub(r'∛\(\\frac\{([^}]+)\}\{([^}]+)\}\)', r'∛((\1)/(\2))', text)
     
     # Fix square root: \sqrt{ → √
     text = re.sub(r'\\sqrt\{([^}]+)\}', r'√(\1)', text)
     
-    # Fix fractions: \frac{a}{b} → a/b
-    text = re.sub(r'\\frac\{([^}]+)\}\{([^}]+)\}', r'(\1)/(\2)', text)
+    # Fix fractions: \frac{a}{b} → a/b (multiple passes for nested fractions)
+    for _ in range(3):  # Handle up to 3 levels of nesting
+        text = re.sub(r'\\frac\{([^{}]+)\}\{([^{}]+)\}', r'(\1)/(\2)', text)
+    
+    # Fix malformed fractions with missing braces
+    text = re.sub(r'∛\(\\frac\{?(\d+)\}?\{?([^})\s]+)\}?\)', r'∛(\1/\2)', text)
+    text = re.sub(r'∛\(\((\d+)\)\(([^)]+)\)\)', r'∛(\1/\2)', text)
     
     # Fix exponents in text: 1^{2} → r²
     text = re.sub(r'1\^\{2\}', 'r²', text)
@@ -78,6 +96,27 @@ def clean_math_expression(text):
     # Fix exponent notation: 2 3 3 2 → 2/3
     text = re.sub(r'(?<!\d)2\s*3\s*3\s*2\s*​?\s*', '2/3', text)
     
+    # Fix specific patterns from the example
+    # ∛(\frac{250){ππ}} → ∛(250/π)
+    text = re.sub(r'∛\(\\frac\{(\d+)\)\{?([^}]+)\}\}', r'∛(\1/\2)', text)
+    text = re.sub(r'∛\(\((\d+)\)\{?([^}]+)\}\)', r'∛(\1/\2)', text)
+    
+    # Fix exponent fractions: ^{(2) / (3)} → ^(2/3)
+    text = re.sub(r'\^\{?\((\d+)\)\s*/\s*\((\d+)\)\}?', r'^(\1/\2)', text)
+    
+    # Fix boxed answers: $\boxed{...}$ → [...]
+    text = re.sub(r'\$\\boxed\{([^}]+)\}\$', r'[\1]', text)
+    
+    # Fix remaining LaTeX commands
+    text = re.sub(r'\\times', '×', text)
+    text = re.sub(r'\\cdot', '·', text)
+    text = re.sub(r'\\pi', 'π', text)
+    
+    # Fix malformed cube roots with fractions
+    # ∛(\frac{250){ππ}} or ∛((250)/(ππ))
+    text = re.sub(r'∛\(\\frac\{?(\d+)\}?\)\{?ππ\}?\}', r'∛(\1/π)', text)
+    text = re.sub(r'∛\(\((\d+)\)/\(ππ\)\)', r'∛(\1/π)', text)
+    
     # Clean up extra spaces around mathematical operators
     text = re.sub(r'\s*([+\-*/=])\s*', r' \1 ', text)
     
@@ -86,6 +125,9 @@ def clean_math_expression(text):
     
     # Remove zero-width spaces and other invisible characters
     text = re.sub(r'[\u200b\u200c\u200d\ufeff]', '', text)
+    
+    # Remove any remaining backslashes before common characters
+    text = re.sub(r'\\([(){}])', r'\1', text)
     
     return text.strip()
 
@@ -103,6 +145,12 @@ def format_solution(solution_text):
     if not solution_text:
         return solution_text
     
+    # First pass: Remove common LaTeX delimiters globally
+    solution_text = re.sub(r'\\\(', '', solution_text)
+    solution_text = re.sub(r'\\\)', '', solution_text)
+    solution_text = re.sub(r'\\left', '', solution_text)
+    solution_text = re.sub(r'\\right', '', solution_text)
+    
     # Split into lines to preserve structure
     lines = solution_text.split('\n')
     
@@ -111,6 +159,12 @@ def format_solution(solution_text):
     
     # Rejoin
     formatted_text = '\n'.join(cleaned_lines)
+    
+    # Final pass: Clean up any remaining LaTeX artifacts
+    formatted_text = re.sub(r'\\frac\{([^}]+)\}\{([^}]+)\}', r'(\1)/(\2)', formatted_text)
+    formatted_text = re.sub(r'\\[a-zA-Z]+\{', '', formatted_text)  # Remove \command{
+    formatted_text = re.sub(r'\}', '', formatted_text)  # Remove stray }
+    formatted_text = re.sub(r'\\', '', formatted_text)  # Remove stray backslashes
     
     return formatted_text
 
