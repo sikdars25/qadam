@@ -321,7 +321,12 @@ from ai_service import (
     semantic_search_textbook
 )
 
-# Import Intelligent Question Solver
+app = Flask(__name__)
+CORS(app)  # Enable CORS for all routes
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Import Intelligent Question Solver (after logger is defined)
 try:
     from intelligent_question_solver import IntelligentQuestionSolver
     INTELLIGENT_SOLVER_AVAILABLE = True
@@ -331,11 +336,6 @@ except Exception as e:
     INTELLIGENT_SOLVER_AVAILABLE = False
     intelligent_solver = None
     logger.warning(f"⚠️ Intelligent Question Solver not available: {e}")
-
-app = Flask(__name__)
-CORS(app)  # Enable CORS for all routes
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 def contains_math_symbols(text):
     """Check if text contains mathematical symbols"""
