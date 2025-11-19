@@ -1,12 +1,13 @@
-# Flask
-Flask==3.0.0
-flask-cors==4.0.0
+# Intelligent Question Solver Requirements
+# Install with: pip install -r requirements.txt
 
-# Build tools
-setuptools>=65.0.0
+# Core dependencies
+requests>=2.31.0
+python-dotenv>=1.0.0
 
-# AI & ML
-groq==0.11.0
-scikit-learn
-numpy
-PyMuPDF
+# Optional: For enhanced mathematical processing
+# sympy>=1.12  # If fallback to SymPy is needed
+
+# API Requirements:
+# - GROQ_API_KEY: Required for expression extraction and answer synthesis
+# - WOLFRAM_APP_ID: Required for solving mathematical expressions
