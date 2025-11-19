@@ -321,6 +321,17 @@ from ai_service import (
     semantic_search_textbook
 )
 
+# Import Intelligent Question Solver
+try:
+    from intelligent_question_solver import IntelligentQuestionSolver
+    INTELLIGENT_SOLVER_AVAILABLE = True
+    intelligent_solver = IntelligentQuestionSolver()
+    logger.info("✅ Intelligent Question Solver loaded successfully")
+except Exception as e:
+    INTELLIGENT_SOLVER_AVAILABLE = False
+    intelligent_solver = None
+    logger.warning(f"⚠️ Intelligent Question Solver not available: {e}")
+
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
 logging.basicConfig(level=logging.INFO)
@@ -571,12 +582,13 @@ def health_check():
 @app.route('/api/solve-question', methods=['POST'])
 def solve_question():
     """
-    Solve a question using AI
+    Solve a question using AI with Intelligent Question Solver
     
     Body: {
         "question_text": "Your question here",
         "subject": "Physics" (optional),
-        "context": "Additional context" (optional)
+        "context": "Additional context" (optional),
+        "use_intelligent_solver": true (optional, default: true)
     }
     """
     logging.info('Solve question request received')
@@ -593,6 +605,7 @@ def solve_question():
         question_text = data['question_text']
         subject = data.get('subject', '')
         context = data.get('context', '')
+        use_intelligent_solver = data.get('use_intelligent_solver', True)
         
         # Analyze for Greek/math characters
         math_analysis = analyze_math_content(question_text)
@@ -603,7 +616,33 @@ def solve_question():
         processed_text = normalize_math_expression(question_text)
         logger.info("🔧 Preserving Greek letters and math symbols exactly")
         
-        # Generate solution
+        # Use Intelligent Question Solver if available and requested
+        if use_intelligent_solver and INTELLIGENT_SOLVER_AVAILABLE:
+            logger.info("🤖 Using Intelligent Question Solver with Groq + Wolfram Alpha")
+            result = intelligent_solver.solve_question(processed_text, subject)
+            
+            if result.get('success'):
+                return jsonify({
+                    'success': True,
+                    'solution': result.get('final_answer', ''),
+                    'extracted_expressions': result.get('extracted_expressions', []),
+                    'dependency_graph': result.get('dependency_graph', {}),
+                    'solving_order': result.get('solving_order', []),
+                    'solved_expressions': result.get('solved_expressions', []),
+                    'math_analysis': math_analysis,
+                    'original_question': question_text,
+                    'processed_question': processed_text,
+                    'processing_time_seconds': result.get('processing_time_seconds', 0),
+                    'solver_type': 'intelligent',
+                    'greek_preserved': True,
+                    'utf8_encoded': True,
+                    'character_encoding': 'UTF-8'
+                })
+            else:
+                logger.warning(f"⚠️ Intelligent solver failed: {result.get('error')}, falling back to basic solver")
+        
+        # Fallback to basic solver
+        logger.info("📝 Using basic solution generator")
         solution = generate_solution(
             question_text=processed_text,
             subject=subject,
@@ -616,6 +655,7 @@ def solve_question():
             'math_analysis': math_analysis,
             'original_question': question_text,
             'processed_question': processed_text,
+            'solver_type': 'basic',
             'greek_preserved': True,
             'utf8_encoded': True,
             'character_encoding': 'UTF-8'
