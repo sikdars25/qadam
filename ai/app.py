@@ -337,6 +337,20 @@ except Exception as e:
     intelligent_solver = None
     logger.warning(f"⚠️ Intelligent Question Solver not available: {e}")
 
+# Import Solution Formatter
+try:
+    from solution_formatter import format_solution, extract_and_format_expressions
+    SOLUTION_FORMATTER_AVAILABLE = True
+    logger.info("✅ Solution Formatter loaded successfully")
+except Exception as e:
+    SOLUTION_FORMATTER_AVAILABLE = False
+    logger.warning(f"⚠️ Solution Formatter not available: {e}")
+    # Fallback: no formatting
+    def format_solution(text):
+        return text
+    def extract_and_format_expressions(text):
+        return {'formatted_text': text, 'extracted_expressions': {}}
+
 def contains_math_symbols(text):
     """Check if text contains mathematical symbols"""
     return any(symbol in text for symbol in MATH_SYMBOLS.keys())
@@ -622,9 +636,14 @@ def solve_question():
             result = intelligent_solver.solve_question(processed_text, subject)
             
             if result.get('success'):
+                # Format the solution for better readability
+                raw_solution = result.get('final_answer', '')
+                formatted_solution = format_solution(raw_solution)
+                
                 return jsonify({
                     'success': True,
-                    'solution': result.get('final_answer', ''),
+                    'solution': formatted_solution,
+                    'raw_solution': raw_solution,  # Keep original for debugging
                     'extracted_expressions': result.get('extracted_expressions', []),
                     'dependency_graph': result.get('dependency_graph', {}),
                     'solving_order': result.get('solving_order', []),
@@ -634,6 +653,7 @@ def solve_question():
                     'processed_question': processed_text,
                     'processing_time_seconds': result.get('processing_time_seconds', 0),
                     'solver_type': 'intelligent',
+                    'formatted': True,
                     'greek_preserved': True,
                     'utf8_encoded': True,
                     'character_encoding': 'UTF-8'
@@ -643,19 +663,24 @@ def solve_question():
         
         # Fallback to basic solver
         logger.info("📝 Using basic solution generator")
-        solution = generate_solution(
+        raw_solution = generate_solution(
             question_text=processed_text,
             subject=subject,
             context=context
         )
         
+        # Format the solution for better readability
+        formatted_solution = format_solution(raw_solution)
+        
         return jsonify({
             'success': True,
-            'solution': solution,
+            'solution': formatted_solution,
+            'raw_solution': raw_solution,  # Keep original for debugging
             'math_analysis': math_analysis,
             'original_question': question_text,
             'processed_question': processed_text,
             'solver_type': 'basic',
+            'formatted': True,
             'greek_preserved': True,
             'utf8_encoded': True,
             'character_encoding': 'UTF-8'
