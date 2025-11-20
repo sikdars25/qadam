@@ -3,6 +3,7 @@ import axiosInstance from '../config/axios';
 import './DashboardQuestionSolver.css';
 import API_URL from '../config/api';
 import { renderTextWithMath, processSolutionForMath } from '../utils/MathProcessor';
+import DiagramDisplay from './DiagramDisplay';
 
 const DashboardQuestionSolver = () => {
   const [inputMethod, setInputMethod] = useState('paste'); // 'paste', 'text'
@@ -119,7 +120,9 @@ const DashboardQuestionSolver = () => {
             const processedSolution = processSolutionText(solveResponse.data.solution);
             setSolution({
               text: processedSolution,
-              question: ocrResponse.data.text
+              question: ocrResponse.data.text,
+              diagrams: solveResponse.data.diagrams || [],
+              has_diagrams: solveResponse.data.has_diagrams || false
             });
           }
         }
@@ -136,7 +139,9 @@ const DashboardQuestionSolver = () => {
           const processedSolution = processSolutionText(solveResponse.data.solution);
           setSolution({
             text: processedSolution,
-            question: questionText
+            question: questionText,
+            diagrams: solveResponse.data.diagrams || [],
+            has_diagrams: solveResponse.data.has_diagrams || false
           });
         }
       }
@@ -155,6 +160,57 @@ const DashboardQuestionSolver = () => {
     setPastedImage(null);
     setSubject('');
     setError('');
+  };
+
+  const renderSolutionWithDiagrams = (solutionText, diagrams) => {
+    if (!diagrams || diagrams.length === 0) {
+      return renderTextWithMath(solutionText);
+    }
+
+    // Split solution by diagram placeholders
+    const parts = [];
+    let currentText = solutionText;
+    
+    diagrams.forEach((diagram, index) => {
+      const placeholder = `{{DIAGRAM_${index}}}`;
+      const splitIndex = currentText.indexOf(placeholder);
+      
+      if (splitIndex !== -1) {
+        // Add text before diagram
+        if (splitIndex > 0) {
+          parts.push({
+            type: 'text',
+            content: currentText.substring(0, splitIndex)
+          });
+        }
+        
+        // Add diagram
+        parts.push({
+          type: 'diagram',
+          content: diagram
+        });
+        
+        // Continue with remaining text
+        currentText = currentText.substring(splitIndex + placeholder.length);
+      }
+    });
+    
+    // Add any remaining text
+    if (currentText) {
+      parts.push({
+        type: 'text',
+        content: currentText
+      });
+    }
+
+    // Render parts
+    return parts.map((part, index) => {
+      if (part.type === 'text') {
+        return <div key={index}>{renderTextWithMath(part.content)}</div>;
+      } else {
+        return <DiagramDisplay key={index} diagram={part.content} />;
+      }
+    });
   };
 
   return (
@@ -275,7 +331,10 @@ const DashboardQuestionSolver = () => {
               
               <div className="solution-content">
                 <div className="solution-text">
-                  {renderTextWithMath(solution.text)}
+                  {solution.has_diagrams ? 
+                    renderSolutionWithDiagrams(solution.text, solution.diagrams) :
+                    renderTextWithMath(solution.text)
+                  }
                 </div>
               </div>
 
