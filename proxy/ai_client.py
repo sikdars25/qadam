@@ -19,7 +19,7 @@ def check_ai_service() -> bool:
     except:
         return False
 
-def solve_question_via_vm(question_text: str, subject: str = '', context: str = '') -> str:
+def solve_question_via_vm(question_text: str, subject: str = '', context: str = '', solution_type: str = 'step-by-step') -> str:
     """
     Solve a question using AI service on VM
     
@@ -27,6 +27,7 @@ def solve_question_via_vm(question_text: str, subject: str = '', context: str = 
         question_text: The question to solve
         subject: Optional subject name
         context: Optional additional context
+        solution_type: Type of solution ('step-by-step', 'high-level', 'with-diagram')
     
     Returns:
         Solution text
@@ -37,7 +38,8 @@ def solve_question_via_vm(question_text: str, subject: str = '', context: str = 
         payload = {
             'question_text': question_text,
             'subject': subject,
-            'context': context
+            'context': context,
+            'solution_type': solution_type
         }
         
         print(f"📤 Sending question to AI service at {url}")

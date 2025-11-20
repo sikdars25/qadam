@@ -2841,18 +2841,20 @@ def solve_question():
         question_type = data.get('question_type', 'unknown')
         subject = data.get('subject')
         chapter_context = data.get('chapter_context')
+        solution_type = data.get('solution_type', 'step-by-step')  # Extract solution_type
         
         if not question_text:
             return jsonify({'error': 'question_text is required'}), 400
         
-        print(f"🎓 Solving question: {question_text[:60]}...")
+        print(f"🎓 Solving question: {question_text[:60]}... (solution_type: {solution_type})")
         
         # Use the AI service on VM to generate solution
         from ai_client import solve_question_via_vm
         solution = solve_question_via_vm(
             question_text=question_text,
             subject=subject or "",
-            context=chapter_context or ""
+            context=chapter_context or "",
+            solution_type=solution_type  # Pass solution_type to AI service
         )
         
         result = {
@@ -3308,6 +3310,7 @@ def solve_question_frontend():
         question_text = data.get('question_text') or data.get('questionText')
         subject = data.get('subject')
         chapter_context = data.get('chapter_context') or data.get('context')
+        solution_type = data.get('solution_type', 'step-by-step')  # Extract solution_type
         
         if not question_text:
             return jsonify({
@@ -3315,14 +3318,15 @@ def solve_question_frontend():
                 'error': 'question_text is required'
             }), 400
         
-        print(f"🎓 Solving question from frontend: {question_text[:60]}...")
+        print(f"🎓 Solving question from frontend: {question_text[:60]}... (solution_type: {solution_type})")
         
         # Use the AI service on VM to generate solution
         from ai_client import solve_question_via_vm
         solution = solve_question_via_vm(
             question_text=question_text,
             subject=subject or "",
-            context=chapter_context or ""
+            context=chapter_context or "",
+            solution_type=solution_type  # Pass solution_type to AI service
         )
         
         # Return in frontend-compatible format
