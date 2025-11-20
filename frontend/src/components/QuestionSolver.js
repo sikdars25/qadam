@@ -9,6 +9,7 @@ const QuestionSolver = ({ user, onLogout }) => {
   const [questionText, setQuestionText] = useState('');
   const [pastedImage, setPastedImage] = useState(null);
   const [subject, setSubject] = useState('');
+  const [solutionType, setSolutionType] = useState('step-by-step'); // 'step-by-step', 'high-level', 'with-diagram'
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [solution, setSolution] = useState(null);
@@ -211,23 +212,53 @@ const QuestionSolver = ({ user, onLogout }) => {
               </button>
             </div>
 
-            {/* Subject Selection */}
-            <div className="form-group">
-              <label className="form-label">Subject</label>
-              <select
-                value={subject}
-                onChange={(e) => setSubject(e.target.value)}
-                className="form-select"
+            {/* Subject and Solution Type Selection */}
+            <div className="form-row">
+              <div className="form-group form-group-inline">
+                <label className="form-label">Subject</label>
+                <select
+                  value={subject}
+                  onChange={(e) => setSubject(e.target.value)}
+                  className="form-select"
+                >
+                  <option value="">Select subject...</option>
+                  <option value="Mathematics">Mathematics</option>
+                  <option value="Physics">Physics</option>
+                  <option value="Chemistry">Chemistry</option>
+                  <option value="Biology">Biology</option>
+                  <option value="English">English</option>
+                  <option value="History">History</option>
+                  <option value="Geography">Geography</option>
+                </select>
+              </div>
+
+              <div className="form-group form-group-inline">
+                <label className="form-label">Solution Type</label>
+                <select
+                  value={solutionType}
+                  onChange={(e) => setSolutionType(e.target.value)}
+                  className="form-select"
+                >
+                  <option value="step-by-step">📝 Step-by-Step</option>
+                  <option value="high-level">🎯 High-Level</option>
+                  <option value="with-diagram">📊 With Diagram</option>
+                </select>
+              </div>
+
+              <button
+                onClick={handleSubmit}
+                disabled={loading || !subject || (inputMethod === 'paste' && !pastedImage) || (inputMethod === 'text' && !questionText.trim())}
+                className="submit-btn submit-btn-inline"
               >
-                <option value="">Select subject...</option>
-                <option value="Mathematics">Mathematics</option>
-                <option value="Physics">Physics</option>
-                <option value="Chemistry">Chemistry</option>
-                <option value="Biology">Biology</option>
-                <option value="English">English</option>
-                <option value="History">History</option>
-                <option value="Geography">Geography</option>
-              </select>
+                {loading ? (
+                  <>
+                    <span className="spinner"></span>
+                    {loadingMessage}
+                  </>
+                ) : (
+                  '✨ Solve'
+                )}
+              </button>
             </div>
 
             {/* Input Area */}
@@ -276,22 +307,6 @@ const QuestionSolver = ({ user, onLogout }) => {
                 ⚠️ {error}
               </div>
             )}
-
-            {/* Submit Button */}
-            <button
-              onClick={handleSubmit}
-              disabled={loading || !subject || (inputMethod === 'paste' && !pastedImage) || (inputMethod === 'text' && !questionText.trim())}
-              className="submit-btn"
-            >
-              {loading ? (
-                <>
-                  <span className="spinner"></span>
-                  {loadingMessage}
-                </>
-              ) : (
-                '✨ Solve Question'
-              )}
-            </button>
           </div>
 
           {/* Right Column: Solution Display */}
