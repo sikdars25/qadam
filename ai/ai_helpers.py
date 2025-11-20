@@ -248,6 +248,42 @@ Keep it SHORT and DIRECT."""
         
         model = "llama-3.1-8b-instant"
         max_tokens = 500
+    elif solution_type == 'with-diagram':
+        # Import diagram generator
+        from diagram_generator import DiagramGenerator
+        diagram_gen = DiagramGenerator()
+        diagram_types = diagram_gen.identify_diagram_needs(question_text, subject)
+        diagram_prompt = diagram_gen.create_diagram_prompt_addition(diagram_types)
+        
+        prompt = f"""You are an expert tutor. Generate a detailed solution WITH VISUAL DIAGRAMS.
+
+Subject: {subject if subject else 'General'}
+
+Question:
+{question_text}
+
+{context_section}
+
+Provide a step-by-step solution with diagrams:
+1. Understanding the question
+2. Key concepts
+3. Step-by-step solution with [DIAGRAM: description] markers where visuals help
+4. Final answer
+
+For each step where a diagram would be helpful, add:
+[DIAGRAM: description of what to visualize]
+
+Example:
+### Step 1: Understanding the Triangle
+[DIAGRAM: Right triangle with sides labeled a, b, c]
+We have a right triangle...
+
+{diagram_prompt}
+
+Solution:"""
+        
+        model = "llama-3.3-70b-versatile"
+        max_tokens = 3000
     else:  # step-by-step (default)
         prompt = f"""You are an expert tutor. Generate a detailed solution for the following question.
 
@@ -269,7 +305,22 @@ Solution:"""
         model = "llama-3.3-70b-versatile"
         max_tokens = 1500
     
-    return generate_with_groq(prompt, model=model, max_tokens=max_tokens, temperature=0.7, solution_type=solution_type)
+    # Generate solution
+    solution = generate_with_groq(prompt, model=model, max_tokens=max_tokens, temperature=0.7, solution_type=solution_type)
+    
+    # Process diagrams if with-diagram mode
+    if solution_type == 'with-diagram':
+        from diagram_generator import generate_diagrams_for_solution
+        diagram_result = generate_diagrams_for_solution(question_text, solution, subject)
+        # Return structured data with diagrams
+        return {
+            'solution': diagram_result['solution'],
+            'diagrams': diagram_result['diagrams'],
+            'has_diagrams': diagram_result['has_diagrams'],
+            'raw_solution': solution
+        }
+    
+    return solution
 
 # ============================================================================
 # TEXTBOOK CHAPTER MAPPING

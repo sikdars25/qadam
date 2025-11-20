@@ -418,6 +418,15 @@ class GroqAnswerSynthesizer:
                         'steps': solution.get('steps', [])
                     })
             
+            # Import diagram generator for with-diagram mode
+            if solution_type == 'with-diagram':
+                from diagram_generator import DiagramGenerator
+                diagram_gen = DiagramGenerator()
+                diagram_types = diagram_gen.identify_diagram_needs(original_question, subject)
+                diagram_prompt_addition = diagram_gen.create_diagram_prompt_addition(diagram_types)
+            else:
+                diagram_prompt_addition = ""
+            
             # Configure prompt based on solution type
             if solution_type == 'high-level':
                 prompt = f"""You are an expert mathematics teacher. Provide a CONCISE high-level answer.
@@ -438,6 +447,65 @@ Provide a BRIEF, CONCISE answer with:
 Mode: concise
 Details: false
 Keep it SHORT and to the point."""
+            elif solution_type == 'with-diagram':
+                prompt = f"""You are an expert mathematics teacher. Create a comprehensive solution WITH VISUAL DIAGRAMS.
+
+ORIGINAL QUESTION:
+{original_question}
+
+QUESTION SUMMARY:
+{question_summary}
+
+FINAL GOAL:
+{final_goal}
+
+SOLVED EXPRESSIONS (with dependencies):
+{json.dumps(solution_data, indent=2)}
+
+SUBJECT CONTEXT: {subject if subject else 'General Mathematics'}
+
+Create a complete solution with diagrams:
+1. Start with understanding what the question asks
+2. For each step, add [DIAGRAM: description] where a visual would help
+3. Explain each step in logical order
+4. Show how results connect between steps
+5. Provide clear mathematical reasoning
+6. End with the final answer
+
+Format your response as:
+## Understanding the Question
+[Explain what we need to find]
+[DIAGRAM: description if needed]
+
+## Solution Approach
+[Explain the strategy]
+
+## Step-by-Step Solution
+
+### Step 1: [Description]
+[DIAGRAM: description of what to visualize]
+[Explanation]
+Expression: [expression]
+Solution: [result]
+
+### Step 2: [Description]
+[DIAGRAM: description if needed]
+[Explanation, showing how it uses Step 1's result]
+Expression: [expression]
+Solution: [result]
+
+[Continue for all steps...]
+
+## Final Answer
+[Clear statement of the final answer]
+[DIAGRAM: final visualization if helpful]
+
+## Key Insights
+[Important observations]
+
+{diagram_prompt_addition}
+
+Be clear, educational, and indicate diagram placements with [DIAGRAM: description]."""
             else:  # step-by-step (default)
                 prompt = f"""You are an expert mathematics teacher. Create a comprehensive, well-structured solution with clear explanations.
 
@@ -503,6 +571,10 @@ Be clear, educational, and show the logical flow between dependent steps."""
                 model = GROQ_MODEL_SMALL  # Use 8B model for concise answers
                 max_tokens = 500  # Short answer
                 system_content = 'You are an expert mathematics teacher who provides concise, direct answers.'
+            elif solution_type == 'with-diagram':
+                model = GROQ_MODEL_LARGE  # Use 70B model for diagram-rich solutions
+                max_tokens = 5000  # More tokens for diagram descriptions
+                system_content = 'You are an expert mathematics teacher who creates visual, diagram-rich explanations.'
             else:  # step-by-step
                 model = GROQ_MODEL_LARGE  # Use 70B model for detailed solutions
                 max_tokens = 4000  # Detailed answer
@@ -531,11 +603,26 @@ Be clear, educational, and show the logical flow between dependent steps."""
                 result = response.json()
                 final_answer = result['choices'][0]['message']['content'].strip()
                 
-                return {
+                # Process diagrams if with-diagram mode
+                response_data = {
                     'success': True,
                     'final_answer': final_answer,
                     'tokens_used': result.get('usage', {})
                 }
+                
+                if solution_type == 'with-diagram':
+                    from diagram_generator import generate_diagrams_for_solution
+                    diagram_result = generate_diagrams_for_solution(
+                        original_question, 
+                        final_answer, 
+                        subject
+                    )
+                    response_data['solution_with_diagrams'] = diagram_result['solution']
+                    response_data['diagrams'] = diagram_result['diagrams']
+                    response_data['has_diagrams'] = diagram_result['has_diagrams']
+                    response_data['diagram_count'] = diagram_result.get('diagram_count', 0)
+                
+                return response_data
             else:
                 error_msg = f"Groq API error: {response.status_code}"
                 logger.error(error_msg)

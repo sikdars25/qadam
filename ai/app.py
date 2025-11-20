@@ -644,9 +644,14 @@ def solve_question():
             if result.get('success'):
                 # Format the solution for better readability
                 raw_solution = result.get('final_answer', '')
-                formatted_solution = format_solution(raw_solution)
                 
-                return jsonify({
+                # Check if solution has diagrams
+                if result.get('has_diagrams'):
+                    formatted_solution = format_solution(result.get('solution_with_diagrams', raw_solution))
+                else:
+                    formatted_solution = format_solution(raw_solution)
+                
+                response_data = {
                     'success': True,
                     'solution': formatted_solution,
                     'raw_solution': raw_solution,  # Keep original for debugging
@@ -658,12 +663,20 @@ def solve_question():
                     'original_question': question_text,
                     'processed_question': processed_text,
                     'processing_time_seconds': result.get('processing_time_seconds', 0),
-                    'solver_type': 'intelligent',
+                    'solver_type': 'intelligent_with_diagrams' if result.get('has_diagrams') else 'intelligent',
                     'formatted': True,
                     'greek_preserved': True,
                     'utf8_encoded': True,
                     'character_encoding': 'UTF-8'
-                })
+                }
+                
+                # Add diagram data if present
+                if result.get('has_diagrams'):
+                    response_data['diagrams'] = result.get('diagrams', [])
+                    response_data['has_diagrams'] = True
+                    response_data['diagram_count'] = result.get('diagram_count', 0)
+                
+                return jsonify(response_data)
             else:
                 logger.warning(f"⚠️ Intelligent solver failed: {result.get('error')}, falling back to basic solver")
         
@@ -676,22 +689,41 @@ def solve_question():
             solution_type=solution_type
         )
         
-        # Format the solution for better readability
-        formatted_solution = format_solution(raw_solution)
-        
-        return jsonify({
-            'success': True,
-            'solution': formatted_solution,
-            'raw_solution': raw_solution,  # Keep original for debugging
-            'math_analysis': math_analysis,
-            'original_question': question_text,
-            'processed_question': processed_text,
-            'solver_type': 'basic',
-            'formatted': True,
-            'greek_preserved': True,
-            'utf8_encoded': True,
-            'character_encoding': 'UTF-8'
-        })
+        # Handle diagram response format
+        if solution_type == 'with-diagram' and isinstance(raw_solution, dict):
+            # Solution with diagrams
+            formatted_solution = format_solution(raw_solution['solution'])
+            return jsonify({
+                'success': True,
+                'solution': formatted_solution,
+                'raw_solution': raw_solution['raw_solution'],
+                'diagrams': raw_solution.get('diagrams', []),
+                'has_diagrams': raw_solution.get('has_diagrams', False),
+                'math_analysis': math_analysis,
+                'original_question': question_text,
+                'processed_question': processed_text,
+                'solver_type': 'basic_with_diagrams',
+                'formatted': True,
+                'greek_preserved': True,
+                'utf8_encoded': True,
+                'character_encoding': 'UTF-8'
+            })
+        else:
+            # Regular solution (string)
+            formatted_solution = format_solution(raw_solution)
+            return jsonify({
+                'success': True,
+                'solution': formatted_solution,
+                'raw_solution': raw_solution,  # Keep original for debugging
+                'math_analysis': math_analysis,
+                'original_question': question_text,
+                'processed_question': processed_text,
+                'solver_type': 'basic',
+                'formatted': True,
+                'greek_preserved': True,
+                'utf8_encoded': True,
+                'character_encoding': 'UTF-8'
+            })
     
     except Exception as e:
         logging.error(f"Error solving question: {str(e)}")
