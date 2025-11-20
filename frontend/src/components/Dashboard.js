@@ -1,25 +1,21 @@
 import React, { useState } from 'react';
 import Sidebar from './Sidebar';
 import QuestionBank from './QuestionBank';
-import SingleQuestionUpload from './SingleQuestionUpload';
+import DashboardQuestionSolver from './DashboardQuestionSolver';
 import './Dashboard.css';
 
 const Dashboard = ({ user, onLogout }) => {
-  const [activeMenu, setActiveMenu] = useState('question-bank');
-  const [showSingleQuestionUpload, setShowSingleQuestionUpload] = useState(false);
+  const [activeMenu, setActiveMenu] = useState('solve-question');
 
   const renderContent = () => {
     switch (activeMenu) {
+      case 'solve-question':
+        return <DashboardQuestionSolver />;
       case 'question-bank':
         return <QuestionBank />;
       default:
-        return <QuestionBank />;
+        return <DashboardQuestionSolver />;
     }
-  };
-
-  const handleQuestionParsed = (question) => {
-    console.log('Question parsed:', question);
-    // You can add logic here to save or display the parsed question
   };
 
   return (
@@ -29,20 +25,12 @@ const Dashboard = ({ user, onLogout }) => {
         setActiveMenu={setActiveMenu}
         user={user}
         onLogout={onLogout}
-        onUploadSingleQuestion={() => setShowSingleQuestionUpload(true)}
       />
       <div className="dashboard-content">
         <div className="content-area">
           {renderContent()}
         </div>
       </div>
-
-      {showSingleQuestionUpload && (
-        <SingleQuestionUpload
-          onClose={() => setShowSingleQuestionUpload(false)}
-          onQuestionParsed={handleQuestionParsed}
-        />
-      )}
     </div>
   );
 };

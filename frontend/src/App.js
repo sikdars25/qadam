@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './components/Login';
-import QuestionSolver from './components/QuestionSolver';
 import Dashboard from './components/Dashboard';
 import AdminDashboard from './components/AdminDashboard';
 import Activate from './components/Activate';
@@ -44,10 +43,6 @@ function App() {
           />
           <Route 
             path="/" 
-            element={user && !user.is_admin ? <QuestionSolver user={user} onLogout={handleLogout} /> : <Navigate to="/login" />} 
-          />
-          <Route 
-            path="/question-banks" 
             element={user && !user.is_admin ? <Dashboard user={user} onLogout={handleLogout} /> : <Navigate to="/login" />} 
           />
           <Route 

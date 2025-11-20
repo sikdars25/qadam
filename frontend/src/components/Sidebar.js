@@ -1,8 +1,9 @@
 import React from 'react';
 import './Sidebar.css';
 
-const Sidebar = ({ activeMenu, setActiveMenu, user, onLogout, onUploadSingleQuestion }) => {
+const Sidebar = ({ activeMenu, setActiveMenu, user, onLogout }) => {
   const menuItems = [
+    { id: 'solve-question', label: 'Solve Question', icon: '✨' },
     { id: 'question-bank', label: 'Question Bank', icon: '💾' }
   ];
 
@@ -14,16 +15,6 @@ const Sidebar = ({ activeMenu, setActiveMenu, user, onLogout, onUploadSingleQues
       </div>
 
       <nav className="sidebar-nav">
-        <button
-          className="sidebar-menu-item single-question-btn"
-          onClick={onUploadSingleQuestion}
-        >
-          <span className="menu-icon">📝</span>
-          <span className="menu-label">A Single Question</span>
-        </button>
-
-        <div className="sidebar-divider"></div>
-
         {menuItems.map((item) => (
           <button
             key={item.id}
