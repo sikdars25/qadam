@@ -225,7 +225,7 @@ def generate_solution(question_text, context="", subject="", solution_type='step
     
     # Configure prompt and parameters based on solution type
     if solution_type == 'high-level':
-        prompt = f"""You are an expert tutor. Provide a CONCISE high-level answer.
+        prompt = f"""You are an expert tutor. Provide a CONCISE, direct answer without any section headings.
 
 Subject: {subject if subject else 'General'}
 
@@ -234,14 +234,17 @@ Question:
 
 {context_section}
 
-Provide a BRIEF answer with:
-- Quick overview (1-2 sentences)
-- Key result
-- Final answer
+IMPORTANT: 
+- Do NOT use section headings like "Step-by-Step Solution" or "Understanding the Question"
+- Provide a direct, brief explanation
+- State the approach in 1-2 sentences
+- Show the key calculation or reasoning
+- End with the final answer
 
 Mode: concise
 Details: false
-Keep it SHORT."""
+Format: plain text without markdown headings
+Keep it SHORT and DIRECT."""
         
         model = "llama-3.1-8b-instant"
         max_tokens = 500

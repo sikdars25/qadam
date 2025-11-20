@@ -631,6 +631,11 @@ def solve_question():
         processed_text = normalize_math_expression(question_text)
         logger.info("🔧 Preserving Greek letters and math symbols exactly")
         
+        # For high-level, skip Wolfram and use basic solver directly
+        if solution_type == 'high-level':
+            logger.info(f"🤖 High-level mode: Using direct Groq API (bypassing Wolfram)")
+            use_intelligent_solver = False  # Force basic solver for high-level
+        
         # Use Intelligent Question Solver if available and requested
         if use_intelligent_solver and INTELLIGENT_SOLVER_AVAILABLE:
             logger.info(f"🤖 Using Intelligent Question Solver with Groq + Wolfram Alpha (solution_type: {solution_type})")
