@@ -3285,6 +3285,63 @@ def extract_text_frontend():
             'error': str(e)
         }), 500
 
+@app.route('/solve-question', methods=['POST', 'OPTIONS'])
+def solve_question_frontend():
+    """
+    Solve question endpoint for frontend - alias for /api/solve-question
+    This endpoint accepts question text and returns AI-generated solution
+    Compatible with QuestionSolver component
+    """
+    # Handle OPTIONS preflight request
+    if request.method == 'OPTIONS':
+        return '', 204
+    
+    # Check if AI is enabled
+    if not AI_ENABLED:
+        return jsonify({
+            'success': False,
+            'error': 'AI features are not enabled'
+        }), 503
+    
+    try:
+        data = request.json
+        question_text = data.get('question_text') or data.get('questionText')
+        subject = data.get('subject')
+        chapter_context = data.get('chapter_context') or data.get('context')
+        
+        if not question_text:
+            return jsonify({
+                'success': False,
+                'error': 'question_text is required'
+            }), 400
+        
+        print(f"🎓 Solving question from frontend: {question_text[:60]}...")
+        
+        # Use the AI service on VM to generate solution
+        from ai_client import solve_question_via_vm
+        solution = solve_question_via_vm(
+            question_text=question_text,
+            subject=subject or "",
+            context=chapter_context or ""
+        )
+        
+        # Return in frontend-compatible format
+        return jsonify({
+            'success': True,
+            'solution': solution,
+            'question_text': question_text,
+            'subject': subject,
+            'message': 'Solution generated successfully'
+        })
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
 @app.route('/api/latex-ocr-solve', methods=['POST'])
 @token_required
 def solve_latex_ocr_question():
