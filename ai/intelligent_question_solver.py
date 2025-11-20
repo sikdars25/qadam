@@ -50,14 +50,17 @@ if not WOLFRAM_APP_ID:
     logger.warning("WOLFRAM_APP_ID not configured - Wolfram Alpha will be disabled")
 
 GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
-GROQ_MODEL = "llama-3.3-70b-versatile"
+
+# Model Configuration
+GROQ_MODEL_LARGE = "llama-3.3-70b-versatile"  # For detailed step-by-step solutions
+GROQ_MODEL_SMALL = "llama-3.1-8b-instant"     # For concise high-level answers and Wolfram pipeline
 
 
 class GroqExpressionExtractor:
     """Use Groq AI to intelligently extract and link mathematical expressions"""
     
     @staticmethod
-    def extract_expressions_with_dependencies(question_text: str, subject: str = '') -> Dict[str, Any]:
+    def extract_expressions_with_dependencies(question_text: str, subject: str = '', solution_type: str = 'step-by-step') -> Dict[str, Any]:
         """
         Use Groq to extract mathematical expressions and identify their dependencies
         
@@ -139,8 +142,11 @@ Now analyze the given question and return ONLY the JSON object."""
                 'Content-Type': 'application/json'
             }
             
+            # Use smaller model for Wolfram pipeline (always uses expression extraction)
+            model = GROQ_MODEL_SMALL
+            
             payload = {
-                'model': GROQ_MODEL,
+                'model': model,
                 'messages': [
                     {
                         'role': 'system',
@@ -372,7 +378,8 @@ class GroqAnswerSynthesizer:
         original_question: str,
         extracted_data: Dict[str, Any],
         solved_expressions: List[Dict[str, Any]],
-        subject: str = ''
+        subject: str = '',
+        solution_type: str = 'step-by-step'
     ) -> Dict[str, Any]:
         """
         Use Groq to create comprehensive answer with proper interlinking
@@ -411,7 +418,28 @@ class GroqAnswerSynthesizer:
                         'steps': solution.get('steps', [])
                     })
             
-            prompt = f"""You are an expert mathematics teacher. Create a comprehensive, well-structured solution with clear explanations.
+            # Configure prompt based on solution type
+            if solution_type == 'high-level':
+                prompt = f"""You are an expert mathematics teacher. Provide a CONCISE high-level answer.
+
+ORIGINAL QUESTION:
+{original_question}
+
+SOLVED EXPRESSIONS:
+{json.dumps(solution_data, indent=2)}
+
+SUBJECT: {subject if subject else 'General Mathematics'}
+
+Provide a BRIEF, CONCISE answer with:
+- Quick overview of approach (1-2 sentences)
+- Key results only
+- Final answer
+
+Mode: concise
+Details: false
+Keep it SHORT and to the point."""
+            else:  # step-by-step (default)
+                prompt = f"""You are an expert mathematics teacher. Create a comprehensive, well-structured solution with clear explanations.
 
 ORIGINAL QUESTION:
 {original_question}
@@ -470,12 +498,22 @@ Be clear, educational, and show the logical flow between dependent steps."""
                 'Content-Type': 'application/json'
             }
             
+            # Select model and parameters based on solution type
+            if solution_type == 'high-level':
+                model = GROQ_MODEL_SMALL  # Use 8B model for concise answers
+                max_tokens = 500  # Short answer
+                system_content = 'You are an expert mathematics teacher who provides concise, direct answers.'
+            else:  # step-by-step
+                model = GROQ_MODEL_LARGE  # Use 70B model for detailed solutions
+                max_tokens = 4000  # Detailed answer
+                system_content = 'You are an expert mathematics teacher who explains solutions clearly and shows connections between steps.'
+            
             payload = {
-                'model': GROQ_MODEL,
+                'model': model,
                 'messages': [
                     {
                         'role': 'system',
-                        'content': 'You are an expert mathematics teacher who explains solutions clearly and shows connections between steps.'
+                        'content': system_content
                     },
                     {
                         'role': 'user',
@@ -483,7 +521,7 @@ Be clear, educational, and show the logical flow between dependent steps."""
                     }
                 ],
                 'temperature': 0.3,  # Slightly higher for natural explanations
-                'max_tokens': 4000
+                'max_tokens': max_tokens
             }
             
             logger.info("Calling Groq API to synthesize final answer...")
@@ -516,13 +554,14 @@ class IntelligentQuestionSolver:
         self.solver = WolframAlphaSolver()
         self.synthesizer = GroqAnswerSynthesizer()
     
-    def solve_question(self, question_text: str, subject: str = '') -> Dict[str, Any]:
+    def solve_question(self, question_text: str, subject: str = '', solution_type: str = 'step-by-step') -> Dict[str, Any]:
         """
         Complete intelligent question solving pipeline
         
         Args:
             question_text: Original question text from OCR
             subject: Subject context
+            solution_type: Type of solution ('step-by-step', 'high-level', 'with-diagram')
             
         Returns:
             Complete solution with interlinked steps and explanations
@@ -599,12 +638,13 @@ class IntelligentQuestionSolver:
                     logger.warning(f"  ✗ {expr_id} failed: {solution.get('error')}")
             
             # STEP 3: Synthesize final answer with Groq
-            logger.info("\n[STEP 3] Synthesizing final answer with Groq AI...")
+            logger.info(f"\n[STEP 3] Synthesizing final answer with Groq AI (solution_type: {solution_type})...")
             synthesis_result = self.synthesizer.synthesize_final_answer(
                 question_text,
                 extracted_data,
                 solved_expressions,
-                subject
+                subject,
+                solution_type
             )
             
             if not synthesis_result.get('success'):

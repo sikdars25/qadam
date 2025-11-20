@@ -126,7 +126,7 @@ def search_similar_texts(query_text, document_texts, document_ids=None, top_k=5)
 # GROQ API - TEXT GENERATION
 # ============================================================================
 
-def generate_with_groq(prompt, model="llama-3.3-70b-versatile", max_tokens=1000, temperature=0.7):
+def generate_with_groq(prompt, model="llama-3.3-70b-versatile", max_tokens=1000, temperature=0.7, solution_type='step-by-step'):
     """
     Generate text using Groq API
     
@@ -208,7 +208,7 @@ Output format:
 # SOLUTION GENERATION
 # ============================================================================
 
-def generate_solution(question_text, context="", subject=""):
+def generate_solution(question_text, context="", subject="", solution_type='step-by-step'):
     """
     Generate solution for a question using Groq API
     
@@ -216,13 +216,37 @@ def generate_solution(question_text, context="", subject=""):
         question_text: The question to solve
         context: Optional context from textbook
         subject: Optional subject name
+        solution_type: Type of solution ('step-by-step', 'high-level', 'with-diagram')
     
     Returns:
         Generated solution text
     """
     context_section = f'Context from textbook:\n{context}\n' if context else ''
     
-    prompt = f"""You are an expert tutor. Generate a detailed solution for the following question.
+    # Configure prompt and parameters based on solution type
+    if solution_type == 'high-level':
+        prompt = f"""You are an expert tutor. Provide a CONCISE high-level answer.
+
+Subject: {subject if subject else 'General'}
+
+Question:
+{question_text}
+
+{context_section}
+
+Provide a BRIEF answer with:
+- Quick overview (1-2 sentences)
+- Key result
+- Final answer
+
+Mode: concise
+Details: false
+Keep it SHORT."""
+        
+        model = "llama-3.1-8b-instant"
+        max_tokens = 500
+    else:  # step-by-step (default)
+        prompt = f"""You are an expert tutor. Generate a detailed solution for the following question.
 
 Subject: {subject if subject else 'General'}
 
@@ -238,8 +262,11 @@ Provide a step-by-step solution with:
 4. Final answer
 
 Solution:"""
+        
+        model = "llama-3.3-70b-versatile"
+        max_tokens = 1500
     
-    return generate_with_groq(prompt, max_tokens=1500, temperature=0.7)
+    return generate_with_groq(prompt, model=model, max_tokens=max_tokens, temperature=0.7, solution_type=solution_type)
 
 # ============================================================================
 # TEXTBOOK CHAPTER MAPPING

@@ -620,6 +620,7 @@ def solve_question():
         subject = data.get('subject', '')
         context = data.get('context', '')
         use_intelligent_solver = data.get('use_intelligent_solver', True)
+        solution_type = data.get('solution_type', 'step-by-step')  # Get solution type from request
         
         # Analyze for Greek/math characters
         math_analysis = analyze_math_content(question_text)
@@ -632,8 +633,8 @@ def solve_question():
         
         # Use Intelligent Question Solver if available and requested
         if use_intelligent_solver and INTELLIGENT_SOLVER_AVAILABLE:
-            logger.info("🤖 Using Intelligent Question Solver with Groq + Wolfram Alpha")
-            result = intelligent_solver.solve_question(processed_text, subject)
+            logger.info(f"🤖 Using Intelligent Question Solver with Groq + Wolfram Alpha (solution_type: {solution_type})")
+            result = intelligent_solver.solve_question(processed_text, subject, solution_type)
             
             if result.get('success'):
                 # Format the solution for better readability
@@ -662,11 +663,12 @@ def solve_question():
                 logger.warning(f"⚠️ Intelligent solver failed: {result.get('error')}, falling back to basic solver")
         
         # Fallback to basic solver
-        logger.info("📝 Using basic solution generator")
+        logger.info(f"📝 Using basic solution generator (solution_type: {solution_type})")
         raw_solution = generate_solution(
             question_text=processed_text,
             subject=subject,
-            context=context
+            context=context,
+            solution_type=solution_type
         )
         
         # Format the solution for better readability
