@@ -94,16 +94,77 @@ const TextDiagramRenderer = ({ solutionText }) => {
         } else {
           return (
             <div key={index} className="inline-diagram-placeholder">
-              <div className="diagram-box">
-                📊 <strong>Diagram:</strong> {part.description}
+              <div className="diagram-box fallback-diagram">
+                <div className="diagram-header">
+                  <span className="diagram-type">📐 Diagram</span>
+                </div>
+                <div className="diagram-content">
+                  {generateVisualDiagram(part.description)}
+                </div>
+                <div className="diagram-description">
+                  <strong>{part.description}</strong>
+                </div>
               </div>
-              <p className="diagram-note">
-                <em>Diagram visualization would appear here</em>
-              </p>
             </div>
           );
         }
       })}
+    </div>
+  );
+};
+
+// Generate visual diagrams from text descriptions
+const generateVisualDiagram = (description) => {
+  const lowerDesc = description.toLowerCase();
+  
+  if (lowerDesc.includes('triangle')) {
+    return (
+      <div className="triangle-visual">
+        <svg width="200" height="150" viewBox="0 0 200 150">
+          <polygon points="100,20 170,130 30,130" fill="none" stroke="#007bff" strokeWidth="2"/>
+          <text x="100" y="145" textAnchor="middle" fontSize="12" fill="#333">BC</text>
+          <text x="85" y="35" textAnchor="middle" fontSize="12" fill="#333">A</text>
+          <text x="175" y="135" textAnchor="middle" fontSize="12" fill="#333">B</text>
+          <text x="25" y="135" textAnchor="middle" fontSize="12" fill="#333">C</text>
+        </svg>
+      </div>
+    );
+  }
+  
+  if (lowerDesc.includes('line segment') || lowerDesc.includes('line')) {
+    return (
+      <div className="line-visual">
+        <svg width="200" height="80" viewBox="0 0 200 80">
+          <line x1="20" y1="40" x2="180" y2="40" stroke="#007bff" strokeWidth="2"/>
+          <text x="20" y="60" textAnchor="middle" fontSize="12" fill="#333">B</text>
+          <text x="180" y="60" textAnchor="middle" fontSize="12" fill="#333">C</text>
+          <text x="100" y="30" textAnchor="middle" fontSize="12" fill="#333">6 cm</text>
+        </svg>
+      </div>
+    );
+  }
+  
+  if (lowerDesc.includes('angle')) {
+    return (
+      <div className="angle-visual">
+        <svg width="150" height="150" viewBox="0 0 150 150">
+          <line x1="75" y1="75" x2="125" y2="75" stroke="#007bff" strokeWidth="2"/>
+          <line x1="75" y1="75" x2="100" y2="40" stroke="#007bff" strokeWidth="2"/>
+          <path d="M 95 75 A 20 20 0 0 0 85 60" fill="none" stroke="#dc3545" strokeWidth="1"/>
+          <text x="75" y="95" textAnchor="middle" fontSize="12" fill="#333">B</text>
+          <text x="105" y="55" textAnchor="middle" fontSize="12" fill="#333">60°</text>
+        </svg>
+      </div>
+    );
+  }
+  
+  // Default diagram placeholder
+  return (
+    <div className="default-visual">
+      <div className="diagram-placeholder-box">
+        📊 <strong>Construction Diagram</strong>
+        <p><em>Visual representation of: {description}</em></p>
+      </div>
     </div>
   );
 };
