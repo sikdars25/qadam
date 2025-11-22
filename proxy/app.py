@@ -3307,10 +3307,15 @@ def solve_question_frontend():
     
     try:
         data = request.json
+        print(f"🔍 DEBUG: Received request data: {data}")
+        
         question_text = data.get('question_text') or data.get('questionText')
         subject = data.get('subject')
         chapter_context = data.get('chapter_context') or data.get('context')
         solution_type = data.get('solution_type', 'step-by-step')  # Extract solution_type
+        
+        print(f"🔍 DEBUG: Extracted solution_type: {solution_type}")
+        print(f"🔍 DEBUG: Available keys in request: {list(data.keys()) if data else 'None'}")
         
         if not question_text:
             return jsonify({

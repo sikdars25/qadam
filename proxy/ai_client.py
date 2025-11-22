@@ -42,6 +42,7 @@ def solve_question_via_vm(question_text: str, subject: str = '', context: str = 
             'solution_type': solution_type
         }
         
+        print(f"🔍 DEBUG: Sending payload to AI service: {payload}")
         print(f"📤 Sending question to AI service at {url}")
         response = requests.post(url, json=payload, timeout=120)  # 2 min timeout
         
