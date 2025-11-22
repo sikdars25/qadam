@@ -86,7 +86,7 @@ class DiagramGenerator:
         # Triangle
         if 'triangle' in description_lower:
             if 'right' in description_lower:
-                ascii_art = """
+                ascii_art = r"""
         |\
         | \
         |  \
@@ -104,7 +104,7 @@ class DiagramGenerator:
                     'labels': ['a (base)', 'b (height)', 'c (hypotenuse)']
                 }
             else:
-                ascii_art = """
+                ascii_art = r"""
           /\
          /  \
       b /    \ c

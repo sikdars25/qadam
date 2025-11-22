@@ -766,6 +766,18 @@ class IntelligentQuestionSolver:
                 }
             }
             
+            # Include diagram data if with-diagram mode
+            if solution_type == 'with-diagram':
+                result['solution'] = synthesis_result.get('solution_with_diagrams', synthesis_result['final_answer'])
+                result['diagrams'] = synthesis_result.get('diagrams', [])
+                result['has_diagrams'] = synthesis_result.get('has_diagrams', False)
+                result['diagram_count'] = synthesis_result.get('diagram_count', 0)
+            else:
+                result['solution'] = synthesis_result['final_answer']
+                result['diagrams'] = []
+                result['has_diagrams'] = False
+                result['diagram_count'] = 0
+            
             logger.info("\n" + "=" * 80)
             logger.info(f"✓ COMPLETED in {processing_time:.2f}s")
             logger.info(f"  Expressions: {len(expressions)}")
