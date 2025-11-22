@@ -6,6 +6,11 @@
   border: 1px solid #e9ecef;
 }
 
+.fallback-diagram {
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  border: 2px dashed #007bff;
+}
+
 .diagram-item {
   margin-bottom: 16px;
 }
@@ -41,6 +46,60 @@
   padding: 16px;
   border-radius: 6px;
   border: 1px solid #dee2e6;
+}
+
+.construction-steps h4 {
+  color: #007bff;
+  margin-bottom: 16px;
+  font-size: 18px;
+}
+
+.diagram-visual {
+  display: flex;
+  justify-content: center;
+  margin: 20px 0;
+}
+
+.construction-placeholder {
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  border: 1px solid #dee2e6;
+}
+
+.triangle-placeholder svg,
+.circle-placeholder svg {
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));
+}
+
+.construction-info {
+  background: #f8f9fa;
+  padding: 16px;
+  border-radius: 6px;
+  border-left: 4px solid #007bff;
+}
+
+.construction-info p {
+  margin-bottom: 12px;
+  color: #495057;
+}
+
+.construction-info h5 {
+  color: #343a40;
+  margin-bottom: 8px;
+  font-size: 16px;
+}
+
+.construction-info ol {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.construction-info li {
+  margin-bottom: 6px;
+  color: #495057;
+  line-height: 1.5;
 }
 
 .ascii-diagram {
@@ -120,6 +179,16 @@
     padding: 12px;
   }
   
+  .construction-placeholder {
+    padding: 16px;
+  }
+  
+  .triangle-placeholder svg,
+  .circle-placeholder svg {
+    max-width: 100%;
+    height: auto;
+  }
+  
   .diagram-placeholder {
     padding: 16px;
     font-size: 14px;
@@ -133,5 +202,9 @@
   .diagram-box {
     padding: 12px;
     font-size: 14px;
+  }
+  
+  .construction-info {
+    padding: 12px;
   }
 }

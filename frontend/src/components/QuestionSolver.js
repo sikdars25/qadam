@@ -339,6 +339,18 @@ const QuestionSolver = ({ user, onLogout }) => {
                     <DiagramRenderer 
                       diagrams={solution.diagrams} 
                       solutionText={solution.solution}
+                      questionText={solution.questionText}
+                      subject={subject}
+                    />
+                  )}
+                  
+                  {/* Fallback: Check if this is a geometry question without diagrams */}
+                  {!solution.has_diagrams && solution.questionText && (
+                    <DiagramRenderer 
+                      diagrams={null}
+                      solutionText={solution.solution}
+                      questionText={solution.questionText}
+                      subject={subject}
                     />
                   )}
                   
