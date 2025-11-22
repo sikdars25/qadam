@@ -1,0 +1,137 @@
+.diagram-container {
+  margin: 20px 0;
+  padding: 16px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
+}
+
+.diagram-item {
+  margin-bottom: 16px;
+}
+
+.diagram-item:last-child {
+  margin-bottom: 0;
+}
+
+.diagram-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 8px;
+  gap: 8px;
+}
+
+.diagram-type {
+  background: #007bff;
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: bold;
+  text-transform: uppercase;
+}
+
+.diagram-title {
+  font-weight: bold;
+  color: #495057;
+}
+
+.diagram-content {
+  background: white;
+  padding: 16px;
+  border-radius: 6px;
+  border: 1px solid #dee2e6;
+}
+
+.ascii-diagram {
+  font-family: 'Courier New', monospace;
+  font-size: 14px;
+  line-height: 1.2;
+  white-space: pre;
+  overflow-x: auto;
+  background: #f8f9fa;
+  padding: 12px;
+  border-radius: 4px;
+}
+
+.svg-diagram {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 200px;
+}
+
+.diagram-description {
+  text-align: center;
+}
+
+.diagram-placeholder {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 24px;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: bold;
+  margin-bottom: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.diagram-generic {
+  text-align: center;
+}
+
+.diagram-note {
+  font-size: 14px;
+  color: #6c757d;
+  font-style: italic;
+  margin: 8px 0 0 0;
+}
+
+.text-diagram-container {
+  line-height: 1.6;
+}
+
+.inline-diagram-placeholder {
+  margin: 16px 0;
+  padding: 16px;
+  background: #fff3cd;
+  border: 1px solid #ffeaa7;
+  border-radius: 6px;
+}
+
+.diagram-box {
+  background: linear-gradient(135deg, #74b9ff 0%, #0984e3 100%);
+  color: white;
+  padding: 16px;
+  border-radius: 6px;
+  font-weight: bold;
+  margin-bottom: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .diagram-container {
+    margin: 16px 0;
+    padding: 12px;
+  }
+  
+  .diagram-content {
+    padding: 12px;
+  }
+  
+  .diagram-placeholder {
+    padding: 16px;
+    font-size: 14px;
+  }
+  
+  .inline-diagram-placeholder {
+    margin: 12px 0;
+    padding: 12px;
+  }
+  
+  .diagram-box {
+    padding: 12px;
+    font-size: 14px;
+  }
+}

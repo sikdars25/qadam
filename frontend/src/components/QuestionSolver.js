@@ -3,6 +3,7 @@ import axiosInstance from '../config/axios';
 import './QuestionSolver.css';
 import API_URL from '../config/api';
 import { renderTextWithMath, processSolutionForMath, containsMathExpressions } from '../utils/MathProcessor';
+import DiagramRenderer from './DiagramRenderer';
 
 const QuestionSolver = ({ user, onLogout }) => {
   const [inputMethod, setInputMethod] = useState('paste'); // 'paste', 'text'
@@ -333,6 +334,15 @@ const QuestionSolver = ({ user, onLogout }) => {
 
                 {/* Solution Content */}
                 <div className="solution-content">
+                  {/* Render diagrams if present */}
+                  {solution.has_diagrams && (
+                    <DiagramRenderer 
+                      diagrams={solution.diagrams} 
+                      solutionText={solution.solution}
+                    />
+                  )}
+                  
+                  {/* Render text solution */}
                   {(() => {
                     const processedSolution = processSolutionText(solution.solution);
                     const lines = processedSolution.split('\n');
@@ -371,6 +381,11 @@ const QuestionSolver = ({ user, onLogout }) => {
                   <span className="metadata-item">
                     🤖 {solution.solver_type === 'intelligent' ? 'AI Solver' : 'Basic Solver'}
                   </span>
+                  {solution.has_diagrams && (
+                    <span className="metadata-item">
+                      📊 {solution.diagram_count || solution.diagrams?.length || 0} Diagram(s)
+                    </span>
+                  )}
                 </div>
 
                 {/* Actions */}
