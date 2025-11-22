@@ -115,7 +115,8 @@ const QuestionSolver = ({ user, onLogout }) => {
 
         const solveResponse = await axiosInstance.post(`${API_URL}/solve-question`, {
           question_text: extractedText,
-          subject: subject
+          subject: subject,
+          solution_type: solutionType
         });
 
         if (solveResponse.data.success) {
@@ -123,7 +124,10 @@ const QuestionSolver = ({ user, onLogout }) => {
             questionText: extractedText,
             solution: solveResponse.data.solution,
             solver_type: solveResponse.data.solver_type,
-            processing_time: solveResponse.data.processing_time_seconds
+            processing_time: solveResponse.data.processing_time_seconds,
+            has_diagrams: solveResponse.data.has_diagrams || false,
+            diagrams: solveResponse.data.diagrams || null,
+            diagram_count: solveResponse.data.diagram_count || 0
           });
         } else {
           throw new Error(solveResponse.data.error || 'Failed to solve question');
@@ -133,7 +137,8 @@ const QuestionSolver = ({ user, onLogout }) => {
 
         const solveResponse = await axiosInstance.post(`${API_URL}/solve-question`, {
           question_text: questionText,
-          subject: subject
+          subject: subject,
+          solution_type: solutionType
         });
 
         if (solveResponse.data.success) {
@@ -141,7 +146,10 @@ const QuestionSolver = ({ user, onLogout }) => {
             questionText: questionText,
             solution: solveResponse.data.solution,
             solver_type: solveResponse.data.solver_type,
-            processing_time: solveResponse.data.processing_time_seconds
+            processing_time: solveResponse.data.processing_time_seconds,
+            has_diagrams: solveResponse.data.has_diagrams || false,
+            diagrams: solveResponse.data.diagrams || null,
+            diagram_count: solveResponse.data.diagram_count || 0
           });
         } else {
           throw new Error(solveResponse.data.error || 'Failed to solve question');
