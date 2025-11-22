@@ -1,0 +1,15 @@
+Deployment trigger for Azure Static Web Apps
+This file forces a new deployment to ensure diagram features are active.
+
+Triggered: 2025-11-22 23:23 UTC
+Purpose: Deploy diagram fallback feature to production
+
+Features included:
+- DiagramRenderer with fallback logic
+- SVG triangle and circle diagrams
+- Geometry question detection
+- Construction steps visualization
+- Professional styling with gradients
+
+This deployment should make diagrams appear for geometry questions
+even when the AI service is not available.
