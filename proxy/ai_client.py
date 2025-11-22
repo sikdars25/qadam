@@ -49,7 +49,9 @@ def solve_question_via_vm(question_text: str, subject: str = '', context: str = 
         if response.status_code == 200:
             result = response.json()
             if result.get('success'):
-                return result.get('solution', '')
+                print(f"🔍 DEBUG: AI service response keys: {list(result.keys())}")
+                print(f"🔍 DEBUG: has_diagrams: {result.get('has_diagrams')}")
+                return result  # Return full response including diagram data
             else:
                 error = result.get('error', 'Unknown error')
                 raise Exception(f"AI service error: {error}")

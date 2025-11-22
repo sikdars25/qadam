@@ -3327,20 +3327,39 @@ def solve_question_frontend():
         
         # Use the AI service on VM to generate solution
         from ai_client import solve_question_via_vm
-        solution = solve_question_via_vm(
+        ai_response = solve_question_via_vm(
             question_text=question_text,
             subject=subject or "",
             context=chapter_context or "",
             solution_type=solution_type  # Pass solution_type to AI service
         )
         
-        # Return in frontend-compatible format
+        print(f"🔍 DEBUG: AI response type: {type(ai_response)}")
+        print(f"🔍 DEBUG: AI response keys: {list(ai_response.keys()) if isinstance(ai_response, dict) else 'Not a dict'}")
+        
+        # Extract solution and diagram data
+        if isinstance(ai_response, dict):
+            solution_text = ai_response.get('solution', '')
+            has_diagrams = ai_response.get('has_diagrams', False)
+            diagrams = ai_response.get('diagrams', [])
+            diagram_count = ai_response.get('diagram_count', 0)
+        else:
+            # Fallback for string response (backward compatibility)
+            solution_text = str(ai_response)
+            has_diagrams = False
+            diagrams = []
+            diagram_count = 0
+        
+        # Return in frontend-compatible format with diagram data
         return jsonify({
             'success': True,
-            'solution': solution,
+            'solution': solution_text,
             'question_text': question_text,
             'subject': subject,
-            'message': 'Solution generated successfully'
+            'message': 'Solution generated successfully',
+            'has_diagrams': has_diagrams,
+            'diagrams': diagrams,
+            'diagram_count': diagram_count
         })
         
     except Exception as e:
