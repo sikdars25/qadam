@@ -342,23 +342,16 @@ const QuestionSolver = ({ user, onLogout }) => {
 
                 {/* Solution Content */}
                 <div className="solution-content">
-                  {/* Render diagrams if present */}
-                  {solution.has_diagrams && (
-                    <BulletproofDiagramRenderer 
-                      solutionText={solution.solution}
-                    />
-                  )}
+                  {/* Render diagrams first - separate from text processing */}
+                  <BulletproofDiagramRenderer 
+                    solutionText={solution.solution}
+                  />
                   
-                  {/* Fallback: Check if this is a geometry question without diagrams */}
-                  {!solution.has_diagrams && solution.questionText && (
-                    <BulletproofDiagramRenderer 
-                      solutionText={solution.solution}
-                    />
-                  )}
-                  
-                  {/* Render text solution */}
+                  {/* Render text solution - exclude diagram markers */}
                   {(() => {
-                    const processedSolution = processSolutionText(solution.solution);
+                    // Remove diagram markers from text processing
+                    const cleanSolution = solution.solution.replace(/\[DIAGRAM:\s*[^\]]+\]/g, '');
+                    const processedSolution = processSolutionText(cleanSolution);
                     const lines = processedSolution.split('\n');
                     const elements = [];
                     
