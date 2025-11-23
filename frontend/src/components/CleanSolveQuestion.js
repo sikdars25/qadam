@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import './CleanSolveQuestion.css';
 import axiosInstance from '../config/axios';
+import axios from 'axios';
 import API_URL from '../config/api';
 
 const CleanSolveQuestion = ({ user, onLogout }) => {
@@ -11,6 +12,39 @@ const CleanSolveQuestion = ({ user, onLogout }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [aiSolution, setAiSolution] = useState(null);
+  const [diagrams, setDiagrams] = useState([]);
+  const [diagramLoading, setDiagramLoading] = useState(false);
+
+  // Function to get diagrams from separate endpoint
+  const getDiagrams = async () => {
+    setDiagramLoading(true);
+    try {
+      const response = await axios.post('http://130.107.48.166:5001/generate-diagrams', {
+        question_text: questionText,
+        subject: subject
+      });
+      
+      if (response.data.success) {
+        setDiagrams(response.data.diagrams || []);
+      } else {
+        // Try test endpoint if main fails
+        try {
+          const testResponse = await axios.get('http://130.107.48.166:5001/test-diagram');
+          if (testResponse.data.success) {
+            setDiagrams(testResponse.data.diagrams);
+          }
+        } catch (testErr) {
+          console.log('Diagram endpoint not available - using fallback');
+          setDiagrams([]);
+        }
+      }
+    } catch (err) {
+      console.log('Diagram endpoint error:', err.message);
+      setDiagrams([]);
+    } finally {
+      setDiagramLoading(false);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -21,9 +55,10 @@ const CleanSolveQuestion = ({ user, onLogout }) => {
     
     setLoading(true);
     setError('');
+    setDiagrams([]);
     
     try {
-      // Call AI service for real solution
+      // Call AI service for text solution
       const response = await axiosInstance.post('/solve-question', {
         question_text: questionText,
         subject: subject,
@@ -32,6 +67,12 @@ const CleanSolveQuestion = ({ user, onLogout }) => {
       
       if (response.data.success) {
         setAiSolution(response.data);
+        
+        // Get diagrams from separate endpoint
+        if (solutionType === 'with-diagram' || solutionType === 'step-by-step') {
+          await getDiagrams();
+        }
+        
         setShowSolution(true);
       } else {
         setError(response.data.error || 'Failed to get solution');
@@ -50,6 +91,39 @@ const CleanSolveQuestion = ({ user, onLogout }) => {
     setLoading(false);
     setError('');
     setAiSolution(null);
+    setDiagrams([]);
+    setDiagramLoading(false);
+  };
+
+  // Function to render individual diagrams
+  const renderDiagram = (diagram, index) => {
+    return (
+      <div key={index} className="diagram-card">
+        <div className="diagram-header">
+          <span>📐 Diagram {index + 1}</span>
+          <span className="diagram-type">{diagram.type}</span>
+        </div>
+        
+        {diagram.svg && (
+          <div 
+            className="svg-diagram" 
+            dangerouslySetInnerHTML={{ __html: diagram.svg }}
+          />
+        )}
+        
+        {diagram.ascii && (
+          <div className="ascii-diagram">
+            <pre>{diagram.ascii}</pre>
+          </div>
+        )}
+        
+        {diagram.description && (
+          <div className="diagram-description">
+            <p><strong>Description:</strong> {diagram.description}</p>
+          </div>
+        )}
+      </div>
+    );
   };
 
   if (showSolution) {
@@ -130,71 +204,68 @@ const CleanSolveQuestion = ({ user, onLogout }) => {
           {/* Right Column - Diagram */}
           <div className="diagram-column">
             <div className="column-header">
-              <h3>📐 Construction Diagram</h3>
-              <span className="diagram-badge">Interactive</span>
+              <h3>📐 Construction Diagrams</h3>
+              <span className="diagram-badge">
+                {diagramLoading ? 'Loading...' : `${diagrams.length} Diagram(s)`}
+              </span>
             </div>
             <div className="diagram-content">
               <div className="diagram-container">
                 <h4>🎨 Visual Representation:</h4>
                 
-                {/* Sine Wave Diagram */}
-                <div className="sine-wave-diagram">
-                  <svg width="100%" height="300" viewBox="0 0 400 300" className="sine-svg">
-                    {/* Grid */}
-                    <defs>
-                      <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
-                        <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#e0e0e0" strokeWidth="1"/>
-                      </pattern>
-                    </defs>
-                    <rect width="100%" height="100%" fill="url(#grid)" />
+                {diagramLoading ? (
+                  <div className="diagram-loading">
+                    <div className="loading-spinner"></div>
+                    <p>Generating diagrams...</p>
+                  </div>
+                ) : diagrams.length > 0 ? (
+                  <div className="diagrams-list">
+                    {diagrams.map((diagram, index) => renderDiagram(diagram, index))}
+                  </div>
+                ) : (
+                  <div className="no-diagrams">
+                    <div className="empty-diagram-icon">📐</div>
+                    <h5>No Diagrams Available</h5>
+                    <p>Try selecting "📊 Solution with Diagram" for visual representations.</p>
                     
-                    {/* Axes */}
-                    <line x1="50" y1="150" x2="350" y2="150" stroke="#333" strokeWidth="2"/>
-                    <line x1="200" y1="50" x2="200" y2="250" stroke="#333" strokeWidth="2"/>
-                    
-                    {/* Arrow heads */}
-                    <polygon points="350,150 340,145 340,155" fill="#333"/>
-                    <polygon points="200,50 195,60 205,60" fill="#333"/>
-                    
-                    {/* Sine wave */}
-                    <path d="M 50,150 Q 100,50 150,150 T 250,150 T 350,150" 
-                          fill="none" stroke="#007bff" strokeWidth="3"/>
-                    
-                    {/* Labels */}
-                    <text x="360" y="155" fontSize="12" fill="#333">x</text>
-                    <text x="205" y="45" fontSize="12" fill="#333">y</text>
-                    <text x="190" y="270" fontSize="12" fill="#333">0</text>
-                    
-                    {/* Wave points */}
-                    <circle cx="50" cy="150" r="4" fill="#dc3545"/>
-                    <circle cx="100" cy="100" r="4" fill="#dc3545"/>
-                    <circle cx="150" cy="150" r="4" fill="#dc3545"/>
-                    <circle cx="200" cy="200" r="4" fill="#dc3545"/>
-                    <circle cx="250" cy="150" r="4" fill="#dc3545"/>
-                    <circle cx="300" cy="100" r="4" fill="#dc3545"/>
-                    <circle cx="350" cy="150" r="4" fill="#dc3545"/>
-                  </svg>
-                </div>
-
-                <div className="diagram-description">
-                  <h5>📊 Sine Wave Function</h5>
-                  <p>This diagram shows a sine wave function y = sin(x) with key points marked in red. The wave demonstrates periodic behavior with amplitude and wavelength clearly visible.</p>
-                  
-                  <div className="diagram-features">
-                    <div className="feature">
-                      <span className="feature-icon">📏</span>
-                      <span>Amplitude: 1 unit</span>
-                    </div>
-                    <div className="feature">
-                      <span className="feature-icon">🔄</span>
-                      <span>Period: 2π radians</span>
-                    </div>
-                    <div className="feature">
-                      <span className="feature-icon">📍</span>
-                      <span>Key points marked</span>
+                    {/* Show fallback sine wave */}
+                    <div className="fallback-diagram">
+                      <h6>Sample Mathematical Diagram:</h6>
+                      <div className="sine-wave-diagram">
+                        <svg width="100%" height="250" viewBox="0 0 400 250" className="sine-svg">
+                          <defs>
+                            <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
+                              <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#e0e0e0" strokeWidth="1"/>
+                            </pattern>
+                          </defs>
+                          <rect width="100%" height="100%" fill="url(#grid)" />
+                          
+                          <line x1="50" y1="125" x2="350" y2="125" stroke="#333" strokeWidth="2"/>
+                          <line x1="200" y1="50" x2="200" y2="200" stroke="#333" strokeWidth="2"/>
+                          
+                          <polygon points="350,125 340,120 340,130" fill="#333"/>
+                          <polygon points="200,50 195,60 205,60" fill="#333"/>
+                          
+                          <path d="M 50,125 Q 100,75 150,125 T 250,125 T 350,125" 
+                                fill="none" stroke="#007bff" strokeWidth="3"/>
+                          
+                          <text x="360" y="130" fontSize="12" fill="#333">x</text>
+                          <text x="205" y="45" fontSize="12" fill="#333">y</text>
+                          <text x="190" y="220" fontSize="12" fill="#333">0</text>
+                          
+                          <circle cx="50" cy="125" r="4" fill="#dc3545"/>
+                          <circle cx="100" cy="100" r="4" fill="#dc3545"/>
+                          <circle cx="150" cy="125" r="4" fill="#dc3545"/>
+                          <circle cx="200" cy="150" r="4" fill="#dc3545"/>
+                          <circle cx="250" cy="125" r="4" fill="#dc3545"/>
+                          <circle cx="300" cy="100" r="4" fill="#dc3545"/>
+                          <circle cx="350" cy="125" r="4" fill="#dc3545"/>
+                        </svg>
+                      </div>
+                      <p className="fallback-caption">This is a sample diagram. Real diagrams will appear when you select "Solution with Diagram".</p>
                     </div>
                   </div>
-                </div>
+                )}
               </div>
             </div>
           </div>
