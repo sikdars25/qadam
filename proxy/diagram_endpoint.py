@@ -6,10 +6,12 @@ Enhanced with Comprehensive Diagram Analysis
 
 import os
 import requests
+import re
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 import logging
 from simple_diagram_extractor import analyze_and_generate_diagram
+from typing import List, Dict, Any
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -20,7 +22,7 @@ CORS(app)  # Enable CORS for all routes
 
 # Configuration
 AI_SERVICE_URL = os.getenv('AI_SERVICE_URL', 'http://130.107.48.221:8001')
-AI_ENABLED = os.getenv('AI_ENABLED', 'false').lower() == 'true'  # Disabled to force fallback for frontend testing
+AI_ENABLED = os.getenv('AI_ENABLED', 'true').lower() == 'true'  # Re-enabled for two-step AI approach
 
 def check_ai_service():
     """Check if AI service is available"""
@@ -176,6 +178,148 @@ This is a fallback solution generated when the AI service is not available.
 Question: {question_text}
 '''
 
+def get_solution_with_diagrams_from_ai(question_text: str, subject: str, solution_type: str) -> Dict[str, Any]:
+    """
+    Get solution with diagrams from AI service (first call)
+    """
+    try:
+        payload = {
+            'question_text': question_text,
+            'subject': subject,
+            'solution_type': solution_type
+        }
+        
+        response = requests.post(
+            f"{AI_SERVICE_URL}/solve-question",
+            json=payload,
+            timeout=30
+        )
+        
+        if response.status_code == 200:
+            result = response.json()
+            if result.get('success'):
+                return {
+                    'success': True,
+                    'solution': result.get('solution', ''),
+                    'diagrams': result.get('diagrams', [])
+                }
+            else:
+                return {
+                    'success': False,
+                    'error': result.get('error', 'Unknown error'),
+                    'solution': '',
+                    'diagrams': []
+                }
+        else:
+            return {
+                'success': False,
+                'error': f'AI service error: {response.status_code}',
+                'solution': '',
+                'diagrams': []
+            }
+            
+    except Exception as e:
+        logger.exception("Error getting solution from AI service")
+        return {
+            'success': False,
+            'error': str(e),
+            'solution': '',
+            'diagrams': []
+        }
+
+def extract_diagram_tags_from_solution(solution_text: str) -> List[str]:
+    """
+    Extract all diagram tags from the solution text
+    """
+    pattern = r'\[DIAGRAM:\s*([^\]]+)\]'
+    matches = re.findall(pattern, solution_text, re.IGNORECASE)
+    return [m.strip() for m in matches]
+
+def create_final_diagram_prompt(diagram_tags: List[str], question_text: str) -> str:
+    """
+    Create a summarized prompt for final diagram generation
+    """
+    diagram_summary = "\n".join([f"- {tag}" for tag in diagram_tags])
+    
+    final_prompt = f"""
+Based on the following mathematical construction problem and diagram requirements, create a single, comprehensive diagram description that incorporates all the construction steps:
+
+Question: {question_text}
+
+Required Diagram Elements:
+{diagram_summary}
+
+Please create a detailed, step-by-step diagram description that combines all these construction elements into a single coherent geometric diagram. Focus on:
+1. The geometric construction process
+2. Clear labeling of all points, lines, and angles
+3. Proper sequence of construction steps
+4. Mathematical accuracy
+
+Return your response in this format:
+[FINAL_DIAGRAM: Your comprehensive diagram description here]
+"""
+    
+    return final_prompt
+
+def get_final_diagram_from_ai(final_prompt: str) -> Dict[str, Any]:
+    """
+    Get final diagram description from AI service (second call)
+    """
+    try:
+        payload = {
+            'question_text': final_prompt,
+            'subject': 'Mathematics',
+            'solution_type': 'diagram-only'
+        }
+        
+        response = requests.post(
+            f"{AI_SERVICE_URL}/solve-question",
+            json=payload,
+            timeout=30
+        )
+        
+        if response.status_code == 200:
+            result = response.json()
+            if result.get('success'):
+                solution = result.get('solution', '')
+                # Extract the final diagram tag
+                final_diagram_match = re.search(r'\[FINAL_DIAGRAM:\s*([^\]]+)\]', solution, re.IGNORECASE | re.DOTALL)
+                
+                if final_diagram_match:
+                    final_diagram = final_diagram_match.group(1).strip()
+                    return {
+                        'success': True,
+                        'final_diagram': final_diagram,
+                        'raw_solution': solution
+                    }
+                else:
+                    # If no FINAL_DIAGRAM tag, use the whole solution
+                    return {
+                        'success': True,
+                        'final_diagram': solution,
+                        'raw_solution': solution
+                    }
+            else:
+                return {
+                    'success': False,
+                    'error': result.get('error', 'Unknown error'),
+                    'final_diagram': ''
+                }
+        else:
+            return {
+                'success': False,
+                'error': f'AI service error: {response.status_code}',
+                'final_diagram': ''
+            }
+            
+    except Exception as e:
+        logger.exception("Error getting final diagram from AI service")
+        return {
+            'success': False,
+            'error': str(e),
+            'final_diagram': ''
+        }
+
 def get_solution_from_ai_service(question_text, subject="Mathematics", solution_type="with-diagram"):
     """Get solution text from AI service"""
     if not AI_ENABLED or not check_ai_service():
@@ -194,46 +338,67 @@ def get_solution_from_ai_service(question_text, subject="Mathematics", solution_
         }
     
     try:
-        # Request solution from AI service
-        payload = {
-            'question_text': question_text,
-            'subject': subject,
-            'solution_type': solution_type
-        }
+        # Step 1: Get solution from AI service
+        ai_result = get_solution_with_diagrams_from_ai(question_text, subject, solution_type)
         
-        logger.info(f"Requesting solution from AI service: {AI_SERVICE_URL}/solve-question")
-        response = requests.post(
-            f"{AI_SERVICE_URL}/solve-question",
-            json=payload,
-            timeout=30
-        )
+        if not ai_result['success']:
+            logger.error(f"Failed to get solution from AI service: {ai_result['error']}")
+            return {
+                'success': False,
+                'error': f'AI service error: {ai_result["error"]}',
+                'solution': '',
+                'diagrams': []
+            }
         
-        if response.status_code == 200:
-            result = response.json()
-            if result.get('success'):
-                logger.info(f"AI service returned solution with diagrams: {result.get('has_diagrams', False)}")
+        solution_text = ai_result['solution']
+        logger.info(f"Got solution from AI service (length: {len(solution_text)} chars)")
+        
+        # Log solution preview for debugging
+        logger.info(f"Solution preview: {solution_text[:200]}...")
+        
+        # Check if solution contains diagram markers
+        has_markers = '[DIAGRAM:' in solution_text
+        logger.info(f"Solution contains [DIAGRAM:] markers: {has_markers}")
+        
+        if has_markers:
+            diagram_tags = extract_diagram_tags_from_solution(solution_text)
+            logger.info(f"Found {len(diagram_tags)} diagram tags in solution:")
+            for i, tag in enumerate(diagram_tags[:3]):  # Log first 3
+                logger.info(f"  Tag {i+1}: {tag.strip()}")
+            
+            # Create a summarized prompt for final diagram generation
+            final_prompt = create_final_diagram_prompt(diagram_tags, question_text)
+            
+            # Step 2: Get final diagram description from AI service
+            final_diagram_result = get_final_diagram_from_ai(final_prompt)
+            
+            if final_diagram_result['success']:
+                final_diagram = final_diagram_result['final_diagram']
+                logger.info(f"Got final diagram from AI service (length: {len(final_diagram)} chars)")
+                
                 return {
                     'success': True,
-                    'solution': result.get('solution', ''),
-                    'diagrams': result.get('diagrams', []),
-                    'has_diagrams': result.get('has_diagrams', False),
-                    'diagram_count': result.get('diagram_count', 0)
+                    'solution': solution_text,
+                    'final_diagram': final_diagram,
+                    'diagrams': ai_result['diagrams'],
+                    'has_diagrams': True,
+                    'diagram_count': len(diagram_tags)
                 }
             else:
-                logger.error(f"AI service returned error: {result.get('error', 'Unknown error')}")
+                logger.error(f"Failed to get final diagram from AI service: {final_diagram_result['error']}")
                 return {
                     'success': False,
-                    'error': result.get('error', 'Unknown error'),
+                    'error': f'AI service error: {final_diagram_result["error"]}',
                     'solution': '',
                     'diagrams': []
                 }
         else:
-            logger.error(f"AI service HTTP error: {response.status_code}")
             return {
-                'success': False,
-                'error': f'AI service error: {response.status_code}',
-                'solution': '',
-                'diagrams': []
+                'success': True,
+                'solution': solution_text,
+                'diagrams': ai_result['diagrams'],
+                'has_diagrams': False,
+                'diagram_count': 0
             }
             
     except Exception as e:
@@ -248,19 +413,13 @@ def get_solution_from_ai_service(question_text, subject="Mathematics", solution_
 @app.route('/analyze-diagrams', methods=['POST', 'OPTIONS'])
 def analyze_diagrams():
     """
-    Analyze solution text and generate unified diagram
-    
-    Expected payload:
-    {
-        "question_text": "Original question text",
-        "subject": "Subject name (optional)",
-        "solution_type": "with-diagram or step-by-step (optional)"
-    }
+    Two-Step AI Approach for Diagram Generation
     
     Process:
-    1. Get solution from AI service
-    2. Extract diagram markers from solution
-    3. Generate unified diagram from all markers
+    1. First call to Groq API: Get solution with diagram tags
+    2. Extract and summarize all diagram tags from solution
+    3. Second call to Groq API: Send summary for final diagram creation
+    4. Return final diagram tag to frontend for display
     """
     if request.method == 'OPTIONS':
         return '', 200
@@ -284,9 +443,10 @@ def analyze_diagrams():
                 'error': 'question_text is required'
             }), 400
         
-        logger.info(f"Analyzing diagrams for question: {question_text[:50]}...")
+        logger.info(f"Starting two-step diagram generation for question: {question_text[:50]}...")
         
-        # Step 1: Get solution from AI service
+        # Step 1: Get solution with diagrams from AI service (first call)
+        logger.info("Step 1: Getting solution with diagram tags from AI service...")
         ai_result = get_solution_from_ai_service(question_text, subject, solution_type)
         
         if not ai_result['success']:
@@ -294,72 +454,79 @@ def analyze_diagrams():
             return jsonify({
                 'success': False,
                 'error': f'AI service error: {ai_result["error"]}',
-                'diagram': None
+                'final_diagram': None
             }), 500
         
         solution_text = ai_result['solution']
         logger.info(f"Got solution from AI service (length: {len(solution_text)} chars)")
         
-        # Log solution preview for debugging
-        logger.info(f"Solution preview: {solution_text[:200]}...")
-        
         # Check if solution contains diagram markers
         has_markers = '[DIAGRAM:' in solution_text
         logger.info(f"Solution contains [DIAGRAM:] markers: {has_markers}")
         
-        if has_markers:
-            import re
-            markers = re.findall(r'\[DIAGRAM:([^\]]+)\]', solution_text)
-            logger.info(f"Found {len(markers)} diagram markers in solution:")
-            for i, marker in enumerate(markers[:3]):  # Log first 3
-                logger.info(f"  Marker {i+1}: {marker.strip()}")
+        if not has_markers:
+            logger.info("No diagram markers found in solution")
+            return jsonify({
+                'success': True,
+                'final_diagram': None,
+                'content': 'No diagram elements found in solution',
+                'processing_method': 'no_diagrams_found'
+            })
         
-        # Step 2: Extract all [DIAGRAM:...] texts and combine them
-        logger.info("Extracting diagram texts from solution...")
-        combined_diagram = analyze_and_generate_diagram(solution_text, question_text)
+        # Step 2: Extract diagram tags from solution
+        logger.info("Step 2: Extracting diagram tags from solution...")
+        diagram_tags = extract_diagram_tags_from_solution(solution_text)
+        logger.info(f"Extracted {len(diagram_tags)} diagram tags:")
+        for i, tag in enumerate(diagram_tags):
+            logger.info(f"  Tag {i+1}: {tag}")
         
-        # Log extraction results
-        logger.info(f"Extraction results: type={combined_diagram['type']}, elements={combined_diagram['elements_count']}")
-        if combined_diagram['elements_count'] > 0:
-            logger.info(f"Extracted diagram texts: {combined_diagram['raw_texts']}")
+        # Step 3: Create final diagram prompt and get final diagram (second call)
+        logger.info("Step 3: Creating final diagram prompt and calling AI service...")
+        final_prompt = create_final_diagram_prompt(diagram_tags, question_text)
         
-        # Step 3: Return simple result with combined diagram texts
+        final_diagram_result = get_final_diagram_from_ai(final_prompt)
+        
+        if not final_diagram_result['success']:
+            logger.error(f"Failed to get final diagram from AI service: {final_diagram_result['error']}")
+            return jsonify({
+                'success': False,
+                'error': f'AI service error: {final_diagram_result["error"]}',
+                'final_diagram': None
+            }), 500
+        
+        final_diagram = final_diagram_result['final_diagram']
+        logger.info(f"Got final diagram from AI service (length: {len(final_diagram)} chars)")
+        
+        # Step 4: Return final diagram to frontend
         response = {
             'success': True,
-            'diagram': combined_diagram,
-            'diagrams': combined_diagram.get('diagrams', []),  # Top-level diagrams array
-            'content': combined_diagram.get('content', ''),  # Top-level content field
-            'text_content': combined_diagram.get('text_content', ''),  # Top-level text content
-            'svg': combined_diagram.get('svg', ''),  # Top-level SVG field
-            'type': combined_diagram.get('type', 'empty'),  # Top-level type field
-            'elements_count': combined_diagram.get('elements_count', 0),  # Top-level elements count
-            'ai_solution': {
-                'solution_text': solution_text,
-                'has_diagrams': ai_result['has_diagrams'],
-                'diagram_count': ai_result['diagram_count'],
-                'ai_diagrams': ai_result['diagrams']
+            'final_diagram': final_diagram,
+            'content': final_diagram,
+            'processing_method': 'two_step_ai_generation',
+            'steps': {
+                'step1_solution_length': len(solution_text),
+                'step2_diagram_tags_count': len(diagram_tags),
+                'step3_final_diagram_length': len(final_diagram)
             },
             'metadata': {
                 'question_text': question_text,
                 'subject': subject,
                 'solution_type': solution_type,
-                'solution_length': len(solution_text),
-                'has_diagrams': combined_diagram['elements_count'] > 0,
-                'elements_found': combined_diagram['elements_count'],
-                'processing_method': 'extract_and_append_diagram_texts'
+                'diagram_tags': diagram_tags,
+                'raw_solution': solution_text,
+                'final_diagram_raw': final_diagram_result.get('raw_solution', '')
             }
         }
         
-        logger.info(f"Generated combined diagram with {combined_diagram['elements_count']} diagram texts")
-        
-        return jsonify(response)
+        logger.info("Two-step diagram generation completed successfully")
+        return jsonify(response), 200
         
     except Exception as e:
-        logger.error(f"Error analyzing diagrams: {str(e)}")
+        logger.exception("Error in two-step diagram generation")
         return jsonify({
             'success': False,
             'error': f'Internal server error: {str(e)}',
-            'diagram': None
+            'final_diagram': None
         }), 500
 
 @app.route('/generate-diagrams', methods=['POST', 'OPTIONS'])
