@@ -10,6 +10,13 @@ from werkzeug.utils import secure_filename
 from werkzeug.security import check_password_hash, generate_password_hash
 from datetime import datetime
 from jwt_auth import generate_token, token_required, get_current_user, admin_required
+import requests
+import re
+import logging
+from typing import List, Dict, Any
+
+# Import diagram generation functions
+from simple_diagram_extractor import analyze_and_generate_diagram
 
 # Load environment variables from .env file
 from dotenv import load_dotenv
@@ -89,6 +96,14 @@ except Exception as e:
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY', 'your-secret-key-here-change-in-production')
 # Updated: Nov 1, 2025 1:35 AM - Consolidated AI service deployment
+
+# Diagram generation configuration
+AI_SERVICE_URL = os.getenv('AI_SERVICE_URL', 'http://130.107.48.221:8001')
+AI_ENABLED = os.getenv('AI_ENABLED', 'false').lower() == 'true'  # Disabled to force fallback for testing
+
+# Configure logging for diagram generation
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
 
 # Session configuration
 # For VM deployment with HTTPS frontend
@@ -199,6 +214,213 @@ if COSMOS_DB_ENABLED:
     except Exception as e:
         print(f"⚠️ Cosmos DB initialization failed: {e}")
         COSMOS_DB_ENABLED = False
+
+# Diagram Generation Helper Functions
+def check_ai_service():
+    """Check if AI service is available"""
+    try:
+        response = requests.get(f"{AI_SERVICE_URL}/health", timeout=5)
+        return response.status_code == 200
+    except Exception as e:
+        logger.error(f"AI service check failed: {e}")
+        return False
+
+def generate_fallback_solution(question_text):
+    """Generate a basic fallback solution for common geometry problems with diagram markers"""
+    question_lower = question_text.lower()
+    
+    # Triangle construction problems
+    if 'triangle' in question_lower and 'construct' in question_lower:
+        if 'bc' in question_lower and 'angle' in question_lower:
+            return f'''
+To construct triangle ABC with the given specifications, follow these steps:
+
+Step 1: Draw the base segment BC of the specified length.
+[DIAGRAM: Base segment BC with given length]
+
+Step 2: At point B, construct the specified angle using a protractor.
+[DIAGRAM: Angle constructed at point B]
+
+Step 3: At point C, construct the specified angle using a protractor.
+[DIAGRAM: Angle constructed at point C]
+
+Step 4: The intersection of the two angle rays will be point A, completing the triangle.
+[DIAGRAM: Triangle ABC completed]
+
+The final triangle ABC is constructed with the given specifications.
+
+Question: {question_text}
+'''
+    
+    # Default fallback
+    else:
+        return f'''
+Solution for the given problem:
+
+This is a fallback solution generated when the AI service is not available.
+[DIAGRAM: Basic construction diagram]
+
+Question: {question_text}
+'''
+
+def extract_diagram_tags_from_solution(solution_text: str) -> List[str]:
+    """Extract all diagram tags from the solution text"""
+    pattern = r'\[DIAGRAM:\s*([^\]]+)\]'
+    matches = re.findall(pattern, solution_text, re.IGNORECASE)
+    return [m.strip() for m in matches]
+
+def create_final_diagram_from_tags(diagram_tags: List[str], question_text: str) -> str:
+    """Create a final diagram description from extracted tags"""
+    tag_descriptions = "\n".join([f"{i+1}. {tag}" for i, tag in enumerate(diagram_tags)])
+    
+    final_diagram = f"""
+A comprehensive geometric construction for: {question_text}
+
+Construction Steps:
+{tag_descriptions}
+
+This diagram shows the complete step-by-step construction process with all necessary geometric elements, measurements, and labels clearly indicated. The construction follows standard geometric principles with accurate angle measurements and proper sequencing of steps.
+"""
+    
+    return final_diagram.strip()
+
+def get_solution_with_diagrams_from_ai(question_text: str, subject: str, solution_type: str) -> Dict[str, Any]:
+    """Get solution with diagrams from AI service (first call)"""
+    try:
+        payload = {
+            'question_text': question_text,
+            'subject': subject,
+            'solution_type': solution_type
+        }
+        
+        response = requests.post(
+            f"{AI_SERVICE_URL}/solve-question",
+            json=payload,
+            timeout=30
+        )
+        
+        if response.status_code == 200:
+            result = response.json()
+            if result.get('success'):
+                return {
+                    'success': True,
+                    'solution': result.get('solution', ''),
+                    'diagrams': result.get('diagrams', [])
+                }
+            else:
+                return {
+                    'success': False,
+                    'error': result.get('error', 'Unknown error'),
+                    'solution': '',
+                    'diagrams': []
+                }
+        else:
+            return {
+                'success': False,
+                'error': f'AI service error: {response.status_code}',
+                'solution': '',
+                'diagrams': []
+            }
+            
+    except Exception as e:
+        logger.exception("Error getting solution from AI service")
+        return {
+            'success': False,
+            'error': str(e),
+            'solution': '',
+            'diagrams': []
+        }
+
+def get_solution_from_ai_service(question_text, subject="Mathematics", solution_type="with-diagram"):
+    """Get solution text from AI service with two-step approach and fallback"""
+    if not AI_ENABLED or not check_ai_service():
+        logger.info("AI service not available, using fallback two-step approach")
+        
+        # Generate a basic fallback solution for common geometry problems
+        fallback_solution = generate_fallback_solution(question_text)
+        
+        # Extract diagram tags from fallback
+        diagram_tags = extract_diagram_tags_from_solution(fallback_solution)
+        logger.info(f"Fallback: Extracted {len(diagram_tags)} diagram tags")
+        
+        # Create final diagram from fallback tags
+        if diagram_tags:
+            final_diagram = create_final_diagram_from_tags(diagram_tags, question_text)
+            return {
+                'success': True,
+                'solution': fallback_solution,
+                'final_diagram': final_diagram,
+                'diagrams': [],
+                'has_diagrams': True,
+                'diagram_count': len(diagram_tags),
+                'fallback_used': True
+            }
+        else:
+            return {
+                'success': True,
+                'solution': fallback_solution,
+                'final_diagram': None,
+                'diagrams': [],
+                'has_diagrams': False,
+                'diagram_count': 0,
+                'fallback_used': True
+            }
+    
+    try:
+        # Step 1: Get solution from AI service
+        ai_result = get_solution_with_diagrams_from_ai(question_text, subject, solution_type)
+        
+        if not ai_result['success']:
+            logger.error(f"Failed to get solution from AI service: {ai_result['error']}")
+            return {
+                'success': False,
+                'error': f'AI service error: {ai_result["error"]}',
+                'solution': '',
+                'diagrams': []
+            }
+        
+        solution_text = ai_result['solution']
+        logger.info(f"Got solution from AI service (length: {len(solution_text)} chars)")
+        
+        # Check if solution contains diagram markers
+        has_markers = '[DIAGRAM:' in solution_text
+        logger.info(f"Solution contains [DIAGRAM:] markers: {has_markers}")
+        
+        if has_markers:
+            diagram_tags = extract_diagram_tags_from_solution(solution_text)
+            logger.info(f"Found {len(diagram_tags)} diagram tags in solution:")
+            for i, tag in enumerate(diagram_tags[:3]):  # Log first 3
+                logger.info(f"  Tag {i+1}: {tag.strip()}")
+            
+            # Create final diagram from tags (simplified approach)
+            final_diagram = create_final_diagram_from_tags(diagram_tags, question_text)
+            
+            return {
+                'success': True,
+                'solution': solution_text,
+                'final_diagram': final_diagram,
+                'diagrams': ai_result['diagrams'],
+                'has_diagrams': True,
+                'diagram_count': len(diagram_tags)
+            }
+        else:
+            return {
+                'success': True,
+                'solution': solution_text,
+                'final_diagram': None,
+                'diagrams': ai_result['diagrams'],
+                'has_diagrams': False,
+                'diagram_count': 0
+            }
+            
+    except Exception as e:
+        logger.error(f"AI service request error: {e}")
+        return {
+            'success': False,
+            'error': str(e),
+            'solution': '',
+            'diagrams': []
+        }
 
 @app.route('/api/login', methods=['POST'])
 def login():
@@ -3727,6 +3949,110 @@ def get_usage_analytics():
         traceback.print_exc()
         conn.close()
         return jsonify({'error': str(e)}), 500
+
+# Diagram Generation Endpoints
+@app.route('/test-simple', methods=['GET'])
+def test_simple():
+    """Simple test endpoint that always returns a diagram"""
+    return jsonify({
+        'success': True,
+        'final_diagram': 'TEST DIAGRAM: This is a test diagram to verify frontend is working. Draw base segment BC of length 6 cm, construct 60° angle at B, construct 45° angle at C, complete triangle ABC.',
+        'processing_method': 'test_endpoint',
+        'content': 'TEST DIAGRAM: This is a test diagram to verify frontend is working. Draw base segment BC of length 6 cm, construct 60° angle at B, construct 45° angle at C, complete triangle ABC.'
+    })
+
+@app.route('/analyze-diagrams', methods=['POST', 'OPTIONS'])
+def analyze_diagrams():
+    """
+    Diagram Generation Endpoint - Now integrated in main app
+    
+    Process:
+    1. Get solution with diagram tags (AI service or fallback)
+    2. Extract diagram tags from solution
+    3. Create final diagram from tags
+    4. Return final diagram to frontend
+    """
+    if request.method == 'OPTIONS':
+        return '', 200
+    
+    try:
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({
+                'success': False,
+                'error': 'No JSON data provided'
+            }), 400
+        
+        question_text = data.get('question_text', '')
+        subject = data.get('subject', 'Mathematics')
+        solution_type = data.get('solution_type', 'with-diagram')
+        
+        if not question_text.strip():
+            return jsonify({
+                'success': False,
+                'error': 'question_text is required'
+            }), 400
+        
+        logger.info(f"Starting diagram generation for question: {question_text[:50]}...")
+        
+        # Get solution with diagrams from AI service (with fallback)
+        ai_result = get_solution_from_ai_service(question_text, subject, solution_type)
+        
+        if not ai_result['success']:
+            logger.error(f"Failed to get solution from AI service: {ai_result['error']}")
+            return jsonify({
+                'success': False,
+                'error': f'AI service error: {ai_result["error"]}',
+                'final_diagram': None
+            }), 500
+        
+        solution_text = ai_result['solution']
+        logger.info(f"Got solution (length: {len(solution_text)} chars)")
+        
+        # Check if we have a final diagram
+        if ai_result.get('final_diagram'):
+            final_diagram = ai_result['final_diagram']
+            logger.info(f"Generated final diagram (length: {len(final_diagram)} chars)")
+            
+            # Return final diagram to frontend
+            response = {
+                'success': True,
+                'final_diagram': final_diagram,
+                'content': final_diagram,
+                'processing_method': 'integrated_diagram_generation',
+                'steps': {
+                    'step1_solution_length': len(solution_text),
+                    'step2_diagram_tags_count': ai_result.get('diagram_count', 0),
+                    'step3_final_diagram_length': len(final_diagram)
+                },
+                'metadata': {
+                    'question_text': question_text,
+                    'subject': subject,
+                    'solution_type': solution_type,
+                    'fallback_used': ai_result.get('fallback_used', False),
+                    'has_diagrams': ai_result.get('has_diagrams', False)
+                }
+            }
+            
+            logger.info("Diagram generation completed successfully")
+            return jsonify(response), 200
+        else:
+            logger.info("No diagram elements found in solution")
+            return jsonify({
+                'success': True,
+                'final_diagram': None,
+                'content': 'No diagram elements found in solution',
+                'processing_method': 'no_diagrams_found'
+            })
+        
+    except Exception as e:
+        logger.exception("Error in diagram generation")
+        return jsonify({
+            'success': False,
+            'error': f'Internal server error: {str(e)}',
+            'final_diagram': None
+        }), 500
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
