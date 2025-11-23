@@ -9,7 +9,7 @@ import requests
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 import logging
-from comprehensive_diagram_generator import analyze_and_generate_diagram
+from simple_diagram_extractor import analyze_and_generate_diagram
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -85,19 +85,48 @@ def generate_diagrams_only(question_text, subject="Mathematics"):
         }
 
 def generate_fallback_solution(question_text):
-    """Generate a basic fallback solution for common geometry problems"""
+    """Generate a basic fallback solution for common geometry problems with diagram markers"""
     question_lower = question_text.lower()
     
+    # Perpendicular bisector problems
+    if 'perpendicular bisector' in question_lower:
+        return f'''
+To construct the perpendicular bisector of a line segment, follow these steps:
+
+Step 1: Draw the given line segment AB.
+[DIAGRAM: Line segment AB with given length]
+
+Step 2: With A as center, draw an arc with radius more than half of AB.
+[DIAGRAM: Arc drawn from point A]
+
+Step 3: With B as center, draw another arc with the same radius to intersect the first arc.
+[DIAGRAM: Arc drawn from point B intersecting first arc]
+
+Step 4: Draw a line through the intersection points of the arcs.
+[DIAGRAM: Perpendicular bisector line through intersection points]
+
+The perpendicular bisector is now constructed.
+
+Question: {question_text}
+'''
+    
     # Triangle construction problems
-    if 'triangle' in question_lower and 'construct' in question_lower:
+    elif 'triangle' in question_lower and 'construct' in question_lower:
         if 'bc' in question_lower and 'angle' in question_lower:
             return f'''
 To construct triangle ABC with the given specifications, follow these steps:
 
 Step 1: Draw the base segment BC of the specified length.
+[DIAGRAM: Base segment BC with given length]
+
 Step 2: At point B, construct the specified angle using a protractor.
+[DIAGRAM: Angle constructed at point B]
+
 Step 3: At point C, construct the specified angle using a protractor.
+[DIAGRAM: Angle constructed at point C]
+
 Step 4: The intersection of the two angle rays will be point A, completing the triangle.
+[DIAGRAM: Triangle ABC completed]
 
 The final triangle ABC is constructed with the given specifications.
 
@@ -108,8 +137,13 @@ Question: {question_text}
 To construct the triangle with the given specifications, follow these steps:
 
 Step 1: Draw the base segment of the specified length.
+[DIAGRAM: Base segment of given length]
+
 Step 2: Construct the required angles at the base vertices.
+[DIAGRAM: Angles constructed at base vertices]
+
 Step 3: Complete the triangle by connecting the vertices.
+[DIAGRAM: Triangle completed]
 
 Question: {question_text}
 '''
@@ -120,8 +154,13 @@ Question: {question_text}
 To construct the geometric figure with the given specifications, follow these steps:
 
 Step 1: Draw the base elements as specified.
+[DIAGRAM: Base elements drawn]
+
 Step 2: Construct the required angles and measurements.
+[DIAGRAM: Angles and measurements constructed]
+
 Step 3: Complete the construction using the given parameters.
+[DIAGRAM: Final construction completed]
 
 Question: {question_text}
 '''
@@ -132,7 +171,7 @@ Question: {question_text}
 Solution for the given problem:
 
 This is a fallback solution generated when the AI service is not available.
-The diagram generator will attempt to extract construction elements from this text.
+[DIAGRAM: Basic construction diagram]
 
 Question: {question_text}
 '''
@@ -261,18 +300,14 @@ def analyze_diagrams():
         solution_text = ai_result['solution']
         logger.info(f"Got solution from AI service (length: {len(solution_text)} chars)")
         
-        # Step 2: Generate unified diagram from solution text (with fallback mechanism)
-        logger.info("Analyzing solution text for diagram elements...")
-        unified_diagram = analyze_and_generate_diagram(solution_text, question_text)
+        # Step 2: Extract all [DIAGRAM:...] texts and combine them
+        logger.info("Extracting diagram texts from solution...")
+        combined_diagram = analyze_and_generate_diagram(solution_text, question_text)
         
-        # Check if fallback mechanism was used
-        has_explicit_markers = '[DIAGRAM:' in solution_text
-        logger.info(f"Has explicit diagram markers: {has_explicit_markers}")
-        
-        # Step 3: Return comprehensive result
+        # Step 3: Return simple result with combined diagram texts
         response = {
             'success': True,
-            'diagram': unified_diagram,
+            'diagram': combined_diagram,
             'ai_solution': {
                 'solution_text': solution_text,
                 'has_diagrams': ai_result['has_diagrams'],
@@ -284,15 +319,13 @@ def analyze_diagrams():
                 'subject': subject,
                 'solution_type': solution_type,
                 'solution_length': len(solution_text),
-                'has_diagrams': unified_diagram['elements_count'] > 0,
-                'elements_found': unified_diagram['elements_count'],
-                'has_explicit_markers': has_explicit_markers,
-                'fallback_used': not has_explicit_markers and unified_diagram['elements_count'] > 0,
-                'processing_method': 'ai_service_plus_comprehensive_analysis'
+                'has_diagrams': combined_diagram['elements_count'] > 0,
+                'elements_found': combined_diagram['elements_count'],
+                'processing_method': 'extract_and_append_diagram_texts'
             }
         }
         
-        logger.info(f"Generated {unified_diagram['type']} diagram with {unified_diagram['elements_count']} elements")
+        logger.info(f"Generated combined diagram with {combined_diagram['elements_count']} diagram texts")
         
         return jsonify(response)
         
