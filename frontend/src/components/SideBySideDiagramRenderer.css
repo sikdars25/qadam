@@ -1,0 +1,261 @@
+.side-by-side-container {
+  display: flex;
+  gap: 20px;
+  margin: 20px 0;
+  min-height: 400px;
+}
+
+/* Text Container - Left Side */
+.text-container {
+  flex: 1;
+  background: white;
+  border: 2px solid #28a745;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 8px rgba(40,167,69,0.1);
+}
+
+/* Diagram Container - Right Side */
+.diagram-container {
+  flex: 1;
+  background: white;
+  border: 2px solid #007bff;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 8px rgba(0,123,255,0.1);
+}
+
+/* Container Headers */
+.container-header {
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  padding: 15px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 2px solid #dee2e6;
+}
+
+.container-header h3 {
+  margin: 0;
+  font-size: 1.2em;
+  font-weight: 600;
+}
+
+.text-container .container-header h3 {
+  color: #28a745;
+}
+
+.diagram-container .container-header h3 {
+  color: #007bff;
+}
+
+.item-count {
+  background: rgba(0,0,0,0.1);
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 0.9em;
+  font-weight: 500;
+}
+
+/* Text Content */
+.text-content {
+  padding: 20px;
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+.text-line {
+  margin-bottom: 10px;
+}
+
+.text-line p {
+  margin: 0;
+  line-height: 1.6;
+  color: #333;
+}
+
+.empty-state {
+  text-align: center;
+  color: #666;
+  font-style: italic;
+  padding: 40px 20px;
+}
+
+/* Diagram Content */
+.diagram-content {
+  padding: 20px;
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+.diagram-item {
+  background: linear-gradient(135deg, #f0f8ff 0%, #e3f2fd 100%);
+  border: 2px solid #007bff;
+  border-radius: 10px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.diagram-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  color: #007bff;
+  font-size: 1.1em;
+  margin-bottom: 15px;
+  padding: 10px;
+  background: rgba(0,123,255,0.1);
+  border-radius: 8px;
+}
+
+.diagram-visual {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 20px 0;
+  min-height: 180px;
+}
+
+.diagram-description {
+  background: white;
+  padding: 15px;
+  border-radius: 8px;
+  border: 1px solid #dee2e6;
+  margin-bottom: 15px;
+  font-size: 0.9em;
+  color: #333;
+}
+
+.diagram-steps {
+  background: rgba(0,123,255,0.05);
+  padding: 15px;
+  border-radius: 8px;
+  font-size: 0.9em;
+}
+
+.diagram-steps strong {
+  color: #007bff;
+  display: block;
+  margin-bottom: 10px;
+}
+
+.diagram-steps ol {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.diagram-steps li {
+  margin-bottom: 5px;
+  color: #666;
+}
+
+/* Empty Diagram State */
+.empty-diagram-state {
+  text-align: center;
+  padding: 30px 20px;
+  color: #666;
+}
+
+.empty-icon {
+  font-size: 3em;
+  margin-bottom: 15px;
+  opacity: 0.5;
+}
+
+.empty-diagram-state h4 {
+  color: #007bff;
+  margin-bottom: 10px;
+}
+
+.sample-diagram {
+  background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
+  border: 2px dashed #ffc107;
+  border-radius: 10px;
+  padding: 20px;
+  margin-top: 20px;
+}
+
+.sample-diagram .diagram-header {
+  background: rgba(255,193,7,0.1);
+  color: #856404;
+}
+
+/* CSS Triangle */
+.css-triangle {
+  position: relative;
+  width: 0;
+  height: 0;
+  border-left: 80px solid transparent;
+  border-right: 80px solid transparent;
+  border-bottom: 120px solid #007bff;
+  margin: 20px auto;
+}
+
+.vertex-label {
+  position: absolute;
+  font-weight: bold;
+  font-size: 16px;
+  color: #333;
+  background: white;
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid #dee2e6;
+}
+
+.vertex-a {
+  top: -30px;
+  left: -10px;
+}
+
+.vertex-b {
+  bottom: -30px;
+  left: -100px;
+}
+
+.vertex-c {
+  bottom: -30px;
+  right: -100px;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .side-by-side-container {
+    flex-direction: column;
+    gap: 15px;
+  }
+  
+  .text-container,
+  .diagram-container {
+    min-height: 300px;
+  }
+  
+  .css-triangle {
+    border-left-width: 60px;
+    border-right-width: 60px;
+    border-bottom-width: 90px;
+  }
+}
+
+/* Scrollbar Styling */
+.text-content::-webkit-scrollbar,
+.diagram-content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.text-content::-webkit-scrollbar-track,
+.diagram-content::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.text-content::-webkit-scrollbar-thumb,
+.diagram-content::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+
+.text-content::-webkit-scrollbar-thumb:hover,
+.diagram-content::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}

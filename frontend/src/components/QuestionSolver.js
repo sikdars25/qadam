@@ -3,7 +3,7 @@ import axiosInstance from '../config/axios';
 import './QuestionSolver.css';
 import API_URL from '../config/api';
 import { renderTextWithMath, processSolutionForMath, containsMathExpressions } from '../utils/MathProcessor';
-import DebugDiagramRenderer from './DebugDiagramRenderer';
+import SideBySideDiagramRenderer from './SideBySideDiagramRenderer';
 
 const QuestionSolver = ({ user, onLogout }) => {
   const [inputMethod, setInputMethod] = useState('paste'); // 'paste', 'text'
@@ -342,42 +342,10 @@ const QuestionSolver = ({ user, onLogout }) => {
 
                 {/* Solution Content */}
                 <div className="solution-content">
-                  {/* Render diagrams first - separate from text processing */}
-                  <DebugDiagramRenderer 
+                  {/* Use only the side-by-side renderer - no other text processing */}
+                  <SideBySideDiagramRenderer 
                     solutionText={solution.solution}
                   />
-                  
-                  {/* Render text solution - exclude diagram markers */}
-                  {(() => {
-                    // Remove diagram markers from text processing
-                    const cleanSolution = solution.solution.replace(/\[DIAGRAM:\s*[^\]]+\]/g, '');
-                    const processedSolution = processSolutionText(cleanSolution);
-                    const lines = processedSolution.split('\n');
-                    const elements = [];
-                    
-                    lines.forEach((line, idx) => {
-                      if (line.trim() === '') {
-                        elements.push(<br key={idx} />);
-                      } else if (line.match(/^\*\*.*\*\*:?$/)) {
-                        elements.push(
-                          <h4 key={idx} className="solution-section-header">
-                            {line.replace(/\*\*/g, '').replace(/:/g, '')}
-                          </h4>
-                        );
-                      } else {
-                        elements.push(
-                          <p key={idx} className="solution-line">
-                            {containsMathExpressions(line) 
-                              ? renderTextWithMath(line)
-                              : line
-                            }
-                          </p>
-                        );
-                      }
-                    });
-                    
-                    return elements;
-                  })()}
                 </div>
 
                 {/* Metadata */}
