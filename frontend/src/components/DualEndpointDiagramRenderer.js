@@ -36,58 +36,37 @@ const DualEndpointDiagramRenderer = ({ questionText, subject }) => {
   const getDiagrams = async () => {
     setDiagramLoading(true);
     try {
-      const response = await axios.post('http://130.107.48.166:5001/analyze-diagrams', {
-        question_text: questionText,
-        subject: subject,
-        solution_type: 'with-diagram'
-      });
+      // TEMPORARY: Use test endpoint to debug
+      console.log('🔍 DEBUG: Using test endpoint');
+      const response = await axios.get('http://130.107.48.166:5001/test-simple');
       
-      console.log('New two-step AI response:', response.data);
+      console.log('Test endpoint response:', response.data);
       
       if (response.data.success) {
-        // Handle the new two-step AI response format
+        // Handle the test response
         if (response.data.final_diagram) {
           // Create a single diagram object from the final diagram
           const finalDiagramObject = {
-            id: 'final_diagram_1',
-            title: 'Construction Diagram',
+            id: 'test_diagram_1',
+            title: 'Test Construction Diagram',
             content: response.data.final_diagram,
             svg: '', // No SVG, just text content
             description: response.data.final_diagram,
             processing_method: response.data.processing_method
           };
-          console.log('Using final diagram:', finalDiagramObject);
+          console.log('Using test diagram:', finalDiagramObject);
           setDiagrams([finalDiagramObject]);
-        } else if (response.data.content) {
-          // Fallback to content if no final_diagram
-          const contentDiagram = {
-            id: 'content_diagram_1',
-            title: 'Diagram Content',
-            content: response.data.content,
-            svg: '',
-            description: response.data.content
-          };
-          console.log('Using content as diagram:', contentDiagram);
-          setDiagrams([contentDiagram]);
         } else {
-          console.log('No final_diagram or content found');
+          console.log('No final_diagram found in test response');
           setDiagrams([]);
         }
       } else {
-        // Try test endpoint if main fails
-        try {
-          const testResponse = await axios.get('http://130.107.48.166:5001/test-diagram');
-          if (testResponse.data.success) {
-            setDiagrams(testResponse.data.diagrams);
-          }
-        } catch (testErr) {
-          // Silently fail - don't set error for diagram issues
-          console.log('Diagram endpoint not available - using sample');
-        }
+        console.log('Test endpoint returned false');
+        setDiagrams([]);
       }
     } catch (err) {
-      // Silently fail - don't set error for diagram issues
-      console.log('Diagram endpoint error:', err.message);
+      console.log('Test endpoint error:', err.message);
+      setDiagrams([]);
     } finally {
       setDiagramLoading(false);
     }
