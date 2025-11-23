@@ -43,9 +43,16 @@ const DualEndpointDiagramRenderer = ({ questionText, subject }) => {
       });
       
       if (response.data.success) {
+        console.log('API Response:', response.data);
+        
         // Handle the new response format from analyze-diagrams
-        if (response.data.content) {
+        if (response.data.diagrams && response.data.diagrams.length > 0) {
+          // Use the diagrams array directly from backend
+          console.log('Using diagrams array:', response.data.diagrams);
+          setDiagrams(response.data.diagrams);
+        } else if (response.data.content) {
           // Create diagram objects from the content text
+          console.log('Using content text:', response.data.content);
           const contentLines = response.data.content.split('\n').filter(line => line.trim());
           const diagramObjects = contentLines.map((line, index) => ({
             id: `diagram_${index + 1}`,
@@ -54,11 +61,10 @@ const DualEndpointDiagramRenderer = ({ questionText, subject }) => {
             svg: response.data.svg || '',
             description: line.replace(/^Diagram \d+:\s*/, '')
           }));
+          console.log('Created diagram objects:', diagramObjects);
           setDiagrams(diagramObjects);
-        } else if (response.data.diagrams && response.data.diagrams.length > 0) {
-          // Use the diagrams array if available
-          setDiagrams(response.data.diagrams);
         } else {
+          console.log('No diagrams or content found');
           setDiagrams([]);
         }
       } else {
@@ -95,6 +101,7 @@ const DualEndpointDiagramRenderer = ({ questionText, subject }) => {
   }, [questionText, subject]);
 
   const renderDiagram = (diagram, index) => {
+    console.log(`Rendering diagram ${index}:`, diagram);
     return (
       <div key={index} className="diagram-card">
         <div className="diagram-header">
@@ -200,6 +207,7 @@ const DualEndpointDiagramRenderer = ({ questionText, subject }) => {
             </div>
           </div>
           <div className="diagrams-content">
+            {console.log('About to render diagrams:', diagrams)}
             {diagrams.length > 0 ? (
               diagrams.map((diagram, index) => renderDiagram(diagram, index))
             ) : (
