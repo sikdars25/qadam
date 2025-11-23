@@ -20,14 +20,16 @@ const CleanSolveQuestion = ({ user, onLogout }) => {
     setDiagramLoading(true);
     try {
       // Call the proxy service's comprehensive diagram endpoint
+      // Note: Backend now gets solution from AI service automatically
       const response = await axios.post('http://130.107.48.166:5001/analyze-diagrams', {
-        solution_text: solutionText,
-        question_text: questionText,
-        subject: subject
+        question_text: questionText,  // Send question, backend gets solution from AI
+        subject: subject,
+        solution_type: solutionType
       });
       
       if (response.data.success && response.data.diagram) {
         setDiagrams([response.data.diagram]); // Single unified diagram
+        console.log('Diagram generated successfully:', response.data.diagram.type);
       } else {
         // Fallback to test endpoint
         try {
