@@ -4,6 +4,7 @@ import './Sidebar.css';
 const Sidebar = ({ activeMenu, setActiveMenu, user, onLogout }) => {
   const menuItems = [
     { id: 'solve-question', label: 'Solve Question', icon: '✨' },
+    { id: 'diagram-samples', label: 'Diagram Samples', icon: '📐' },
     { id: 'question-bank', label: 'Question Bank', icon: '💾' }
   ];
 
