@@ -20,7 +20,7 @@ CORS(app)  # Enable CORS for all routes
 
 # Configuration
 AI_SERVICE_URL = os.getenv('AI_SERVICE_URL', 'http://130.107.48.221:8001')
-AI_ENABLED = os.getenv('AI_ENABLED', 'true').lower() == 'true'  # Re-enabled for production
+AI_ENABLED = os.getenv('AI_ENABLED', 'false').lower() == 'true'  # Disabled to force fallback for frontend testing
 
 def check_ai_service():
     """Check if AI service is available"""
