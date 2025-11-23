@@ -3,7 +3,7 @@ import axiosInstance from '../config/axios';
 import './QuestionSolver.css';
 import API_URL from '../config/api';
 import { renderTextWithMath, processSolutionForMath, containsMathExpressions } from '../utils/MathProcessor';
-import BulletproofDiagramRenderer from './BulletproofDiagramRenderer';
+import DebugDiagramRenderer from './DebugDiagramRenderer';
 
 const QuestionSolver = ({ user, onLogout }) => {
   const [inputMethod, setInputMethod] = useState('paste'); // 'paste', 'text'
@@ -343,7 +343,7 @@ const QuestionSolver = ({ user, onLogout }) => {
                 {/* Solution Content */}
                 <div className="solution-content">
                   {/* Render diagrams first - separate from text processing */}
-                  <BulletproofDiagramRenderer 
+                  <DebugDiagramRenderer 
                     solutionText={solution.solution}
                   />
                   
