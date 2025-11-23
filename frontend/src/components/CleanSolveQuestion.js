@@ -120,118 +120,135 @@ const CleanSolveQuestion = ({ user, onLogout }) => {
     setDiagramLoading(false);
   };
 
-  // Function to generate appropriate SVG based on diagram description
-  const generateDiagramSVG = (description) => {
-    const desc = description.toLowerCase();
+  // Function to generate connected SVG diagram sequence
+  const generateConnectedDiagramSequence = (diagrams, questionText) => {
+    if (!diagrams || diagrams.length === 0) return null;
     
-    // Line segment with length
-    if (desc.includes('line segment') && desc.includes('length')) {
-      const lengthMatch = desc.match(/(\d+(?:\.\d+)?)\s*cm/);
-      const length = lengthMatch ? lengthMatch[1] : '6';
+    // Create a connected construction sequence
+    const svgWidth = 400;
+    const svgHeight = 250;
+    const stepSpacing = 80;
+    const startX = 50;
+    const startY = 125;
+    
+    let svgContent = `<svg width="${svgWidth}" height="${svgHeight}" viewBox="0 0 ${svgWidth} ${svgHeight}" xmlns="http://www.w3.org/2000/svg">`;
+    
+    // Add title
+    svgContent += `<text x="${svgWidth/2}" y="25" font-size="16" font-weight="bold" fill="#333" text-anchor="middle">Construction Sequence</text>`;
+    
+    // Add question reference
+    svgContent += `<text x="${svgWidth/2}" y="45" font-size="12" fill="#666" text-anchor="middle" font-style="italic">For: ${questionText.substring(0, 50)}${questionText.length > 50 ? '...' : ''}</text>`;
+    
+    // Process each diagram and create connected elements
+    diagrams.forEach((diagram, index) => {
+      const x = startX + (index * stepSpacing);
+      const desc = diagram.text.toLowerCase();
       
-      return `
-        <svg width="300" height="120" viewBox="0 0 300 120" xmlns="http://www.w3.org/2000/svg">
-          <line x1="50" y1="60" x2="250" y2="60" stroke="#333" stroke-width="2"/>
-          <circle cx="50" cy="60" r="4" fill="#dc3545"/>
-          <circle cx="250" cy="60" r="4" fill="#dc3545"/>
-          <text x="40" y="55" font-size="14" font-weight="bold" fill="#333">B</text>
-          <text x="260" y="55" font-size="14" font-weight="bold" fill="#333">C</text>
-          <text x="135" y="50" font-size="12" fill="#007bff">${length} cm</text>
-          <path d="M 50 65 L 250 65" stroke="#007bff" stroke-width="1"/>
-          <path d="M 245 60 L 250 65 L 245 70" stroke="#007bff" stroke-width="1" fill="none"/>
-        </svg>
-      `;
+      // Connection line from previous step
+      if (index > 0) {
+        svgContent += `<line x1="${x - stepSpacing + 20}" y1="${startY}" x2="${x - 20}" y2="${startY}" stroke="#007bff" stroke-width="2" stroke-dasharray="5,5"/>`;
+        svgContent += `<text x="${x - stepSpacing/2}" y="${startY - 10}" font-size="10" fill="#007bff" text-anchor="middle">Step ${index}</text>`;
+      }
+      
+      // Generate specific construction based on description
+      if (desc.includes('line segment') && desc.includes('length')) {
+        const lengthMatch = desc.match(/(\d+(?:\.\d+)?)\s*cm/);
+        const length = lengthMatch ? lengthMatch[1] : '6';
+        
+        svgContent += `
+          <g transform="translate(${x - 30}, ${startY - 30})">
+            <line x1="0" y1="30" x2="60" y2="30" stroke="#333" stroke-width="2"/>
+            <circle cx="0" cy="30" r="3" fill="#dc3545"/>
+            <circle cx="60" cy="30" r="3" fill="#dc3545"/>
+            <text x="-5" y="25" font-size="10" font-weight="bold" fill="#333">${index === 0 ? 'B' : 'P'}</text>
+            <text x="65" y="25" font-size="10" font-weight="bold" fill="#333">${index === 0 ? 'C' : 'Q'}</text>
+            <text x="25" y="20" font-size="8" fill="#007bff" text-anchor="middle">${length}cm</text>
+          </g>
+        `;
+      } else if (desc.includes('line segment') && (desc.includes('angle') || desc.includes('measurements'))) {
+        svgContent += `
+          <g transform="translate(${x - 30}, ${startY - 40})">
+            <line x1="0" y1="40" x2="60" y2="40" stroke="#333" stroke-width="2"/>
+            <circle cx="0" cy="40" r="3" fill="#dc3545"/>
+            <circle cx="60" cy="40" r="3" fill="#dc3545"/>
+            <text x="-5" y="35" font-size="10" font-weight="bold" fill="#333">B</text>
+            <text x="65" y="35" font-size="10" font-weight="bold" fill="#333">C</text>
+            
+            <!-- Angle indicators -->
+            <path d="M 10 40 Q 10 30 20 30" stroke="#28a745" stroke-width="1" fill="none"/>
+            <text x="12" y="28" font-size="8" fill="#28a745">∠B</text>
+            
+            <path d="M 50 40 Q 50 30 40 30" stroke="#28a745" stroke-width="1" fill="none"/>
+            <text x="45" y="28" font-size="8" fill="#28a745">∠C</text>
+          </g>
+        `;
+      } else if (desc.includes('triangle')) {
+        svgContent += `
+          <g transform="translate(${x - 30}, ${startY - 50})">
+            <polygon points="30,10 10,60 50,60" fill="none" stroke="#333" stroke-width="2"/>
+            <circle cx="30" cy="10" r="3" fill="#dc3545"/>
+            <circle cx="10" cy="60" r="3" fill="#dc3545"/>
+            <circle cx="50" cy="60" r="3" fill="#dc3545"/>
+            <text x="28" y="8" font-size="10" font-weight="bold" fill="#333">A</text>
+            <text x="5" y="70" font-size="10" font-weight="bold" fill="#333">B</text>
+            <text x="52" y="70" font-size="10" font-weight="bold" fill="#333">C</text>
+          </g>
+        `;
+      } else if (desc.includes('perpendicular') || desc.includes('bisector')) {
+        svgContent += `
+          <g transform="translate(${x - 30}, ${startY - 40})">
+            <line x1="0" y1="40" x2="60" y2="40" stroke="#333" stroke-width="2"/>
+            <line x1="30" y1="20" x2="30" y2="60" stroke="#007bff" stroke-width="2"/>
+            <circle cx="0" cy="40" r="3" fill="#dc3545"/>
+            <circle cx="60" cy="40" r="3" fill="#dc3545"/>
+            <circle cx="30" cy="40" r="3" fill="#007bff"/>
+            <text x="-5" y="35" font-size="10" font-weight="bold" fill="#333">P</text>
+            <text x="65" y="35" font-size="10" font-weight="bold" fill="#333">Q</text>
+            <text x="32" y="18" font-size="10" font-weight="bold" fill="#007bff">M</text>
+            <rect x="25" y="35" width="10" height="10" fill="none" stroke="#007bff" stroke-width="1"/>
+          </g>
+        `;
+      } else if (desc.includes('circle') || desc.includes('circumcenter')) {
+        svgContent += `
+          <g transform="translate(${x - 30}, ${startY - 40})">
+            <circle cx="30" cy="40" r="25" fill="none" stroke="#333" stroke-width="2"/>
+            <circle cx="30" cy="40" r="2" fill="#dc3545"/>
+            <text x="28" y="38" font-size="10" font-weight="bold" fill="#333">O</text>
+            <circle cx="30" cy="15" r="3" fill="#007bff"/>
+            <circle cx="55" cy="40" r="3" fill="#007bff"/>
+            <circle cx="30" cy="65" r="3" fill="#007bff"/>
+            <circle cx="5" cy="40" r="3" fill="#007bff"/>
+            <text x="28" y="12" font-size="8" font-weight="bold" fill="#007bff">A</text>
+            <text x="58" y="43" font-size="8" font-weight="bold" fill="#007bff">B</text>
+            <text x="28" y="72" font-size="8" font-weight="bold" fill="#007bff">C</text>
+            <text x="0" y="43" font-size="8" font-weight="bold" fill="#007bff">D</text>
+          </g>
+        `;
+      } else {
+        // Default line segment
+        svgContent += `
+          <g transform="translate(${x - 30}, ${startY - 30})">
+            <line x1="0" y1="30" x2="60" y2="30" stroke="#333" stroke-width="2"/>
+            <circle cx="0" cy="30" r="3" fill="#dc3545"/>
+            <circle cx="60" cy="30" r="3" fill="#dc3545"/>
+            <text x="-5" y="25" font-size="10" font-weight="bold" fill="#333">${String.fromCharCode(65 + index)}</text>
+            <text x="65" y="25" font-size="10" font-weight="bold" fill="#333">${String.fromCharCode(66 + index)}</text>
+          </g>
+        `;
+      }
+      
+      // Step number
+      svgContent += `<text x="${x}" y="${startY + 50}" font-size="10" fill="#666" text-anchor="middle">Step ${index + 1}</text>`;
+    });
+    
+    // Add flow arrow
+    if (diagrams.length > 1) {
+      svgContent += `<path d="M ${startX + diagrams.length * stepSpacing - 20} ${startY} L ${startX + diagrams.length * stepSpacing + 10} ${startY}" stroke="#28a745" stroke-width="2" marker-end="url(#arrowhead)"/>`;
+      svgContent += `<defs><marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#28a745"/></marker></defs>`;
     }
     
-    // Line segment with angles
-    if (desc.includes('line segment') && (desc.includes('angle') || desc.includes('measurements'))) {
-      return `
-        <svg width="300" height="150" viewBox="0 0 300 150" xmlns="http://www.w3.org/2000/svg">
-          <line x1="50" y1="75" x2="250" y2="75" stroke="#333" stroke-width="2"/>
-          <circle cx="50" cy="75" r="4" fill="#dc3545"/>
-          <circle cx="250" cy="75" r="4" fill="#dc3545"/>
-          <text x="40" y="70" font-size="14" font-weight="bold" fill="#333">B</text>
-          <text x="260" y="70" font-size="14" font-weight="bold" fill="#333">C</text>
-          
-          <!-- Angle at B -->
-          <path d="M 70 75 Q 70 55 90 55" stroke="#28a745" stroke-width="1.5" fill="none"/>
-          <text x="75" y="50" font-size="11" fill="#28a745">∠B</text>
-          
-          <!-- Angle at C -->
-          <path d="M 230 75 Q 230 55 210 55" stroke="#28a745" stroke-width="1.5" fill="none"/>
-          <text x="215" y="50" font-size="11" fill="#28a745">∠C</text>
-        </svg>
-      `;
-    }
-    
-    // Triangle
-    if (desc.includes('triangle')) {
-      return `
-        <svg width="300" height="200" viewBox="0 0 300 200" xmlns="http://www.w3.org/2000/svg">
-          <polygon points="150,40 80,160 220,160" fill="none" stroke="#333" stroke-width="2"/>
-          <circle cx="150" cy="40" r="4" fill="#dc3545"/>
-          <circle cx="80" cy="160" r="4" fill="#dc3545"/>
-          <circle cx="220" cy="160" r="4" fill="#dc3545"/>
-          <text x="145" y="35" font-size="14" font-weight="bold" fill="#333">A</text>
-          <text x="70" y="175" font-size="14" font-weight="bold" fill="#333">B</text>
-          <text x="225" y="175" font-size="14" font-weight="bold" fill="#333">C</text>
-        </svg>
-      `;
-    }
-    
-    // Perpendicular bisector
-    if (desc.includes('perpendicular') || desc.includes('bisector')) {
-      return `
-        <svg width="300" height="200" viewBox="0 0 300 200" xmlns="http://www.w3.org/2000/svg">
-          <line x1="50" y1="100" x2="250" y2="100" stroke="#333" stroke-width="2"/>
-          <line x1="150" y1="50" x2="150" y2="150" stroke="#007bff" stroke-width="2"/>
-          
-          <circle cx="50" cy="100" r="4" fill="#dc3545"/>
-          <circle cx="250" cy="100" r="4" fill="#dc3545"/>
-          <circle cx="150" cy="100" r="4" fill="#007bff"/>
-          
-          <text x="40" y="95" font-size="14" font-weight="bold" fill="#333">P</text>
-          <text x="260" y="95" font-size="14" font-weight="bold" fill="#333">Q</text>
-          <text x="155" y="45" font-size="14" font-weight="bold" fill="#007bff">M</text>
-          
-          <!-- Right angle indicator -->
-          <rect x="140" y="90" width="20" height="20" fill="none" stroke="#007bff" stroke-width="1"/>
-        </svg>
-      `;
-    }
-    
-    // Circle with center
-    if (desc.includes('circle') || desc.includes('circumcenter')) {
-      return `
-        <svg width="300" height="200" viewBox="0 0 300 200" xmlns="http://www.w3.org/2000/svg">
-          <circle cx="150" cy="100" r="60" fill="none" stroke="#333" stroke-width="2"/>
-          <circle cx="150" cy="100" r="3" fill="#dc3545"/>
-          <text x="145" y="95" font-size="14" font-weight="bold" fill="#333">O</text>
-          
-          <!-- Points on circle -->
-          <circle cx="150" cy="40" r="4" fill="#007bff"/>
-          <circle cx="210" cy="100" r="4" fill="#007bff"/>
-          <circle cx="150" cy="160" r="4" fill="#007bff"/>
-          <circle cx="90" cy="100" r="4" fill="#007bff"/>
-          
-          <text x="145" y="35" font-size="12" font-weight="bold" fill="#007bff">A</text>
-          <text x="220" y="105" font-size="12" font-weight="bold" fill="#007bff">B</text>
-          <text x="145" y="175" font-size="12" font-weight="bold" fill="#007bff">C</text>
-          <text x="75" y="105" font-size="12" font-weight="bold" fill="#007bff">D</text>
-        </svg>
-      `;
-    }
-    
-    // Default construction
-    return `
-      <svg width="300" height="150" viewBox="0 0 300 150" xmlns="http://www.w3.org/2000/svg">
-        <line x1="50" y1="75" x2="250" y2="75" stroke="#333" stroke-width="2"/>
-        <circle cx="50" cy="75" r="4" fill="#dc3545"/>
-        <circle cx="250" cy="75" r="4" fill="#dc3545"/>
-        <text x="40" y="70" font-size="14" font-weight="bold" fill="#333">A</text>
-        <text x="260" y="70" font-size="14" font-weight="bold" fill="#333">B</text>
-      </svg>
-    `;
+    svgContent += '</svg>';
+    return svgContent;
   };
 
   // Function to render individual diagrams
@@ -366,22 +383,39 @@ const CleanSolveQuestion = ({ user, onLogout }) => {
             </div>
             <div className="diagram-content">
               <div className="diagram-container">
-                <h4>🎨 Visual Representation:</h4>
+                <h4>🎨 Visual Construction Flow:</h4>
                 
                 {diagramLoading ? (
                   <div className="diagram-loading">
                     <div className="loading-spinner"></div>
-                    <p>Generating diagrams...</p>
+                    <p>Generating construction sequence...</p>
                   </div>
                 ) : diagrams.length > 0 ? (
-                  <div className="diagrams-list">
-                    {diagrams.map((diagram, index) => renderDiagram(diagram, index))}
+                  <div className="connected-diagrams">
+                    {/* Show connected sequence */}
+                    <div 
+                      className="sequence-diagram"
+                      dangerouslySetInnerHTML={{ 
+                        __html: generateConnectedDiagramSequence(diagrams, questionText) 
+                      }}
+                    />
+                    
+                    {/* Show individual diagram descriptions below */}
+                    <div className="diagram-descriptions">
+                      <h5>📋 Construction Steps:</h5>
+                      {diagrams.map((diagram, index) => (
+                        <div key={index} className="step-description">
+                          <span className="step-number">Step {index + 1}:</span>
+                          <p>{diagram.text}</p>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 ) : (
                   <div className="no-diagrams">
                     <div className="empty-diagram-icon">📐</div>
-                    <h5>No Diagrams Available</h5>
-                    <p>Try selecting "📊 Solution with Diagram" for visual representations.</p>
+                    <h5>No Construction Steps Available</h5>
+                    <p>Try selecting "📊 Solution with Diagram" for visual constructions.</p>
                     
                     {/* Show fallback sine wave */}
                     <div className="fallback-diagram">
@@ -417,7 +451,7 @@ const CleanSolveQuestion = ({ user, onLogout }) => {
                           <circle cx="350" cy="125" r="4" fill="#dc3545"/>
                         </svg>
                       </div>
-                      <p className="fallback-caption">This is a sample diagram. Real diagrams will appear when you select "Solution with Diagram".</p>
+                      <p className="fallback-caption">This is a sample diagram. Real construction sequences will appear when you select "Solution with Diagram".</p>
                     </div>
                   </div>
                 )}

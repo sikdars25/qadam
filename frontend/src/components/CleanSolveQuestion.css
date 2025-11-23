@@ -374,7 +374,77 @@
   100% { transform: rotate(360deg); }
 }
 
-/* Diagram Cards */
+/* Connected Diagrams */
+.connected-diagrams {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.sequence-diagram {
+  background: white;
+  border: 2px solid #007bff;
+  border-radius: 10px;
+  padding: 20px;
+  box-shadow: 0 2px 8px rgba(0,123,255,0.1);
+  overflow-x: auto;
+}
+
+.sequence-diagram svg {
+  max-width: 100%;
+  height: auto;
+}
+
+.diagram-descriptions {
+  background: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  padding: 20px;
+}
+
+.diagram-descriptions h5 {
+  color: #333;
+  margin: 0 0 15px 0;
+  font-size: 1.1em;
+  border-bottom: 2px solid #007bff;
+  padding-bottom: 8px;
+}
+
+.step-description {
+  display: flex;
+  align-items: flex-start;
+  margin-bottom: 12px;
+  padding: 10px;
+  background: white;
+  border-radius: 6px;
+  border-left: 4px solid #28a745;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.step-description:last-child {
+  margin-bottom: 0;
+}
+
+.step-description .step-number {
+  background: #28a745;
+  color: white;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 0.8em;
+  font-weight: 600;
+  margin-right: 12px;
+  flex-shrink: 0;
+  min-width: 60px;
+  text-align: center;
+}
+
+.step-description p {
+  margin: 0;
+  line-height: 1.5;
+  color: #333;
+  font-style: italic;
+}
+
 .diagrams-list {
   display: flex;
   flex-direction: column;
