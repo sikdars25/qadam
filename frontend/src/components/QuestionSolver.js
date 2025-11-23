@@ -3,7 +3,7 @@ import axiosInstance from '../config/axios';
 import './QuestionSolver.css';
 import API_URL from '../config/api';
 import { renderTextWithMath, processSolutionForMath, containsMathExpressions } from '../utils/MathProcessor';
-import MinimalDiagramTest from './MinimalDiagramTest';
+import DualEndpointDiagramRenderer from './DualEndpointDiagramRenderer';
 
 const QuestionSolver = ({ user, onLogout }) => {
   const [inputMethod, setInputMethod] = useState('paste'); // 'paste', 'text'
@@ -342,9 +342,10 @@ const QuestionSolver = ({ user, onLogout }) => {
 
                 {/* Solution Content */}
                 <div className="solution-content">
-                  {/* Use minimal test for guaranteed visibility */}
-                  <MinimalDiagramTest 
-                    solutionText={solution.solution}
+                  {/* Use dual endpoint approach - separate text and diagram calls */}
+                  <DualEndpointDiagramRenderer 
+                    questionText={solution.questionText}
+                    subject={subject}
                   />
                 </div>
 

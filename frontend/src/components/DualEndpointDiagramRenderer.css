@@ -1,0 +1,320 @@
+.dual-endpoint-container {
+  padding: 20px;
+  background: #f8f9fa;
+  border-radius: 12px;
+  margin: 20px 0;
+}
+
+.endpoint-header {
+  text-align: center;
+  margin-bottom: 30px;
+  padding: 20px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.endpoint-header h2 {
+  color: #007bff;
+  margin: 0 0 10px 0;
+  font-size: 1.8em;
+}
+
+.endpoint-header p {
+  color: #666;
+  margin: 0;
+  font-size: 1.1em;
+}
+
+.dual-endpoint-loading {
+  text-align: center;
+  padding: 40px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.loading-spinner {
+  font-size: 1.2em;
+  color: #007bff;
+  font-weight: 500;
+}
+
+.error-message {
+  background: #f8d7da;
+  border: 1px solid #f5c6cb;
+  color: #721c24;
+  padding: 15px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+
+.dual-content {
+  display: flex;
+  gap: 20px;
+  min-height: 400px;
+}
+
+/* Text Solution Container */
+.text-solution-container {
+  flex: 1;
+  background: white;
+  border: 2px solid #28a745;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 8px rgba(40,167,69,0.1);
+}
+
+/* Diagrams Container */
+.diagrams-container {
+  flex: 1;
+  background: white;
+  border: 2px solid #007bff;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 8px rgba(0,123,255,0.1);
+}
+
+.container-header {
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  padding: 15px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 2px solid #dee2e6;
+}
+
+.container-header h3 {
+  margin: 0;
+  font-size: 1.2em;
+  font-weight: 600;
+}
+
+.text-solution-container .container-header h3 {
+  color: #28a745;
+}
+
+.diagrams-container .container-header h3 {
+  color: #007bff;
+}
+
+.loading-badge {
+  background: #ffc107;
+  color: #856404;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 0.8em;
+  font-weight: 500;
+  animation: pulse 1.5s infinite;
+}
+
+.count-badge {
+  background: #007bff;
+  color: white;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 0.8em;
+  font-weight: 500;
+}
+
+@keyframes pulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.5; }
+  100% { opacity: 1; }
+}
+
+/* Text Content */
+.text-content {
+  padding: 20px;
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+.text-line {
+  margin-bottom: 10px;
+}
+
+.text-line p {
+  margin: 0;
+  line-height: 1.6;
+  color: #333;
+}
+
+.empty-state {
+  text-align: center;
+  color: #666;
+  font-style: italic;
+  padding: 40px 20px;
+}
+
+/* Diagrams Content */
+.diagrams-content {
+  padding: 20px;
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+.diagram-card {
+  background: linear-gradient(135deg, #f0f8ff 0%, #e3f2fd 100%);
+  border: 2px solid #007bff;
+  border-radius: 10px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.diagram-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  color: #007bff;
+  font-size: 1.1em;
+  margin-bottom: 15px;
+  padding: 10px;
+  background: rgba(0,123,255,0.1);
+  border-radius: 8px;
+}
+
+.diagram-content {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 20px 0;
+  min-height: 150px;
+}
+
+.ascii-diagram {
+  background: #f8f9fa;
+  padding: 15px;
+  border-radius: 8px;
+  font-family: 'Courier New', monospace;
+  font-size: 14px;
+  line-height: 1.2;
+  white-space: pre;
+  overflow-x: auto;
+}
+
+.css-diagram {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.diagram-description {
+  background: white;
+  padding: 15px;
+  border-radius: 8px;
+  border: 1px solid #dee2e6;
+  font-size: 0.9em;
+  color: #333;
+}
+
+/* Empty Diagrams State */
+.empty-diagrams {
+  text-align: center;
+  padding: 30px 20px;
+  color: #666;
+}
+
+.empty-icon {
+  font-size: 3em;
+  margin-bottom: 15px;
+  opacity: 0.5;
+}
+
+.empty-diagrams h4 {
+  color: #007bff;
+  margin-bottom: 10px;
+}
+
+.sample-diagram {
+  background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
+  border: 2px dashed #ffc107;
+  border-radius: 10px;
+  padding: 20px;
+  margin-top: 20px;
+}
+
+.sample-diagram .diagram-header {
+  background: rgba(255,193,7,0.1);
+  color: #856404;
+}
+
+/* CSS Triangle */
+.css-triangle {
+  position: relative;
+  width: 0;
+  height: 0;
+  border-left: 80px solid transparent;
+  border-right: 80px solid transparent;
+  border-bottom: 120px solid #007bff;
+  margin: 20px auto;
+}
+
+.vertex-label {
+  position: absolute;
+  font-weight: bold;
+  font-size: 16px;
+  color: #333;
+  background: white;
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid #dee2e6;
+}
+
+.vertex-a {
+  top: -30px;
+  left: -10px;
+}
+
+.vertex-b {
+  bottom: -30px;
+  left: -100px;
+}
+
+.vertex-c {
+  bottom: -30px;
+  right: -100px;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .dual-content {
+    flex-direction: column;
+    gap: 15px;
+  }
+  
+  .text-solution-container,
+  .diagrams-container {
+    min-height: 300px;
+  }
+  
+  .css-triangle {
+    border-left-width: 60px;
+    border-right-width: 60px;
+    border-bottom-width: 90px;
+  }
+}
+
+/* Scrollbar Styling */
+.text-content::-webkit-scrollbar,
+.diagrams-content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.text-content::-webkit-scrollbar-track,
+.diagrams-content::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.text-content::-webkit-scrollbar-thumb,
+.diagrams-content::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+
+.text-content::-webkit-scrollbar-thumb:hover,
+.diagrams-content::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
