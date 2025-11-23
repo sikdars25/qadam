@@ -36,7 +36,9 @@ def create_combined_diagram(diagram_texts: List[str], question_text: str) -> Dic
             'type': 'empty',
             'content': 'No diagram markers found in solution',
             'elements_count': 0,
-            'svg': '<svg width="400" height="200" viewBox="0 0 400 200" xmlns="http://www.w3.org/2000/svg"><rect width="400" height="200" fill="#f8f9fa" stroke="#dee2e6" stroke-width="2" rx="10"/><text x="200" y="100" font-size="16" fill="#666" text-anchor="middle">No diagram elements detected</text></svg>'
+            'svg': '<svg width="400" height="200" viewBox="0 0 400 200" xmlns="http://www.w3.org/2000/svg"><rect width="400" height="200" fill="#f8f9fa" stroke="#dee2e6" stroke-width="2" rx="10"/><text x="200" y="100" font-size="16" fill="#666" text-anchor="middle">No diagram elements detected</text></svg>',
+            'diagrams': [],
+            'text_content': ''
         }
     
     # Combine all diagram texts
@@ -45,12 +47,26 @@ def create_combined_diagram(diagram_texts: List[str], question_text: str) -> Dic
     # Create a simple SVG that displays the text
     svg_content = create_text_svg(diagram_texts, question_text)
     
+    # Create individual diagram objects for frontend compatibility
+    diagrams = []
+    for i, text in enumerate(diagram_texts):
+        diagrams.append({
+            'id': f'diagram_{i+1}',
+            'title': f'Diagram {i+1}',
+            'content': text,
+            'svg': f'<svg width="400" height="100" viewBox="0 0 400 100" xmlns="http://www.w3.org/2000/svg"><rect width="400" height="100" fill="#f8f9fa" stroke="#dee2e6" stroke-width="1" rx="5"/><text x="200" y="50" font-size="14" fill="#333" text-anchor="middle">{text}</text></svg>'
+        })
+    
     return {
         'type': 'combined_text',
         'content': combined_text,
         'elements_count': len(diagram_texts),
         'svg': svg_content,
-        'raw_texts': diagram_texts
+        'raw_texts': diagram_texts,
+        'diagrams': diagrams,
+        'text_content': combined_text,  # Additional field for frontend
+        'has_content': True,  # Additional field for frontend
+        'display_content': combined_text  # Additional field for frontend
     }
 
 def create_text_svg(diagram_texts: List[str], question_text: str) -> str:

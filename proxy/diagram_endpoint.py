@@ -308,6 +308,12 @@ def analyze_diagrams():
         response = {
             'success': True,
             'diagram': combined_diagram,
+            'diagrams': combined_diagram.get('diagrams', []),  # Top-level diagrams array
+            'content': combined_diagram.get('content', ''),  # Top-level content field
+            'text_content': combined_diagram.get('text_content', ''),  # Top-level text content
+            'svg': combined_diagram.get('svg', ''),  # Top-level SVG field
+            'type': combined_diagram.get('type', 'empty'),  # Top-level type field
+            'elements_count': combined_diagram.get('elements_count', 0),  # Top-level elements count
             'ai_solution': {
                 'solution_text': solution_text,
                 'has_diagrams': ai_result['has_diagrams'],
