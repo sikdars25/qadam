@@ -18,5 +18,11 @@
   "platform": {
     "apiRuntime": "python:3.11"
   },
-  "trailingSlash": "auto"
+  "trailingSlash": "auto",
+  "globalHeaders": {
+    "Cache-Control": "no-cache, no-store, must-revalidate"
+  },
+  "mimeTypes": {
+    ".json": "text/json"
+  }
 }
