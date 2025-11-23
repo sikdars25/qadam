@@ -452,6 +452,25 @@
   margin-top: 15px;
 }
 
+.smart-visual {
+  display: flex;
+  justify-content: center;
+  margin-top: 15px;
+}
+
+.generated-diagram {
+  background: white;
+  border: 1px solid #dee2e6;
+  border-radius: 6px;
+  padding: 10px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.generated-diagram svg {
+  max-width: 100%;
+  height: auto;
+}
+
 .construction-box {
   position: relative;
   width: 200px;
