@@ -6,28 +6,50 @@ import API_URL from '../config/api';
 const CleanSolveQuestion = ({ user, onLogout }) => {
   const [questionText, setQuestionText] = useState('');
   const [subject, setSubject] = useState('Mathematics');
+  const [solutionType, setSolutionType] = useState('step-by-step');
   const [showSolution, setShowSolution] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [aiSolution, setAiSolution] = useState(null);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!questionText.trim()) {
-      alert('Please enter a question');
+      setError('Please enter a question');
       return;
     }
     
     setLoading(true);
-    // Simulate processing time
-    setTimeout(() => {
-      setShowSolution(true);
+    setError('');
+    
+    try {
+      // Call AI service for real solution
+      const response = await axiosInstance.post('/solve-question', {
+        question_text: questionText,
+        subject: subject,
+        solution_type: solutionType
+      });
+      
+      if (response.data.success) {
+        setAiSolution(response.data);
+        setShowSolution(true);
+      } else {
+        setError(response.data.error || 'Failed to get solution');
+      }
+    } catch (err) {
+      console.error('AI Service Error:', err);
+      setError('Error connecting to AI service. Please try again.');
+    } finally {
       setLoading(false);
-    }, 1500);
+    }
   };
 
   const handleReset = () => {
     setQuestionText('');
     setShowSolution(false);
     setLoading(false);
+    setError('');
+    setAiSolution(null);
   };
 
   if (showSolution) {
@@ -50,37 +72,58 @@ const CleanSolveQuestion = ({ user, onLogout }) => {
             <div className="text-content">
               <div className="question-display">
                 <h4>❓ Question:</h4>
-                <p className="question-text">{questionText}</p>
+                <p className="question-text">{aiSolution?.questionText || questionText}</p>
               </div>
               
               <div className="solution-steps">
                 <h4>📋 Solution Steps:</h4>
-                <div className="step">
-                  <span className="step-number">1.</span>
-                  <p>Identify the given information and what needs to be found.</p>
-                </div>
-                <div className="step">
-                  <span className="step-number">2.</span>
-                  <p>Draw a diagram to visualize the problem (see right column).</p>
-                </div>
-                <div className="step">
-                  <span className="step-number">3.</span>
-                  <p>Apply the relevant mathematical formulas and principles.</p>
-                </div>
-                <div className="step">
-                  <span className="step-number">4.</span>
-                  <p>Calculate the result using the given values.</p>
-                </div>
-                <div className="step">
-                  <span className="step-number">5.</span>
-                  <p>Verify the answer and present it in the required format.</p>
-                </div>
+                {aiSolution?.solution ? (
+                  aiSolution.solution.split('\n').map((line, index) => {
+                    if (line.trim()) {
+                      // Check if it's a step (starts with number or bullet)
+                      if (/^\d+\.|^[•\-\*]/.test(line.trim())) {
+                        return (
+                          <div key={index} className="step">
+                            <span className="step-number">{line.trim().charAt(0)}</span>
+                            <p>{line.trim().substring(2).trim()}</p>
+                          </div>
+                        );
+                      } else if (line.trim().toLowerCase().includes('answer:') || 
+                                 line.trim().toLowerCase().includes('solution:') ||
+                                 line.trim().toLowerCase().includes('therefore')) {
+                        return (
+                          <div key={index} className="final-answer">
+                            <h4>✅ Final Answer:</h4>
+                            <p className="answer-text">{line.trim()}</p>
+                          </div>
+                        );
+                      } else {
+                        return (
+                          <div key={index} className="step">
+                            <span className="step-number">{index + 1}</span>
+                            <p>{line.trim()}</p>
+                          </div>
+                        );
+                      }
+                    }
+                    return null;
+                  })
+                ) : (
+                  <div className="step">
+                    <span className="step-number">1.</span>
+                    <p>Analyzing the question and identifying key information...</p>
+                  </div>
+                )}
               </div>
 
-              <div className="final-answer">
-                <h4>✅ Final Answer:</h4>
-                <p className="answer-text">The solution is demonstrated with the accompanying diagram and step-by-step explanation above.</p>
-              </div>
+              {!aiSolution?.solution && (
+                <div className="processing-info">
+                  <h4>⏳ Processing Information:</h4>
+                  <p>Solution Type: <strong>{solutionType}</strong></p>
+                  <p>Subject: <strong>{subject}</strong></p>
+                  <p>Processing Time: <strong>{aiSolution?.processing_time?.toFixed(2)}s</strong></p>
+                </div>
+              )}
             </div>
           </div>
 
@@ -168,6 +211,13 @@ const CleanSolveQuestion = ({ user, onLogout }) => {
       </div>
 
       <form onSubmit={handleSubmit} className="question-form">
+        {/* Error Display */}
+        {error && (
+          <div className="error-message">
+            ⚠️ {error}
+          </div>
+        )}
+
         <div className="form-group">
           <label htmlFor="subject">Subject:</label>
           <select
@@ -184,12 +234,26 @@ const CleanSolveQuestion = ({ user, onLogout }) => {
         </div>
 
         <div className="form-group">
+          <label htmlFor="solutionType">Solution Type:</label>
+          <select
+            id="solutionType"
+            value={solutionType}
+            onChange={(e) => setSolutionType(e.target.value)}
+            className="subject-select"
+          >
+            <option value="step-by-step">📝 Step-by-Step Solution</option>
+            <option value="high-level">🎯 High-Level Overview</option>
+            <option value="with-diagram">📊 Solution with Diagram</option>
+          </select>
+        </div>
+
+        <div className="form-group">
           <label htmlFor="question">Question:</label>
           <textarea
             id="question"
             value={questionText}
             onChange={(e) => setQuestionText(e.target.value)}
-            placeholder="Enter your question here... (e.g., 'Explain the properties of a sine wave function')"
+            placeholder="Enter your question here... (e.g., 'Find the area of a triangle with base 6cm and height 4cm')"
             className="question-textarea"
             rows={8}
             required
@@ -201,7 +265,7 @@ const CleanSolveQuestion = ({ user, onLogout }) => {
 
         <div className="form-actions">
           <button type="submit" disabled={loading} className="submit-btn">
-            {loading ? '⏳ Processing...' : '🚀 Show Solution Layout'}
+            {loading ? '⏳ Processing...' : '🚀 Get AI Solution'}
           </button>
           <button type="button" onClick={() => setQuestionText('')} className="clear-btn">
             🗑️ Clear

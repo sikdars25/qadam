@@ -36,6 +36,16 @@
   margin-bottom: 20px;
 }
 
+.error-message {
+  background: #f8d7da;
+  border: 1px solid #f5c6cb;
+  color: #721c24;
+  padding: 15px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  font-weight: 500;
+}
+
 .form-group {
   margin-bottom: 25px;
 }
@@ -312,6 +322,26 @@
   line-height: 1.6;
   color: #333;
   font-weight: 500;
+}
+
+.processing-info {
+  padding: 20px;
+  background: #e3f2fd;
+  border-radius: 8px;
+  border-left: 4px solid #007bff;
+  margin-top: 20px;
+}
+
+.processing-info h4 {
+  color: #007bff;
+  margin: 0 0 10px 0;
+  font-size: 1.1em;
+}
+
+.processing-info p {
+  margin: 5px 0;
+  line-height: 1.6;
+  color: #333;
 }
 
 /* Diagram Styles */
