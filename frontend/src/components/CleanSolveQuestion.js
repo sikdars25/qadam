@@ -15,6 +15,25 @@ const CleanSolveQuestion = ({ user, onLogout }) => {
   const [diagrams, setDiagrams] = useState([]);
   const [diagramLoading, setDiagramLoading] = useState(false);
 
+  // Function to extract diagrams from solution text
+  const extractDiagramsFromText = (solutionText) => {
+    if (!solutionText) return [];
+    
+    const diagramRegex = /\[DIAGRAM:\s*([^\]]+)\]/g;
+    const diagrams = [];
+    let match;
+    
+    while ((match = diagramRegex.exec(solutionText)) !== null) {
+      diagrams.push({
+        type: 'text-based',
+        description: match[1].trim(),
+        text: match[1].trim()
+      });
+    }
+    
+    return diagrams;
+  };
+
   // Function to get diagrams from separate endpoint
   const getDiagrams = async () => {
     setDiagramLoading(true);
@@ -34,7 +53,7 @@ const CleanSolveQuestion = ({ user, onLogout }) => {
             setDiagrams(testResponse.data.diagrams);
           }
         } catch (testErr) {
-          console.log('Diagram endpoint not available - using fallback');
+          console.log('Diagram endpoint not available - using text extraction');
           setDiagrams([]);
         }
       }
@@ -68,9 +87,15 @@ const CleanSolveQuestion = ({ user, onLogout }) => {
       if (response.data.success) {
         setAiSolution(response.data);
         
-        // Get diagrams from separate endpoint
-        if (solutionType === 'with-diagram' || solutionType === 'step-by-step') {
+        // Extract diagrams from the solution text
+        const textDiagrams = extractDiagramsFromText(response.data.solution);
+        
+        // Also try to get diagrams from separate endpoint if needed
+        if (solutionType === 'with-diagram' && textDiagrams.length === 0) {
           await getDiagrams();
+        } else {
+          // Use diagrams extracted from text
+          setDiagrams(textDiagrams);
         }
         
         setShowSolution(true);
@@ -101,7 +126,7 @@ const CleanSolveQuestion = ({ user, onLogout }) => {
       <div key={index} className="diagram-card">
         <div className="diagram-header">
           <span>📐 Diagram {index + 1}</span>
-          <span className="diagram-type">{diagram.type}</span>
+          <span className="diagram-type">{diagram.type || 'AI Generated'}</span>
         </div>
         
         {diagram.svg && (
@@ -117,9 +142,27 @@ const CleanSolveQuestion = ({ user, onLogout }) => {
           </div>
         )}
         
+        {diagram.text && (
+          <div className="text-diagram">
+            <div className="diagram-text-content">
+              <h5>📝 Diagram Description:</h5>
+              <p>{diagram.text}</p>
+            </div>
+            {/* Simple visual representation for text diagrams */}
+            <div className="simple-visual">
+              <div className="construction-box">
+                <div className="construction-line"></div>
+                <div className="construction-point-a">A</div>
+                <div className="construction-point-b">B</div>
+                <div className="construction-point-c">C</div>
+              </div>
+            </div>
+          </div>
+        )}
+        
         {diagram.description && (
           <div className="diagram-description">
-            <p><strong>Description:</strong> {diagram.description}</p>
+            <p><strong>Details:</strong> {diagram.description}</p>
           </div>
         )}
       </div>
