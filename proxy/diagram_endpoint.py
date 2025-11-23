@@ -84,6 +84,68 @@ def generate_diagrams_only(question_text, subject="Mathematics"):
             'diagrams': []
         }
 
+def get_solution_from_ai_service(question_text, subject="Mathematics", solution_type="with-diagram"):
+    """Get solution text from AI service"""
+    if not AI_ENABLED or not check_ai_service():
+        return {
+            'success': False,
+            'error': 'AI service not available',
+            'solution': '',
+            'diagrams': []
+        }
+    
+    try:
+        # Request solution from AI service
+        payload = {
+            'question_text': question_text,
+            'subject': subject,
+            'solution_type': solution_type
+        }
+        
+        logger.info(f"Requesting solution from AI service: {AI_SERVICE_URL}/solve-question")
+        response = requests.post(
+            f"{AI_SERVICE_URL}/solve-question",
+            json=payload,
+            timeout=30
+        )
+        
+        if response.status_code == 200:
+            result = response.json()
+            if result.get('success'):
+                logger.info(f"AI service returned solution with diagrams: {result.get('has_diagrams', False)}")
+                return {
+                    'success': True,
+                    'solution': result.get('solution', ''),
+                    'diagrams': result.get('diagrams', []),
+                    'has_diagrams': result.get('has_diagrams', False),
+                    'diagram_count': result.get('diagram_count', 0)
+                }
+            else:
+                logger.error(f"AI service returned error: {result.get('error', 'Unknown error')}")
+                return {
+                    'success': False,
+                    'error': result.get('error', 'Unknown error'),
+                    'solution': '',
+                    'diagrams': []
+                }
+        else:
+            logger.error(f"AI service HTTP error: {response.status_code}")
+            return {
+                'success': False,
+                'error': f'AI service error: {response.status_code}',
+                'solution': '',
+                'diagrams': []
+            }
+            
+    except Exception as e:
+        logger.error(f"AI service request error: {e}")
+        return {
+            'success': False,
+            'error': str(e),
+            'solution': '',
+            'diagrams': []
+        }
+
 @app.route('/analyze-diagrams', methods=['POST', 'OPTIONS'])
 def analyze_diagrams():
     """
@@ -91,10 +153,15 @@ def analyze_diagrams():
     
     Expected payload:
     {
-        "solution_text": "AI solution text with [DIAGRAM: ...] markers",
         "question_text": "Original question text",
-        "subject": "Subject name (optional)"
+        "subject": "Subject name (optional)",
+        "solution_type": "with-diagram or step-by-step (optional)"
     }
+    
+    Process:
+    1. Get solution from AI service
+    2. Extract diagram markers from solution
+    3. Generate unified diagram from all markers
     """
     if request.method == 'OPTIONS':
         return '', 200
@@ -108,42 +175,80 @@ def analyze_diagrams():
                 'error': 'No JSON data provided'
             }), 400
         
-        solution_text = data.get('solution_text', '')
         question_text = data.get('question_text', '')
         subject = data.get('subject', 'Mathematics')
+        solution_type = data.get('solution_type', 'with-diagram')
         
-        if not solution_text:
-            return jsonify({
-                'success': False,
-                'error': 'solution_text is required'
-            }), 400
-        
-        if not question_text:
+        if not question_text.strip():
             return jsonify({
                 'success': False,
                 'error': 'question_text is required'
             }), 400
         
         logger.info(f"Analyzing diagrams for question: {question_text[:50]}...")
-        logger.info(f"Solution text length: {len(solution_text)} characters")
         
-        # Generate unified diagram using comprehensive analyzer
-        result = analyze_and_generate_diagram(solution_text, question_text)
+        # Step 1: Get solution from AI service
+        ai_result = get_solution_from_ai_service(question_text, subject, solution_type)
         
-        # Add metadata
+        if not ai_result['success']:
+            logger.error(f"Failed to get solution from AI service: {ai_result['error']}")
+            return jsonify({
+                'success': False,
+                'error': f'AI service error: {ai_result["error"]}',
+                'diagram': None
+            }), 500
+        
+        solution_text = ai_result['solution']
+        logger.info(f"Got solution from AI service (length: {len(solution_text)} chars)")
+        
+        # Step 2: Check if solution has diagram markers
+        if '[DIAGRAM:' not in solution_text:
+            logger.info("No diagram markers found in AI solution")
+            return jsonify({
+                'success': True,
+                'diagram': {
+                    'type': 'empty',
+                    'svg': '<svg width="400" height="200" viewBox="0 0 400 200" xmlns="http://www.w3.org/2000/svg"><rect width="400" height="200" fill="#f8f9fa" stroke="#dee2e6" stroke-width="2" rx="10"/><text x="200" y="100" font-size="16" fill="#666" text-anchor="middle">No diagram elements detected in solution</text></svg>',
+                    'description': 'No diagram elements found in AI solution',
+                    'elements_count': 0
+                },
+                'metadata': {
+                    'question_text': question_text,
+                    'subject': subject,
+                    'solution_length': len(solution_text),
+                    'has_diagrams': False,
+                    'elements_found': 0,
+                    'ai_diagrams_available': ai_result['has_diagrams'],
+                    'ai_diagram_count': ai_result['diagram_count']
+                }
+            })
+        
+        # Step 3: Generate unified diagram from solution text
+        logger.info("Analyzing solution text for diagram elements...")
+        unified_diagram = analyze_and_generate_diagram(solution_text, question_text)
+        
+        # Step 4: Return comprehensive result
         response = {
             'success': True,
-            'diagram': result,
+            'diagram': unified_diagram,
+            'ai_solution': {
+                'solution_text': solution_text,
+                'has_diagrams': ai_result['has_diagrams'],
+                'diagram_count': ai_result['diagram_count'],
+                'ai_diagrams': ai_result['diagrams']
+            },
             'metadata': {
                 'question_text': question_text,
                 'subject': subject,
+                'solution_type': solution_type,
                 'solution_length': len(solution_text),
-                'has_diagrams': result['elements_count'] > 0,
-                'elements_found': result['elements_count']
+                'has_diagrams': unified_diagram['elements_count'] > 0,
+                'elements_found': unified_diagram['elements_count'],
+                'processing_method': 'ai_service_plus_comprehensive_analysis'
             }
         }
         
-        logger.info(f"Generated {result['type']} diagram with {result['elements_count']} elements")
+        logger.info(f"Generated {unified_diagram['type']} diagram with {unified_diagram['elements_count']} elements")
         
         return jsonify(response)
         
@@ -151,7 +256,8 @@ def analyze_diagrams():
         logger.error(f"Error analyzing diagrams: {str(e)}")
         return jsonify({
             'success': False,
-            'error': f'Internal server error: {str(e)}'
+            'error': f'Internal server error: {str(e)}',
+            'diagram': None
         }), 500
 
 @app.route('/generate-diagrams', methods=['POST', 'OPTIONS'])
