@@ -22,7 +22,7 @@ CORS(app)  # Enable CORS for all routes
 
 # Configuration
 AI_SERVICE_URL = os.getenv('AI_SERVICE_URL', 'http://130.107.48.221:8001')
-AI_ENABLED = os.getenv('AI_ENABLED', 'true').lower() == 'true'  # Re-enabled for two-step AI approach
+AI_ENABLED = os.getenv('AI_ENABLED', 'false').lower() == 'true'  # Disabled to force fallback for testing
 
 def check_ai_service():
     """Check if AI service is available"""
@@ -321,21 +321,39 @@ def get_final_diagram_from_ai(final_prompt: str) -> Dict[str, Any]:
         }
 
 def get_solution_from_ai_service(question_text, subject="Mathematics", solution_type="with-diagram"):
-    """Get solution text from AI service"""
+    """Get solution text from AI service with two-step approach and fallback"""
     if not AI_ENABLED or not check_ai_service():
-        logger.info("AI service not available, using fallback solution generation")
+        logger.info("AI service not available, using fallback two-step approach")
         
         # Generate a basic fallback solution for common geometry problems
         fallback_solution = generate_fallback_solution(question_text)
         
-        return {
-            'success': True,
-            'solution': fallback_solution,
-            'diagrams': [],
-            'has_diagrams': False,
-            'diagram_count': 0,
-            'fallback_used': True
-        }
+        # Extract diagram tags from fallback
+        diagram_tags = extract_diagram_tags_from_solution(fallback_solution)
+        logger.info(f"Fallback: Extracted {len(diagram_tags)} diagram tags")
+        
+        # Create final diagram from fallback tags
+        if diagram_tags:
+            final_diagram = create_final_diagram_from_tags(diagram_tags, question_text)
+            return {
+                'success': True,
+                'solution': fallback_solution,
+                'final_diagram': final_diagram,
+                'diagrams': [],
+                'has_diagrams': True,
+                'diagram_count': len(diagram_tags),
+                'fallback_used': True
+            }
+        else:
+            return {
+                'success': True,
+                'solution': fallback_solution,
+                'final_diagram': None,
+                'diagrams': [],
+                'has_diagrams': False,
+                'diagram_count': 0,
+                'fallback_used': True
+            }
     
     try:
         # Step 1: Get solution from AI service
@@ -352,9 +370,6 @@ def get_solution_from_ai_service(question_text, subject="Mathematics", solution_
         
         solution_text = ai_result['solution']
         logger.info(f"Got solution from AI service (length: {len(solution_text)} chars)")
-        
-        # Log solution preview for debugging
-        logger.info(f"Solution preview: {solution_text[:200]}...")
         
         # Check if solution contains diagram markers
         has_markers = '[DIAGRAM:' in solution_text
@@ -386,16 +401,22 @@ def get_solution_from_ai_service(question_text, subject="Mathematics", solution_
                 }
             else:
                 logger.error(f"Failed to get final diagram from AI service: {final_diagram_result['error']}")
+                # Fallback to creating final diagram from tags
+                final_diagram = create_final_diagram_from_tags(diagram_tags, question_text)
                 return {
-                    'success': False,
-                    'error': f'AI service error: {final_diagram_result["error"]}',
-                    'solution': '',
-                    'diagrams': []
+                    'success': True,
+                    'solution': solution_text,
+                    'final_diagram': final_diagram,
+                    'diagrams': ai_result['diagrams'],
+                    'has_diagrams': True,
+                    'diagram_count': len(diagram_tags),
+                    'fallback_used': True
                 }
         else:
             return {
                 'success': True,
                 'solution': solution_text,
+                'final_diagram': None,
                 'diagrams': ai_result['diagrams'],
                 'has_diagrams': False,
                 'diagram_count': 0
@@ -409,6 +430,21 @@ def get_solution_from_ai_service(question_text, subject="Mathematics", solution_
             'solution': '',
             'diagrams': []
         }
+
+def create_final_diagram_from_tags(diagram_tags: List[str], question_text: str) -> str:
+    """Create a final diagram description from extracted tags"""
+    tag_descriptions = "\n".join([f"{i+1}. {tag}" for i, tag in enumerate(diagram_tags)])
+    
+    final_diagram = f"""
+A comprehensive geometric construction for: {question_text}
+
+Construction Steps:
+{tag_descriptions}
+
+This diagram shows the complete step-by-step construction process with all necessary geometric elements, measurements, and labels clearly indicated. The construction follows standard geometric principles with accurate angle measurements and proper sequencing of steps.
+"""
+    
+    return final_diagram.strip()
 
 @app.route('/analyze-diagrams', methods=['POST', 'OPTIONS'])
 def analyze_diagrams():
