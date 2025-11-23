@@ -3,7 +3,7 @@ import axiosInstance from '../config/axios';
 import './QuestionSolver.css';
 import API_URL from '../config/api';
 import { renderTextWithMath, processSolutionForMath, containsMathExpressions } from '../utils/MathProcessor';
-import DiagramRenderer from './DiagramRenderer';
+import SimpleDiagramRenderer from './SimpleDiagramRenderer';
 
 const QuestionSolver = ({ user, onLogout }) => {
   const [inputMethod, setInputMethod] = useState('paste'); // 'paste', 'text'
@@ -344,21 +344,15 @@ const QuestionSolver = ({ user, onLogout }) => {
                 <div className="solution-content">
                   {/* Render diagrams if present */}
                   {solution.has_diagrams && (
-                    <DiagramRenderer 
-                      diagrams={solution.diagrams} 
+                    <SimpleDiagramRenderer 
                       solutionText={solution.solution}
-                      questionText={solution.questionText}
-                      subject={subject}
                     />
                   )}
                   
                   {/* Fallback: Check if this is a geometry question without diagrams */}
                   {!solution.has_diagrams && solution.questionText && (
-                    <DiagramRenderer 
-                      diagrams={null}
+                    <SimpleDiagramRenderer 
                       solutionText={solution.solution}
-                      questionText={solution.questionText}
-                      subject={subject}
                     />
                   )}
                   
