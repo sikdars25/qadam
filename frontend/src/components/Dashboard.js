@@ -3,6 +3,7 @@ import Sidebar from './Sidebar';
 import QuestionBank from './QuestionBank';
 import DashboardQuestionSolver from './DashboardQuestionSolver';
 import DiagramSamples from './DiagramSamples';
+import CleanSolveQuestion from './CleanSolveQuestion';
 import './Dashboard.css';
 
 const Dashboard = ({ user, onLogout }) => {
@@ -12,6 +13,8 @@ const Dashboard = ({ user, onLogout }) => {
     switch (activeMenu) {
       case 'solve-question':
         return <DashboardQuestionSolver />;
+      case 'clean-solve-question':
+        return <CleanSolveQuestion />;
       case 'diagram-samples':
         return <DiagramSamples />;
       case 'question-bank':
