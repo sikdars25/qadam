@@ -446,6 +446,16 @@ This diagram shows the complete step-by-step construction process with all neces
     
     return final_diagram.strip()
 
+@app.route('/test-simple', methods=['GET'])
+def test_simple():
+    """Simple test endpoint that always returns a diagram"""
+    return jsonify({
+        'success': True,
+        'final_diagram': 'TEST DIAGRAM: This is a test diagram to verify frontend is working. Draw base segment BC of length 6 cm, construct 60° angle at B, construct 45° angle at C, complete triangle ABC.',
+        'processing_method': 'test_endpoint',
+        'content': 'TEST DIAGRAM: This is a test diagram to verify frontend is working. Draw base segment BC of length 6 cm, construct 60° angle at B, construct 45° angle at C, complete triangle ABC.'
+    })
+
 @app.route('/analyze-diagrams', methods=['POST', 'OPTIONS'])
 def analyze_diagrams():
     """
