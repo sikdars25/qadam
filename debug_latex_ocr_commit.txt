@@ -1,0 +1,7 @@
+Add debugging for LaTeX-OCR initialization issues
+
+- Added debug_latex_ocr_import.py for troubleshooting import issues
+- Enhanced latex_ocr_integration.py with detailed logging
+- Improved get_engine_status() with debug information
+- Added step-by-step initialization logging
+- Better error reporting for LaTeX-OCR failures

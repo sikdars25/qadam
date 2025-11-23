@@ -1,0 +1,6 @@
+Add deployment verification tools for OCR fix
+
+- Add test_deployment.py to verify the specific OCR issue fix
+- Add verify_deployment.py for server-side deployment verification  
+- Both tools confirm the mathematical symbol corrections are working
+- Provides clear success/failure feedback for deployment validation

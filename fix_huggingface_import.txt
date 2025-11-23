@@ -1,0 +1,8 @@
+CRITICAL FIX: Remove incorrect HuggingFaceModel import
+
+- Issue: LaTeX-OCR was unavailable due to 'HuggingFaceModel' import error
+- Root cause: HuggingFaceModel doesn't exist in current pix2tex version
+- Fix: Removed the unnecessary HuggingFaceModel import
+- Result: LaTeX-OCR should now be available as primary engine
+
+This was the blocking issue preventing LaTeX-OCR from working!

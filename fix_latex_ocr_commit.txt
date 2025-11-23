@@ -1,0 +1,6 @@
+Fix LaTeX-OCR installation - correct package name and VM verification
+
+- Fixed package name: 'latex-ocr' doesn't exist, use 'pix2tex'
+- Added install_latex_ocr_fixed.sh with correct dependencies  
+- Added verify_latex_ocr_vm.py for on-VM testing
+- Improved error handling and verification steps

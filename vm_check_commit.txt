@@ -1,0 +1,8 @@
+Add comprehensive VM deployment status check script
+
+- Add check_vm_deployment.sh for complete deployment verification
+- Checks service status, git branch, latest commits
+- Tests mathematical symbol fix functionality
+- Provides color-coded status output
+- Gives actionable recommendations if deployment needs updates
+- Includes API health checks and log monitoring
