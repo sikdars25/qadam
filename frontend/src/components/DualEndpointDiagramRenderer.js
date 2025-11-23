@@ -36,13 +36,31 @@ const DualEndpointDiagramRenderer = ({ questionText, subject }) => {
   const getDiagrams = async () => {
     setDiagramLoading(true);
     try {
-      const response = await axios.post('http://130.107.48.166:5001/generate-diagrams', {
+      const response = await axios.post('http://130.107.48.166:5001/analyze-diagrams', {
         question_text: questionText,
-        subject: subject
+        subject: subject,
+        solution_type: 'with-diagram'
       });
       
       if (response.data.success) {
-        setDiagrams(response.data.diagrams || []);
+        // Handle the new response format from analyze-diagrams
+        if (response.data.content) {
+          // Create diagram objects from the content text
+          const contentLines = response.data.content.split('\n').filter(line => line.trim());
+          const diagramObjects = contentLines.map((line, index) => ({
+            id: `diagram_${index + 1}`,
+            title: `Diagram ${index + 1}`,
+            content: line.replace(/^Diagram \d+:\s*/, ''),
+            svg: response.data.svg || '',
+            description: line.replace(/^Diagram \d+:\s*/, '')
+          }));
+          setDiagrams(diagramObjects);
+        } else if (response.data.diagrams && response.data.diagrams.length > 0) {
+          // Use the diagrams array if available
+          setDiagrams(response.data.diagrams);
+        } else {
+          setDiagrams([]);
+        }
       } else {
         // Try test endpoint if main fails
         try {
@@ -80,12 +98,16 @@ const DualEndpointDiagramRenderer = ({ questionText, subject }) => {
     return (
       <div key={index} className="diagram-card">
         <div className="diagram-header">
-          <span>📐 Diagram {index + 1}</span>
+          <span>📐 {diagram.title || `Diagram ${index + 1}`}</span>
         </div>
         
         <div className="diagram-content">
           {diagram.svg ? (
             <div dangerouslySetInnerHTML={{ __html: diagram.svg }} />
+          ) : diagram.content ? (
+            <div className="text-diagram">
+              <pre className="diagram-text">{diagram.content}</pre>
+            </div>
           ) : diagram.ascii ? (
             <pre className="ascii-diagram">{diagram.ascii}</pre>
           ) : (
@@ -100,7 +122,7 @@ const DualEndpointDiagramRenderer = ({ questionText, subject }) => {
         </div>
         
         <div className="diagram-description">
-          <strong>Description:</strong> {diagram.description || 'Geometric construction diagram'}
+          <strong>Description:</strong> {diagram.description || diagram.content || 'Geometric construction diagram'}
         </div>
       </div>
     );

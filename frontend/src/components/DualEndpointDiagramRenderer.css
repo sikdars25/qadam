@@ -248,6 +248,29 @@
   overflow-x: auto;
 }
 
+.text-diagram {
+  background: #f8f9fa;
+  padding: 20px;
+  border-radius: 8px;
+  border: 1px solid #dee2e6;
+  width: 100%;
+  text-align: left;
+}
+
+.diagram-text {
+  background: white;
+  padding: 15px;
+  border-radius: 6px;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #2c3e50;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  margin: 0;
+  border-left: 4px solid #007bff;
+}
+
 .css-diagram {
   display: flex;
   justify-content: center;
