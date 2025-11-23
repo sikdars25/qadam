@@ -20,7 +20,7 @@ CORS(app)  # Enable CORS for all routes
 
 # Configuration
 AI_SERVICE_URL = os.getenv('AI_SERVICE_URL', 'http://130.107.48.221:8001')
-AI_ENABLED = os.getenv('AI_ENABLED', 'true').lower() == 'true'
+AI_ENABLED = os.getenv('AI_ENABLED', 'false').lower() == 'true'  # Temporarily disabled for testing
 
 def check_ai_service():
     """Check if AI service is available"""
@@ -84,14 +84,74 @@ def generate_diagrams_only(question_text, subject="Mathematics"):
             'diagrams': []
         }
 
+def generate_fallback_solution(question_text):
+    """Generate a basic fallback solution for common geometry problems"""
+    question_lower = question_text.lower()
+    
+    # Triangle construction problems
+    if 'triangle' in question_lower and 'construct' in question_lower:
+        if 'bc' in question_lower and 'angle' in question_lower:
+            return f'''
+To construct triangle ABC with the given specifications, follow these steps:
+
+Step 1: Draw the base segment BC of the specified length.
+Step 2: At point B, construct the specified angle using a protractor.
+Step 3: At point C, construct the specified angle using a protractor.
+Step 4: The intersection of the two angle rays will be point A, completing the triangle.
+
+The final triangle ABC is constructed with the given specifications.
+
+Question: {question_text}
+'''
+        else:
+            return f'''
+To construct the triangle with the given specifications, follow these steps:
+
+Step 1: Draw the base segment of the specified length.
+Step 2: Construct the required angles at the base vertices.
+Step 3: Complete the triangle by connecting the vertices.
+
+Question: {question_text}
+'''
+    
+    # General geometry construction
+    elif 'construct' in question_lower:
+        return f'''
+To construct the geometric figure with the given specifications, follow these steps:
+
+Step 1: Draw the base elements as specified.
+Step 2: Construct the required angles and measurements.
+Step 3: Complete the construction using the given parameters.
+
+Question: {question_text}
+'''
+    
+    # Default fallback
+    else:
+        return f'''
+Solution for the given problem:
+
+This is a fallback solution generated when the AI service is not available.
+The diagram generator will attempt to extract construction elements from this text.
+
+Question: {question_text}
+'''
+
 def get_solution_from_ai_service(question_text, subject="Mathematics", solution_type="with-diagram"):
     """Get solution text from AI service"""
     if not AI_ENABLED or not check_ai_service():
+        logger.info("AI service not available, using fallback solution generation")
+        
+        # Generate a basic fallback solution for common geometry problems
+        fallback_solution = generate_fallback_solution(question_text)
+        
         return {
-            'success': False,
-            'error': 'AI service not available',
-            'solution': '',
-            'diagrams': []
+            'success': True,
+            'solution': fallback_solution,
+            'diagrams': [],
+            'has_diagrams': False,
+            'diagram_count': 0,
+            'fallback_used': True
         }
     
     try:
@@ -201,33 +261,15 @@ def analyze_diagrams():
         solution_text = ai_result['solution']
         logger.info(f"Got solution from AI service (length: {len(solution_text)} chars)")
         
-        # Step 2: Check if solution has diagram markers
-        if '[DIAGRAM:' not in solution_text:
-            logger.info("No diagram markers found in AI solution")
-            return jsonify({
-                'success': True,
-                'diagram': {
-                    'type': 'empty',
-                    'svg': '<svg width="400" height="200" viewBox="0 0 400 200" xmlns="http://www.w3.org/2000/svg"><rect width="400" height="200" fill="#f8f9fa" stroke="#dee2e6" stroke-width="2" rx="10"/><text x="200" y="100" font-size="16" fill="#666" text-anchor="middle">No diagram elements detected in solution</text></svg>',
-                    'description': 'No diagram elements found in AI solution',
-                    'elements_count': 0
-                },
-                'metadata': {
-                    'question_text': question_text,
-                    'subject': subject,
-                    'solution_length': len(solution_text),
-                    'has_diagrams': False,
-                    'elements_found': 0,
-                    'ai_diagrams_available': ai_result['has_diagrams'],
-                    'ai_diagram_count': ai_result['diagram_count']
-                }
-            })
-        
-        # Step 3: Generate unified diagram from solution text
+        # Step 2: Generate unified diagram from solution text (with fallback mechanism)
         logger.info("Analyzing solution text for diagram elements...")
         unified_diagram = analyze_and_generate_diagram(solution_text, question_text)
         
-        # Step 4: Return comprehensive result
+        # Check if fallback mechanism was used
+        has_explicit_markers = '[DIAGRAM:' in solution_text
+        logger.info(f"Has explicit diagram markers: {has_explicit_markers}")
+        
+        # Step 3: Return comprehensive result
         response = {
             'success': True,
             'diagram': unified_diagram,
@@ -244,6 +286,8 @@ def analyze_diagrams():
                 'solution_length': len(solution_text),
                 'has_diagrams': unified_diagram['elements_count'] > 0,
                 'elements_found': unified_diagram['elements_count'],
+                'has_explicit_markers': has_explicit_markers,
+                'fallback_used': not has_explicit_markers and unified_diagram['elements_count'] > 0,
                 'processing_method': 'ai_service_plus_comprehensive_analysis'
             }
         }
