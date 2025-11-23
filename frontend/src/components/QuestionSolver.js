@@ -3,7 +3,7 @@ import axiosInstance from '../config/axios';
 import './QuestionSolver.css';
 import API_URL from '../config/api';
 import { renderTextWithMath, processSolutionForMath, containsMathExpressions } from '../utils/MathProcessor';
-import SideBySideDiagramRenderer from './SideBySideDiagramRenderer';
+import MinimalDiagramTest from './MinimalDiagramTest';
 
 const QuestionSolver = ({ user, onLogout }) => {
   const [inputMethod, setInputMethod] = useState('paste'); // 'paste', 'text'
@@ -342,8 +342,8 @@ const QuestionSolver = ({ user, onLogout }) => {
 
                 {/* Solution Content */}
                 <div className="solution-content">
-                  {/* Use only the side-by-side renderer - no other text processing */}
-                  <SideBySideDiagramRenderer 
+                  {/* Use minimal test for guaranteed visibility */}
+                  <MinimalDiagramTest 
                     solutionText={solution.solution}
                   />
                 </div>
