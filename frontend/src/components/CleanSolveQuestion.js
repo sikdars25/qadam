@@ -15,50 +15,33 @@ const CleanSolveQuestion = ({ user, onLogout }) => {
   const [diagrams, setDiagrams] = useState([]);
   const [diagramLoading, setDiagramLoading] = useState(false);
 
-  // Function to extract diagrams from solution text
-  const extractDiagramsFromText = (solutionText) => {
-    if (!solutionText) return [];
-    
-    const diagramRegex = /\[DIAGRAM:\s*([^\]]+)\]/g;
-    const diagrams = [];
-    let match;
-    
-    while ((match = diagramRegex.exec(solutionText)) !== null) {
-      diagrams.push({
-        type: 'text-based',
-        description: match[1].trim(),
-        text: match[1].trim()
-      });
-    }
-    
-    return diagrams;
-  };
-
-  // Function to get diagrams from separate endpoint
-  const getDiagrams = async () => {
+  // Function to get comprehensive diagram from backend service
+  const getComprehensiveDiagram = async (solutionText) => {
     setDiagramLoading(true);
     try {
-      const response = await axios.post('http://130.107.48.166:5001/generate-diagrams', {
+      // Call our new comprehensive diagram service
+      const response = await axios.post('http://130.107.48.166:5002/analyze-diagrams', {
+        solution_text: solutionText,
         question_text: questionText,
         subject: subject
       });
       
-      if (response.data.success) {
-        setDiagrams(response.data.diagrams || []);
+      if (response.data.success && response.data.diagram) {
+        setDiagrams([response.data.diagram]); // Single unified diagram
       } else {
-        // Try test endpoint if main fails
+        // Fallback to test endpoint
         try {
-          const testResponse = await axios.get('http://130.107.48.166:5001/test-diagram');
-          if (testResponse.data.success) {
-            setDiagrams(testResponse.data.diagrams);
+          const testResponse = await axios.get('http://130.107.48.166:5002/test-diagram');
+          if (testResponse.data.success && testResponse.data.diagram) {
+            setDiagrams([testResponse.data.diagram]);
           }
         } catch (testErr) {
-          console.log('Diagram endpoint not available - using text extraction');
+          console.log('Diagram service not available - no diagrams will be shown');
           setDiagrams([]);
         }
       }
     } catch (err) {
-      console.log('Diagram endpoint error:', err.message);
+      console.log('Diagram service error:', err.message);
       setDiagrams([]);
     } finally {
       setDiagramLoading(false);
@@ -87,15 +70,9 @@ const CleanSolveQuestion = ({ user, onLogout }) => {
       if (response.data.success) {
         setAiSolution(response.data);
         
-        // Extract diagrams from the solution text
-        const textDiagrams = extractDiagramsFromText(response.data.solution);
-        
-        // Also try to get diagrams from separate endpoint if needed
-        if (solutionType === 'with-diagram' && textDiagrams.length === 0) {
-          await getDiagrams();
-        } else {
-          // Use diagrams extracted from text
-          setDiagrams(textDiagrams);
+        // Get comprehensive diagram from backend service
+        if (solutionType === 'with-diagram' || solutionType === 'step-by-step') {
+          await getComprehensiveDiagram(response.data.solution);
         }
         
         setShowSolution(true);
@@ -120,178 +97,43 @@ const CleanSolveQuestion = ({ user, onLogout }) => {
     setDiagramLoading(false);
   };
 
-  // Function to generate connected SVG diagram sequence
-  const generateConnectedDiagramSequence = (diagrams, questionText) => {
-    if (!diagrams || diagrams.length === 0) return null;
-    
-    // Create a connected construction sequence
-    const svgWidth = 400;
-    const svgHeight = 250;
-    const stepSpacing = 80;
-    const startX = 50;
-    const startY = 125;
-    
-    let svgContent = `<svg width="${svgWidth}" height="${svgHeight}" viewBox="0 0 ${svgWidth} ${svgHeight}" xmlns="http://www.w3.org/2000/svg">`;
-    
-    // Add title
-    svgContent += `<text x="${svgWidth/2}" y="25" font-size="16" font-weight="bold" fill="#333" text-anchor="middle">Construction Sequence</text>`;
-    
-    // Add question reference
-    svgContent += `<text x="${svgWidth/2}" y="45" font-size="12" fill="#666" text-anchor="middle" font-style="italic">For: ${questionText.substring(0, 50)}${questionText.length > 50 ? '...' : ''}</text>`;
-    
-    // Process each diagram and create connected elements
-    diagrams.forEach((diagram, index) => {
-      const x = startX + (index * stepSpacing);
-      const desc = diagram.text.toLowerCase();
-      
-      // Connection line from previous step
-      if (index > 0) {
-        svgContent += `<line x1="${x - stepSpacing + 20}" y1="${startY}" x2="${x - 20}" y2="${startY}" stroke="#007bff" stroke-width="2" stroke-dasharray="5,5"/>`;
-        svgContent += `<text x="${x - stepSpacing/2}" y="${startY - 10}" font-size="10" fill="#007bff" text-anchor="middle">Step ${index}</text>`;
-      }
-      
-      // Generate specific construction based on description
-      if (desc.includes('line segment') && desc.includes('length')) {
-        const lengthMatch = desc.match(/(\d+(?:\.\d+)?)\s*cm/);
-        const length = lengthMatch ? lengthMatch[1] : '6';
-        
-        svgContent += `
-          <g transform="translate(${x - 30}, ${startY - 30})">
-            <line x1="0" y1="30" x2="60" y2="30" stroke="#333" stroke-width="2"/>
-            <circle cx="0" cy="30" r="3" fill="#dc3545"/>
-            <circle cx="60" cy="30" r="3" fill="#dc3545"/>
-            <text x="-5" y="25" font-size="10" font-weight="bold" fill="#333">${index === 0 ? 'B' : 'P'}</text>
-            <text x="65" y="25" font-size="10" font-weight="bold" fill="#333">${index === 0 ? 'C' : 'Q'}</text>
-            <text x="25" y="20" font-size="8" fill="#007bff" text-anchor="middle">${length}cm</text>
-          </g>
-        `;
-      } else if (desc.includes('line segment') && (desc.includes('angle') || desc.includes('measurements'))) {
-        svgContent += `
-          <g transform="translate(${x - 30}, ${startY - 40})">
-            <line x1="0" y1="40" x2="60" y2="40" stroke="#333" stroke-width="2"/>
-            <circle cx="0" cy="40" r="3" fill="#dc3545"/>
-            <circle cx="60" cy="40" r="3" fill="#dc3545"/>
-            <text x="-5" y="35" font-size="10" font-weight="bold" fill="#333">B</text>
-            <text x="65" y="35" font-size="10" font-weight="bold" fill="#333">C</text>
-            
-            <!-- Angle indicators -->
-            <path d="M 10 40 Q 10 30 20 30" stroke="#28a745" stroke-width="1" fill="none"/>
-            <text x="12" y="28" font-size="8" fill="#28a745">∠B</text>
-            
-            <path d="M 50 40 Q 50 30 40 30" stroke="#28a745" stroke-width="1" fill="none"/>
-            <text x="45" y="28" font-size="8" fill="#28a745">∠C</text>
-          </g>
-        `;
-      } else if (desc.includes('triangle')) {
-        svgContent += `
-          <g transform="translate(${x - 30}, ${startY - 50})">
-            <polygon points="30,10 10,60 50,60" fill="none" stroke="#333" stroke-width="2"/>
-            <circle cx="30" cy="10" r="3" fill="#dc3545"/>
-            <circle cx="10" cy="60" r="3" fill="#dc3545"/>
-            <circle cx="50" cy="60" r="3" fill="#dc3545"/>
-            <text x="28" y="8" font-size="10" font-weight="bold" fill="#333">A</text>
-            <text x="5" y="70" font-size="10" font-weight="bold" fill="#333">B</text>
-            <text x="52" y="70" font-size="10" font-weight="bold" fill="#333">C</text>
-          </g>
-        `;
-      } else if (desc.includes('perpendicular') || desc.includes('bisector')) {
-        svgContent += `
-          <g transform="translate(${x - 30}, ${startY - 40})">
-            <line x1="0" y1="40" x2="60" y2="40" stroke="#333" stroke-width="2"/>
-            <line x1="30" y1="20" x2="30" y2="60" stroke="#007bff" stroke-width="2"/>
-            <circle cx="0" cy="40" r="3" fill="#dc3545"/>
-            <circle cx="60" cy="40" r="3" fill="#dc3545"/>
-            <circle cx="30" cy="40" r="3" fill="#007bff"/>
-            <text x="-5" y="35" font-size="10" font-weight="bold" fill="#333">P</text>
-            <text x="65" y="35" font-size="10" font-weight="bold" fill="#333">Q</text>
-            <text x="32" y="18" font-size="10" font-weight="bold" fill="#007bff">M</text>
-            <rect x="25" y="35" width="10" height="10" fill="none" stroke="#007bff" stroke-width="1"/>
-          </g>
-        `;
-      } else if (desc.includes('circle') || desc.includes('circumcenter')) {
-        svgContent += `
-          <g transform="translate(${x - 30}, ${startY - 40})">
-            <circle cx="30" cy="40" r="25" fill="none" stroke="#333" stroke-width="2"/>
-            <circle cx="30" cy="40" r="2" fill="#dc3545"/>
-            <text x="28" y="38" font-size="10" font-weight="bold" fill="#333">O</text>
-            <circle cx="30" cy="15" r="3" fill="#007bff"/>
-            <circle cx="55" cy="40" r="3" fill="#007bff"/>
-            <circle cx="30" cy="65" r="3" fill="#007bff"/>
-            <circle cx="5" cy="40" r="3" fill="#007bff"/>
-            <text x="28" y="12" font-size="8" font-weight="bold" fill="#007bff">A</text>
-            <text x="58" y="43" font-size="8" font-weight="bold" fill="#007bff">B</text>
-            <text x="28" y="72" font-size="8" font-weight="bold" fill="#007bff">C</text>
-            <text x="0" y="43" font-size="8" font-weight="bold" fill="#007bff">D</text>
-          </g>
-        `;
-      } else {
-        // Default line segment
-        svgContent += `
-          <g transform="translate(${x - 30}, ${startY - 30})">
-            <line x1="0" y1="30" x2="60" y2="30" stroke="#333" stroke-width="2"/>
-            <circle cx="0" cy="30" r="3" fill="#dc3545"/>
-            <circle cx="60" cy="30" r="3" fill="#dc3545"/>
-            <text x="-5" y="25" font-size="10" font-weight="bold" fill="#333">${String.fromCharCode(65 + index)}</text>
-            <text x="65" y="25" font-size="10" font-weight="bold" fill="#333">${String.fromCharCode(66 + index)}</text>
-          </g>
-        `;
-      }
-      
-      // Step number
-      svgContent += `<text x="${x}" y="${startY + 50}" font-size="10" fill="#666" text-anchor="middle">Step ${index + 1}</text>`;
-    });
-    
-    // Add flow arrow
-    if (diagrams.length > 1) {
-      svgContent += `<path d="M ${startX + diagrams.length * stepSpacing - 20} ${startY} L ${startX + diagrams.length * stepSpacing + 10} ${startY}" stroke="#28a745" stroke-width="2" marker-end="url(#arrowhead)"/>`;
-      svgContent += `<defs><marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#28a745"/></marker></defs>`;
-    }
-    
-    svgContent += '</svg>';
-    return svgContent;
-  };
-
-  // Function to render individual diagrams
-  const renderDiagram = (diagram, index) => {
+  // Function to render backend-generated unified diagram
+  const renderUnifiedDiagram = (diagram, index) => {
     return (
-      <div key={index} className="diagram-card">
+      <div key={index} className="unified-diagram-container">
         <div className="diagram-header">
-          <span>📐 Diagram {index + 1}</span>
-          <span className="diagram-type">{diagram.type || 'AI Generated'}</span>
+          <span>🎨 {diagram.type === 'construction_sequence' ? 'Construction Sequence' : 
+                   diagram.type === 'geometric_figure' ? 'Geometric Figure' : 
+                   'Unified Diagram'}</span>
+          <span className="diagram-type">{diagram.elements_count} Elements</span>
         </div>
         
+        {/* Backend-generated SVG */}
         {diagram.svg && (
           <div 
-            className="svg-diagram" 
+            className="unified-diagram-svg"
             dangerouslySetInnerHTML={{ __html: diagram.svg }}
           />
         )}
         
-        {diagram.ascii && (
-          <div className="ascii-diagram">
-            <pre>{diagram.ascii}</pre>
-          </div>
-        )}
-        
-        {diagram.text && (
-          <div className="text-diagram">
-            <div className="diagram-text-content">
-              <h5>📝 Diagram Description:</h5>
-              <p>{diagram.text}</p>
-            </div>
-            {/* Smart visual representation based on description */}
-            <div className="smart-visual">
-              <div 
-                className="generated-diagram"
-                dangerouslySetInnerHTML={{ __html: generateDiagramSVG(diagram.text) }}
-              />
-            </div>
-          </div>
-        )}
-        
+        {/* Diagram description */}
         {diagram.description && (
-          <div className="diagram-description">
-            <p><strong>Details:</strong> {diagram.description}</p>
+          <div className="unified-diagram-description">
+            <p><strong>📋 Description:</strong> {diagram.description}</p>
+          </div>
+        )}
+        
+        {/* Steps/Components list */}
+        {(diagram.steps || diagram.components || diagram.parts) && (
+          <div className="diagram-elements-list">
+            <h5>📝 {diagram.steps ? 'Construction Steps:' : 
+                    diagram.components ? 'Components:' : 
+                    'Parts:'}</h5>
+            <ul>
+              {(diagram.steps || diagram.components || diagram.parts).map((item, idx) => (
+                <li key={idx}>{item}</li>
+              ))}
+            </ul>
           </div>
         )}
       </div>
@@ -383,39 +225,23 @@ const CleanSolveQuestion = ({ user, onLogout }) => {
             </div>
             <div className="diagram-content">
               <div className="diagram-container">
-                <h4>🎨 Visual Construction Flow:</h4>
+                <h4>🎨 Backend-Generated Unified Diagram:</h4>
                 
                 {diagramLoading ? (
                   <div className="diagram-loading">
                     <div className="loading-spinner"></div>
-                    <p>Generating construction sequence...</p>
+                    <p>Analyzing solution and generating comprehensive diagram...</p>
                   </div>
                 ) : diagrams.length > 0 ? (
-                  <div className="connected-diagrams">
-                    {/* Show connected sequence */}
-                    <div 
-                      className="sequence-diagram"
-                      dangerouslySetInnerHTML={{ 
-                        __html: generateConnectedDiagramSequence(diagrams, questionText) 
-                      }}
-                    />
-                    
-                    {/* Show individual diagram descriptions below */}
-                    <div className="diagram-descriptions">
-                      <h5>📋 Construction Steps:</h5>
-                      {diagrams.map((diagram, index) => (
-                        <div key={index} className="step-description">
-                          <span className="step-number">Step {index + 1}:</span>
-                          <p>{diagram.text}</p>
-                        </div>
-                      ))}
-                    </div>
+                  <div className="unified-diagrams">
+                    {diagrams.map((diagram, index) => renderUnifiedDiagram(diagram, index))}
                   </div>
                 ) : (
                   <div className="no-diagrams">
-                    <div className="empty-diagram-icon">📐</div>
-                    <h5>No Construction Steps Available</h5>
-                    <p>Try selecting "📊 Solution with Diagram" for visual constructions.</p>
+                    <div className="empty-diagram-icon">🎨</div>
+                    <h5>No Backend Diagram Available</h5>
+                    <p>The comprehensive diagram service is not running or no diagram elements were found in the solution.</p>
+                    <p className="service-info">Service: http://130.107.48.166:5002/analyze-diagrams</p>
                     
                     {/* Show fallback sine wave */}
                     <div className="fallback-diagram">
@@ -451,7 +277,7 @@ const CleanSolveQuestion = ({ user, onLogout }) => {
                           <circle cx="350" cy="125" r="4" fill="#dc3545"/>
                         </svg>
                       </div>
-                      <p className="fallback-caption">This is a sample diagram. Real construction sequences will appear when you select "Solution with Diagram".</p>
+                      <p className="fallback-caption">This is a sample diagram. Backend-generated unified diagrams will appear when the diagram service is running.</p>
                     </div>
                   </div>
                 )}
