@@ -1,0 +1,167 @@
+.two-column-test {
+  padding: 20px;
+  background: #f8f9fa;
+  border-radius: 12px;
+  margin: 20px 0;
+}
+
+.test-header {
+  text-align: center;
+  margin-bottom: 30px;
+  padding: 20px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.test-header h2 {
+  color: #007bff;
+  margin: 0 0 10px 0;
+  font-size: 1.8em;
+}
+
+.test-header p {
+  color: #666;
+  margin: 0;
+  font-size: 1.1em;
+}
+
+.two-columns {
+  display: flex;
+  gap: 20px;
+  min-height: 400px;
+}
+
+.left-column {
+  flex: 1;
+  background: white;
+  border: 3px solid #28a745;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 8px rgba(40,167,69,0.2);
+}
+
+.right-column {
+  flex: 1;
+  background: white;
+  border: 3px solid #007bff;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 8px rgba(0,123,255,0.2);
+}
+
+.column-header {
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  padding: 15px 20px;
+  border-bottom: 2px solid #dee2e6;
+}
+
+.column-header h3 {
+  margin: 0 0 5px 0;
+  font-size: 1.2em;
+  font-weight: 600;
+}
+
+.left-column .column-header h3 {
+  color: #28a745;
+}
+
+.right-column .column-header h3 {
+  color: #007bff;
+}
+
+.subtitle {
+  font-size: 0.85em;
+  color: #666;
+  font-weight: 400;
+}
+
+.column-content {
+  padding: 20px;
+  min-height: 300px;
+}
+
+.column-content p {
+  margin: 0 0 10px 0;
+  line-height: 1.6;
+  color: #2c3e50;
+}
+
+.sample-diagram {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 15px;
+}
+
+.diagram-box {
+  width: 200px;
+  height: 150px;
+  border: 2px solid #007bff;
+  border-radius: 8px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: #f8f9ff;
+}
+
+.triangle {
+  position: relative;
+  width: 0;
+  height: 0;
+  border-left: 60px solid transparent;
+  border-right: 60px solid transparent;
+  border-bottom: 100px solid #007bff;
+}
+
+.vertex-a, .vertex-b, .vertex-c {
+  position: absolute;
+  font-weight: bold;
+  font-size: 14px;
+  color: #333;
+  background: white;
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid #dee2e6;
+}
+
+.vertex-a {
+  top: -25px;
+  left: -8px;
+}
+
+.vertex-b {
+  bottom: -25px;
+  left: -70px;
+}
+
+.vertex-c {
+  bottom: -25px;
+  right: -70px;
+}
+
+.diagram-caption {
+  margin: 0;
+  font-size: 0.9em;
+  color: #666;
+  font-style: italic;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .two-columns {
+    flex-direction: column;
+    gap: 15px;
+  }
+  
+  .left-column,
+  .right-column {
+    min-height: 250px;
+  }
+  
+  .triangle {
+    border-left-width: 40px;
+    border-right-width: 40px;
+    border-bottom-width: 70px;
+  }
+}

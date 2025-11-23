@@ -3,7 +3,7 @@ import axiosInstance from '../config/axios';
 import './QuestionSolver.css';
 import API_URL from '../config/api';
 import { renderTextWithMath, processSolutionForMath, containsMathExpressions } from '../utils/MathProcessor';
-import DualEndpointDiagramRenderer from './DualEndpointDiagramRenderer';
+import TwoColumnTest from './TwoColumnTest';
 
 const QuestionSolver = ({ user, onLogout }) => {
   const [inputMethod, setInputMethod] = useState('paste'); // 'paste', 'text'
@@ -342,11 +342,8 @@ const QuestionSolver = ({ user, onLogout }) => {
 
                 {/* Solution Content */}
                 <div className="solution-content">
-                  {/* Use dual endpoint approach - separate text and diagram calls */}
-                  <DualEndpointDiagramRenderer 
-                    questionText={solution.questionText}
-                    subject={subject}
-                  />
+                  {/* DEBUG: Use test component to verify two-column layout */}
+                  <TwoColumnTest />
                 </div>
 
                 {/* Metadata */}
