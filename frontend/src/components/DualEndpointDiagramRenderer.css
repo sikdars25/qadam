@@ -173,31 +173,34 @@
 }
 
 .empty-state {
-  text-align: center;
+  text-align: left;
   color: #666;
   font-style: italic;
-  padding: 40px 20px;
+  padding: 20px;
   font-size: 14px;
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: flex-start;
   gap: 10px;
 }
 
 .empty-icon {
-  font-size: 2.5em;
+  font-size: 2em;
   opacity: 0.4;
-  margin-bottom: 10px;
+  margin-bottom: 5px;
+  align-self: flex-start;
 }
 
 .empty-state p {
   margin: 0;
   font-weight: 500;
+  text-align: left;
 }
 
 .empty-state small {
   color: #999;
-  font-size: 0.9em;
+  font-size: 12px;
+  text-align: left;
 }
 
 /* Diagrams Content */
@@ -206,6 +209,9 @@
   flex: 1;
   overflow-y: auto;
   background: #f8f9ff;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
 }
 
 .diagram-card {
@@ -320,20 +326,25 @@
 
 /* Empty Diagrams State */
 .empty-diagrams {
-  text-align: center;
-  padding: 30px 20px;
+  text-align: left;
+  padding: 20px;
   color: #666;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
 }
 
 .empty-icon {
-  font-size: 3em;
-  margin-bottom: 15px;
+  font-size: 2em;
+  margin-bottom: 10px;
   opacity: 0.5;
+  align-self: flex-start;
 }
 
 .empty-diagrams h4 {
   color: #007bff;
   margin-bottom: 10px;
+  text-align: left;
 }
 
 .sample-diagram {
