@@ -51,11 +51,13 @@ const DualEndpointDiagramRenderer = ({ questionText, subject }) => {
             setDiagrams(testResponse.data.diagrams);
           }
         } catch (testErr) {
-          setError('Failed to get diagrams: ' + response.data.error);
+          // Silently fail - don't set error for diagram issues
+          console.log('Diagram endpoint not available - using sample');
         }
       }
     } catch (err) {
-      setError('Error getting diagrams: ' + err.message);
+      // Silently fail - don't set error for diagram issues
+      console.log('Diagram endpoint error:', err.message);
     } finally {
       setDiagramLoading(false);
     }
@@ -65,7 +67,10 @@ const DualEndpointDiagramRenderer = ({ questionText, subject }) => {
   useEffect(() => {
     if (questionText) {
       setLoading(true);
-      Promise.all([getTextSolution(), getDiagrams()]).finally(() => {
+      // Always get text solution
+      getTextSolution();
+      // Try to get diagrams, but don't fail if they don't work
+      getDiagrams().finally(() => {
         setLoading(false);
       });
     }
@@ -116,7 +121,7 @@ const DualEndpointDiagramRenderer = ({ questionText, subject }) => {
         <p>Text and diagrams fetched from separate endpoints for reliable rendering</p>
       </div>
 
-      {error && (
+      {error && error.includes('text') && (
         <div className="error-message">
           ⚠️ {error}
         </div>
