@@ -271,6 +271,38 @@
   border-left: 4px solid #007bff;
 }
 
+.final-diagram-text {
+  background: linear-gradient(135deg, #f8f9ff 0%, #e3f2fd 100%);
+  border-left: 4px solid #1976d2;
+  font-weight: 500;
+  font-size: 15px;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(25,118,210,0.1);
+}
+
+.processing-method {
+  font-size: 0.8em;
+  color: #666;
+  font-style: italic;
+  margin-left: 10px;
+}
+
+.diagram-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  color: #007bff;
+  font-size: 1.1em;
+  margin-bottom: 15px;
+  padding: 10px;
+  background: rgba(0,123,255,0.1);
+  border-radius: 8px;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
 .css-diagram {
   display: flex;
   justify-content: center;

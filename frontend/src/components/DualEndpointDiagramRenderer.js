@@ -42,29 +42,35 @@ const DualEndpointDiagramRenderer = ({ questionText, subject }) => {
         solution_type: 'with-diagram'
       });
       
+      console.log('New two-step AI response:', response.data);
+      
       if (response.data.success) {
-        console.log('API Response:', response.data);
-        
-        // Handle the new response format from analyze-diagrams
-        if (response.data.diagrams && response.data.diagrams.length > 0) {
-          // Use the diagrams array directly from backend
-          console.log('Using diagrams array:', response.data.diagrams);
-          setDiagrams(response.data.diagrams);
+        // Handle the new two-step AI response format
+        if (response.data.final_diagram) {
+          // Create a single diagram object from the final diagram
+          const finalDiagramObject = {
+            id: 'final_diagram_1',
+            title: 'Construction Diagram',
+            content: response.data.final_diagram,
+            svg: '', // No SVG, just text content
+            description: response.data.final_diagram,
+            processing_method: response.data.processing_method
+          };
+          console.log('Using final diagram:', finalDiagramObject);
+          setDiagrams([finalDiagramObject]);
         } else if (response.data.content) {
-          // Create diagram objects from the content text
-          console.log('Using content text:', response.data.content);
-          const contentLines = response.data.content.split('\n').filter(line => line.trim());
-          const diagramObjects = contentLines.map((line, index) => ({
-            id: `diagram_${index + 1}`,
-            title: `Diagram ${index + 1}`,
-            content: line.replace(/^Diagram \d+:\s*/, ''),
-            svg: response.data.svg || '',
-            description: line.replace(/^Diagram \d+:\s*/, '')
-          }));
-          console.log('Created diagram objects:', diagramObjects);
-          setDiagrams(diagramObjects);
+          // Fallback to content if no final_diagram
+          const contentDiagram = {
+            id: 'content_diagram_1',
+            title: 'Diagram Content',
+            content: response.data.content,
+            svg: '',
+            description: response.data.content
+          };
+          console.log('Using content as diagram:', contentDiagram);
+          setDiagrams([contentDiagram]);
         } else {
-          console.log('No diagrams or content found');
+          console.log('No final_diagram or content found');
           setDiagrams([]);
         }
       } else {
@@ -101,11 +107,16 @@ const DualEndpointDiagramRenderer = ({ questionText, subject }) => {
   }, [questionText, subject]);
 
   const renderDiagram = (diagram, index) => {
-    console.log(`Rendering diagram ${index}:`, diagram);
+    console.log(`Rendering final diagram ${index}:`, diagram);
     return (
       <div key={index} className="diagram-card">
         <div className="diagram-header">
-          <span>📐 {diagram.title || `Diagram ${index + 1}`}</span>
+          <span>📐 {diagram.title}</span>
+          {diagram.processing_method && (
+            <span className="processing-method">
+              ({diagram.processing_method})
+            </span>
+          )}
         </div>
         
         <div className="diagram-content">
@@ -113,7 +124,7 @@ const DualEndpointDiagramRenderer = ({ questionText, subject }) => {
             <div dangerouslySetInnerHTML={{ __html: diagram.svg }} />
           ) : diagram.content ? (
             <div className="text-diagram">
-              <pre className="diagram-text">{diagram.content}</pre>
+              <pre className="diagram-text final-diagram-text">{diagram.content}</pre>
             </div>
           ) : diagram.ascii ? (
             <pre className="ascii-diagram">{diagram.ascii}</pre>
@@ -129,7 +140,7 @@ const DualEndpointDiagramRenderer = ({ questionText, subject }) => {
         </div>
         
         <div className="diagram-description">
-          <strong>Description:</strong> {diagram.description || diagram.content || 'Geometric construction diagram'}
+          <strong>Construction Steps:</strong> {diagram.description || diagram.content || 'Geometric construction diagram'}
         </div>
       </div>
     );
