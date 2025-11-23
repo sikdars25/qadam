@@ -300,9 +300,28 @@ def analyze_diagrams():
         solution_text = ai_result['solution']
         logger.info(f"Got solution from AI service (length: {len(solution_text)} chars)")
         
+        # Log solution preview for debugging
+        logger.info(f"Solution preview: {solution_text[:200]}...")
+        
+        # Check if solution contains diagram markers
+        has_markers = '[DIAGRAM:' in solution_text
+        logger.info(f"Solution contains [DIAGRAM:] markers: {has_markers}")
+        
+        if has_markers:
+            import re
+            markers = re.findall(r'\[DIAGRAM:([^\]]+)\]', solution_text)
+            logger.info(f"Found {len(markers)} diagram markers in solution:")
+            for i, marker in enumerate(markers[:3]):  # Log first 3
+                logger.info(f"  Marker {i+1}: {marker.strip()}")
+        
         # Step 2: Extract all [DIAGRAM:...] texts and combine them
         logger.info("Extracting diagram texts from solution...")
         combined_diagram = analyze_and_generate_diagram(solution_text, question_text)
+        
+        # Log extraction results
+        logger.info(f"Extraction results: type={combined_diagram['type']}, elements={combined_diagram['elements_count']}")
+        if combined_diagram['elements_count'] > 0:
+            logger.info(f"Extracted diagram texts: {combined_diagram['raw_texts']}")
         
         # Step 3: Return simple result with combined diagram texts
         response = {
