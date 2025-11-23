@@ -19,8 +19,8 @@ const CleanSolveQuestion = ({ user, onLogout }) => {
   const getComprehensiveDiagram = async (solutionText) => {
     setDiagramLoading(true);
     try {
-      // Call our new comprehensive diagram service
-      const response = await axios.post('http://130.107.48.166:5002/analyze-diagrams', {
+      // Call the proxy service's comprehensive diagram endpoint
+      const response = await axios.post('http://130.107.48.166:5001/analyze-diagrams', {
         solution_text: solutionText,
         question_text: questionText,
         subject: subject
@@ -31,9 +31,9 @@ const CleanSolveQuestion = ({ user, onLogout }) => {
       } else {
         // Fallback to test endpoint
         try {
-          const testResponse = await axios.get('http://130.107.48.166:5002/test-diagram');
-          if (testResponse.data.success && testResponse.data.diagram) {
-            setDiagrams([testResponse.data.diagram]);
+          const testResponse = await axios.get('http://130.107.48.166:5001/test-diagram');
+          if (testResponse.data.success && testResponse.data.comprehensive_diagram) {
+            setDiagrams([testResponse.data.comprehensive_diagram]);
           }
         } catch (testErr) {
           console.log('Diagram service not available - no diagrams will be shown');
@@ -241,7 +241,7 @@ const CleanSolveQuestion = ({ user, onLogout }) => {
                     <div className="empty-diagram-icon">🎨</div>
                     <h5>No Backend Diagram Available</h5>
                     <p>The comprehensive diagram service is not running or no diagram elements were found in the solution.</p>
-                    <p className="service-info">Service: http://130.107.48.166:5002/analyze-diagrams</p>
+                    <p className="service-info">Service: http://130.107.48.166:5001/analyze-diagrams (Proxy Branch)</p>
                     
                     {/* Show fallback sine wave */}
                     <div className="fallback-diagram">
