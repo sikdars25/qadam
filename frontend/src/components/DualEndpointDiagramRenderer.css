@@ -52,10 +52,11 @@
 .dual-content {
   display: flex;
   gap: 20px;
-  min-height: 400px;
+  min-height: 500px;
+  margin: 0 -10px; /* Negative margin to align with parent padding */
 }
 
-/* Text Solution Container */
+/* Text Solution Container - Left Column */
 .text-solution-container {
   flex: 1;
   background: white;
@@ -63,9 +64,11 @@
   border-radius: 12px;
   overflow: hidden;
   box-shadow: 0 4px 8px rgba(40,167,69,0.1);
+  display: flex;
+  flex-direction: column;
 }
 
-/* Diagrams Container */
+/* Diagrams Container - Right Column */
 .diagrams-container {
   flex: 1;
   background: white;
@@ -73,6 +76,8 @@
   border-radius: 12px;
   overflow: hidden;
   box-shadow: 0 4px 8px rgba(0,123,255,0.1);
+  display: flex;
+  flex-direction: column;
 }
 
 .container-header {
@@ -80,8 +85,33 @@
   padding: 15px 20px;
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   border-bottom: 2px solid #dee2e6;
+}
+
+.header-left {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.header-left h3 {
+  margin: 0;
+  font-size: 1.2em;
+  font-weight: 600;
+}
+
+.header-subtitle {
+  font-size: 0.85em;
+  color: #666;
+  font-weight: 400;
+}
+
+.header-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
 }
 
 .container-header h3 {
@@ -126,18 +156,20 @@
 /* Text Content */
 .text-content {
   padding: 20px;
-  max-height: 500px;
+  flex: 1;
   overflow-y: auto;
+  background: #fafafa;
 }
 
 .text-line {
-  margin-bottom: 10px;
+  margin-bottom: 12px;
 }
 
 .text-line p {
   margin: 0;
-  line-height: 1.6;
-  color: #333;
+  line-height: 1.7;
+  color: #2c3e50;
+  font-size: 14px;
 }
 
 .empty-state {
@@ -145,13 +177,35 @@
   color: #666;
   font-style: italic;
   padding: 40px 20px;
+  font-size: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.empty-icon {
+  font-size: 2.5em;
+  opacity: 0.4;
+  margin-bottom: 10px;
+}
+
+.empty-state p {
+  margin: 0;
+  font-weight: 500;
+}
+
+.empty-state small {
+  color: #999;
+  font-size: 0.9em;
 }
 
 /* Diagrams Content */
 .diagrams-content {
   padding: 20px;
-  max-height: 500px;
+  flex: 1;
   overflow-y: auto;
+  background: #f8f9ff;
 }
 
 .diagram-card {
@@ -282,6 +336,7 @@
   .dual-content {
     flex-direction: column;
     gap: 15px;
+    margin: 0;
   }
   
   .text-solution-container,
@@ -293,6 +348,15 @@
     border-left-width: 60px;
     border-right-width: 60px;
     border-bottom-width: 90px;
+  }
+  
+  .text-content,
+  .diagrams-content {
+    padding: 15px;
+  }
+  
+  .text-line p {
+    font-size: 13px;
   }
 }
 

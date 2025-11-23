@@ -123,11 +123,21 @@ const DualEndpointDiagramRenderer = ({ questionText, subject }) => {
       )}
 
       <div className="dual-content">
-        {/* Text Solution Container */}
+        {/* Text Solution Container - Left Column */}
         <div className="text-solution-container">
           <div className="container-header">
-            <h3>📝 Text Solution</h3>
-            {textLoading && <span className="loading-badge">Loading...</span>}
+            <div className="header-left">
+              <h3>📝 Solution Steps</h3>
+              <span className="header-subtitle">Step-by-step explanation</span>
+            </div>
+            <div className="header-right">
+              {textLoading && <span className="loading-badge">Loading...</span>}
+              {!textLoading && textSolution && (
+                <span className="count-badge" style={{background: '#28a745'}}>
+                  {textSolution.split('\n').filter(line => line.trim()).length} steps
+                </span>
+              )}
+            </div>
           </div>
           <div className="text-content">
             {textSolution ? (
@@ -137,17 +147,30 @@ const DualEndpointDiagramRenderer = ({ questionText, subject }) => {
                 </div>
               ))
             ) : (
-              <p className="empty-state">No text solution available</p>
+              <div className="empty-state">
+                <div className="empty-icon">📝</div>
+                <p>No text solution available</p>
+                <small>Text solution will appear here</small>
+              </div>
             )}
           </div>
         </div>
 
-        {/* Diagrams Container */}
+        {/* Diagrams Container - Right Column */}
         <div className="diagrams-container">
           <div className="container-header">
-            <h3>📐 Construction Diagrams</h3>
-            {diagramLoading && <span className="loading-badge">Loading...</span>}
-            <span className="count-badge">{diagrams.length} diagram(s)</span>
+            <div className="header-left">
+              <h3>📐 Construction Diagrams</h3>
+              <span className="header-subtitle">Visual geometric constructions</span>
+            </div>
+            <div className="header-right">
+              {diagramLoading && <span className="loading-badge">Loading...</span>}
+              {!diagramLoading && (
+                <span className="count-badge">
+                  {diagrams.length} diagram(s)
+                </span>
+              )}
+            </div>
           </div>
           <div className="diagrams-content">
             {diagrams.length > 0 ? (
