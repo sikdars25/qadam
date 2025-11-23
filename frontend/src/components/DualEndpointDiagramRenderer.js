@@ -36,36 +36,60 @@ const DualEndpointDiagramRenderer = ({ questionText, subject }) => {
   const getDiagrams = async () => {
     setDiagramLoading(true);
     try {
-      // TEMPORARY: Use test endpoint to debug
-      console.log('🔍 DEBUG: Using test endpoint');
-      const response = await axios.get('http://130.107.48.166:5001/test-simple');
+      // PRODUCTION: Use integrated diagram endpoint on port 5000
+      console.log('🎯 Using integrated diagram endpoint on port 5000');
       
-      console.log('Test endpoint response:', response.data);
+      // First try the main analyze-diagrams endpoint
+      let response;
+      try {
+        response = await axios.post('http://130.107.48.166:5000/analyze-diagrams', {
+          question_text: questionText,
+          subject: subject,
+          solution_type: 'with-diagram'
+        });
+        console.log('Main endpoint response:', response.data);
+      } catch (mainErr) {
+        console.log('Main endpoint failed, falling back to test endpoint:', mainErr.message);
+        // Fallback to test endpoint
+        response = await axios.get('http://130.107.48.166:5000/test-simple');
+        console.log('Test endpoint response:', response.data);
+      }
       
       if (response.data.success) {
-        // Handle the test response
+        // Handle the response
         if (response.data.final_diagram) {
           // Create a single diagram object from the final diagram
           const finalDiagramObject = {
-            id: 'test_diagram_1',
-            title: 'Test Construction Diagram',
+            id: 'integrated_diagram_1',
+            title: 'Construction Diagram',
             content: response.data.final_diagram,
             svg: '', // No SVG, just text content
             description: response.data.final_diagram,
             processing_method: response.data.processing_method
           };
-          console.log('Using test diagram:', finalDiagramObject);
+          console.log('Using integrated diagram:', finalDiagramObject);
           setDiagrams([finalDiagramObject]);
+        } else if (response.data.content) {
+          // Fallback to content if no final_diagram
+          const contentDiagram = {
+            id: 'content_diagram_1',
+            title: 'Diagram Content',
+            content: response.data.content,
+            svg: '',
+            description: response.data.content
+          };
+          console.log('Using content as diagram:', contentDiagram);
+          setDiagrams([contentDiagram]);
         } else {
-          console.log('No final_diagram found in test response');
+          console.log('No final_diagram or content found');
           setDiagrams([]);
         }
       } else {
-        console.log('Test endpoint returned false');
+        console.log('Integrated endpoint returned false');
         setDiagrams([]);
       }
     } catch (err) {
-      console.log('Test endpoint error:', err.message);
+      console.log('Integrated endpoint error:', err.message);
       setDiagrams([]);
     } finally {
       setDiagramLoading(false);
